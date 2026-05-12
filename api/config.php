@@ -2,6 +2,13 @@
 // api/config.php
 // 数据库/密钥/公共函数 + AI 调用
 
+// PHP 7 兼容：模拟 str_starts_with
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle) {
+        return substr($haystack, 0, strlen($needle)) === $needle;
+    }
+}
+
 function loadDotEnv($path) {
     if (!is_file($path) || !is_readable($path)) return;
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -100,7 +107,8 @@ function authToken() {
     $token = substr($auth, 7);
     $parts = explode('.', $token);
     if (count($parts) !== 2) fail('Token无效', 401);
-    [$data, $sign] = $parts;
+    $data = $parts[0];
+    $sign = $parts[1];
     if (hash_hmac('sha256', $data, JWT_SECRET) !== $sign) fail('Token签名错误', 401);
     $payload = json_decode(base64_decode($data), true);
     if (!$payload || $payload['exp'] < time()) fail('Token已过期', 401);
@@ -119,7 +127,7 @@ function adminGuard() {
 // platform_config 辅助函数
 // ══════════════════════════════════════════
 
-function pcGet(PDO $db, string $key, $default = null) {
+function pcGet(PDO $db, $key, $default = null) {
     try {
         $stmt = $db->prepare("SELECT `value` FROM platform_config WHERE `key` = ? LIMIT 1");
         $stmt->execute([$key]);
@@ -128,12 +136,12 @@ function pcGet(PDO $db, string $key, $default = null) {
         $val = $row['value'];
         if ($val === null || $val === '') return $default;
         return $val;
-    } catch (Throwable $e) {
+    } catch (Exception $e) {
         return $default;
     }
 }
 
-function pcGetInt(PDO $db, string $key, int $default = 0): int {
+function pcGetInt(PDO $db, $key, $default = 0) {
     $v = pcGet($db, $key, null);
     if ($v === null) return $default;
     return is_numeric($v) ? intval($v) : $default;
@@ -165,7 +173,7 @@ function callAI(PDO $db, array $messages, array $opts = []) {
     if ($temperature > 1.0) $temperature = 1.0;
 
     $systemContent = '';
-    $dialogParts = [];
+    $dialogParts = array();
     foreach ($messages as $msg) {
         $role = $msg['role'] ?? '';
         $content = is_string($msg['content'] ?? '') ? trim($msg['content']) : '';
@@ -177,32 +185,32 @@ function callAI(PDO $db, array $messages, array $opts = []) {
         }
     }
     $merged = trim($systemContent);
-    if ($dialogParts) {
+    if (!empty($dialogParts)) {
         $merged .= ($merged ? "\n\n---\n\n" : '') . implode("\n\n", $dialogParts);
     }
     if (!$merged) throw new Exception('AI请求内容为空');
 
-    $payload = [
+    $payload = array(
         'model' => $model,
-        'messages' => [['role' => 'user', 'content' => $merged]],
+        'messages' => array(array('role' => 'user', 'content' => $merged)),
         'temperature' => $temperature,
         'top_p' => 0.95,
         'max_completion_tokens' => $maxTokens,
-    ];
+    );
 
     $ch = curl_init($apiUrl);
     if (!$ch) throw new Exception('curl初始化失败');
 
-    curl_setopt_array($ch, [
+    curl_setopt_array($ch, array(
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => $timeout,
-        CURLOPT_HTTPHEADER => [
+        CURLOPT_HTTPHEADER => array(
             'Content-Type: application/json',
             'Authorization: Bearer ' . $apiKey,
-        ],
-    ]);
+        ),
+    ));
 
     $resp = curl_exec($ch);
     $errNo = curl_errno($ch);
@@ -218,7 +226,7 @@ function callAI(PDO $db, array $messages, array $opts = []) {
         throw new Exception('AI返回非JSON：' . substr($resp, 0, 200));
     }
 
-    $choice = $json['choices'][0]['message'] ?? null;
+    $choice = isset($json['choices'][0]['message']) ? $json['choices'][0]['message'] : null;
     $textContent = '';
     if (is_array($choice) && isset($choice['content'])) {
         $textContent = is_string($choice['content']) ? $choice['content'] : '';
@@ -231,6 +239,6 @@ function callAI(PDO $db, array $messages, array $opts = []) {
         throw new Exception('AI返回内容为空');
     }
 
-    $usage = $json['usage'] ?? [];
-    return ['content' => $textContent, 'usage' => $usage];
+    $usage = $json['usage'] ?? array();
+    return array('content' => $textContent, 'usage' => $usage);
 }
