@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仪表盘 - 管理后台</title>
+<script src="auth-guard.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+.header h1 { font-size: 17px; font-weight: 600; }
+.header .user-area { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.header .user-area .logout-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.header .user-area .logout-btn:hover { background: rgba(255,255,255,0.25); }
+.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.stat-card .num { font-size: 28px; font-weight: 700; color: #667eea; }
+.stat-card .label { font-size: 13px; color: #999; margin-top: 4px; }
+.nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.nav-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; text-decoration: none; color: inherit; display: block; }
+.nav-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.nav-card .icon { font-size: 32px; margin-bottom: 12px; }
+.nav-card h3 { font-size: 15px; margin-bottom: 4px; }
+.nav-card p { font-size: 12px; color: #999; }
+.loading { text-align: center; padding: 40px; color: #999; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🤖 AI 智能客服 · 管理后台</h1>
+  <div class="user-area">
+    <span id="username">管理员</span>
+    <button class="logout-btn" onclick="doLogout()">退出登录</button>
+  </div>
+</div>
+<div class="container">
+  <div class="loading" id="loading">加载中...</div>
+  <div id="content" style="display:none;">
+    <div class="stats">
+      <div class="stat-card">
+        <div class="num" id="kbCount">-</div>
+        <div class="label">知识库条目</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="chatCount">-</div>
+        <div class="label">今日对话</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="personaStatus">✅</div>
+        <div class="label">人设状态</div>
+      </div>
+    </div>
+    <div class="nav-grid">
+      <a class="nav-card" href="persona.html">
+        <div class="icon">🎭</div>
+        <h3>吉祥物人设</h3>
+        <p>配置客服的姓名、性格、说话风格</p>
+      </a>
+      <a class="nav-card" href="knowledge.html">
+        <div class="icon">📚</div>
+        <h3>知识库管理</h3>
+        <p>管理FAQ问答对，支持分类和搜索</p>
+      </a>
+      <a class="nav-card" href="chat-logs.html">
+        <div class="icon">💬</div>
+        <h3>对话记录</h3>
+        <p>查看客户聊天历史</p>
+      </a>
+      <a class="nav-card" href="settings.html">
+        <div class="icon">⚙️</div>
+        <h3>系统设置</h3>
+        <p>API配置、短信通道、接入代码</p>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+var token = localStorage.getItem('admin_token');
+
+function getHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+}
+
+function doLogout() {
+  if (confirm('确定退出登录？')) {
+    localStorage.removeItem('admin_token');
+    window.location.href = 'login.html';
+  }
+}
+
+fetch('/api/auth.php?action=me', { headers: getHeaders() })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0 && res.data) {
+      document.getElementById('username').textContent = res.data.username || '管理员';
+    }
+  });
+
+Promise.all([
+  fetch('/api/knowledge.php?action=list&page=1&size=1', { headers: getHeaders() }).then(function(r) { return r.json(); }),
+  fetch('/api/chat.php?action=stats', { headers: getHeaders() }).catch(function() { return { code: -1 }; }),
+  fetch('/api/persona.php?action=get', { headers: getHeaders() }).then(function(r) { return r.json(); })
+])
+.then(function(results) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+
+  var kbTotal = (results[0].code === 0) ? results[0].data.total : 0;
+  document.getElementById('kbCount').textContent = kbTotal || 0;
+
+  var persona = (results[2].code === 0 && results[2].data && results[2].data.name) ? results[2].data : null;
+  document.getElementById('personaStatus').textContent = persona ? persona.name : '⚠️ 未设置';
+  document.getElementById('personaStatus').style.color = persona ? '#2e7d32' : '#ff9800';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台登录</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-card { background: #fff; border-radius: 20px; padding: 40px 32px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.logo { text-align: center; margin-bottom: 32px; }
+.logo .icon { font-size: 48px; }
+.logo h1 { font-size: 22px; color: #333; margin-top: 8px; }
+.logo p { font-size: 13px; color: #999; margin-top: 4px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 500; }
+.form-group input { width: 100%; height: 46px; border: 1px solid #ddd; border-radius: 10px; padding: 0 14px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.form-group input:focus { border-color: #667eea; }
+.login-btn { width: 100%; height: 46px; border: none; border-radius: 10px; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.login-btn:hover { opacity: 0.9; }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.error-msg { color: #ff4757; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+.error-msg.show { display: block; }
+.loading { text-align: center; padding: 20px; color: #999; font-size: 14px; display: none; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">
+    <div class="icon">🤖</div>
+    <h1>管理后台</h1>
+    <p>AI 智能客服系统</p>
+  </div>
+  <div id="loginForm">
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="username" placeholder="请输入用户名" autofocus>
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="password" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+  <div class="loading" id="loading">登录中...</div>
+</div>
+
+<script>
+var token = localStorage.getItem('admin_token');
+if (token) {
+  fetch('/api/auth.php?action=me', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0) { window.location.href = 'dashboard.html'; }
+    });
+}
+
+function doLogin() {
+  var username = document.getElementById('username').value.trim();
+  var password = document.getElementById('password').value;
+  if (!username || !password) { showError('请输入用户名和密码'); return; }
+
+  document.getElementById('loginBtn').disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('errorMsg').classList.remove('show');
+
+  fetch('/api/auth.php?action=login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username, password: password })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    document.getElementById('loginBtn').disabled = false;
+    document.getElementById('loading').style.display = 'none';
+    if (res.code === 0 && res.data.token) {
+      localStorage.setItem('admin_token', res.data.token);
+      window.location.href = 'dashboard.html';
+    } else {
+      showError(res.msg || '登录失败');
+    }
+  })
+  .catch(function() {
+    document.getElementById('loginBtn').disabled = false;
+    document.getElementById('loading').style.display = 'none';
+    showError('网络错误，请重试');
+  });
+}
+
+function showError(msg) {
+  var el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+</script>
+</body>
+</html>
