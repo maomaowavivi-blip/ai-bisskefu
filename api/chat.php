@@ -49,6 +49,18 @@ if ($action === 'chat') {
         error_log('知识库检索异常: ' . $e->getMessage());
     }
 
+    // ★ 置信度过滤：搜不到相关知识 → 直接拒答，不调AI
+    if (count($kbItems) < 1) {
+        $reply = '抱歉，这个我不太清楚，建议您联系我们的在线客服咨询~';
+        $stmt = $db->prepare('INSERT INTO chat_logs (session_id, role, content, has_verified, tokens) VALUES (?, ?, ?, ?, ?)');
+        $stmt->execute([$sessionId, 'user', $message, $isVerified ? 1 : 0, 0]);
+        $stmt->execute([$sessionId, 'assistant', $reply, $isVerified ? 1 : 0, 0]);
+        chatResponse(0, 'ok', [
+            'reply'       => $reply,
+            'is_verified' => $isVerified,
+        ]);
+    }
+
     // 构建系统提示词
     $systemPrompt = PromptEngine::build([
         'persona'   => $persona,

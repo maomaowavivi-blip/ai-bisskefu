@@ -23,35 +23,35 @@ class PromptEngine {
 2. 客户询问订单时，必须引导提供「订单号+手机号」
 3. 涉及资金、退款、改地址等敏感操作，主动提出转人工';
 
-    const ANTI_HALLUCINATION_RULES = '【反幻觉规则 - 最重要！必须遵守】
-1. 你只能使用【相关知识】中提供的内容来回答客户问题
-2. 如果客户问题在【相关知识】中有匹配条目，用条目的答案回答
-3. 如果【相关知识】中有多个匹配，选择最相关的一条回答
-4. 如果客户问题在【相关知识】中没有任何匹配，必须说"抱歉，这个我不太清楚，建议您联系我们的在线客服咨询~"
-5. 绝对不能用自己的训练数据（预训练知识）来编造答案
-6. 绝对不能猜测数字、日期、价格等信息——除非知识库中有明确写明
-7. 不确定的事情，宁可说不知道，也不能编造';
-
     public static function build(array $config = []): string {
-        $parts = [];
-        $parts[] = self::PLATFORM_RULES;
-        $parts[] = self::SECURITY_RULES;
-        $parts[] = self::ANTI_HALLUCINATION_RULES;
+        $head = [];
+        $head[] = self::PLATFORM_RULES;
+        $head[] = self::SECURITY_RULES;
 
         $identityLayer = self::_buildIdentityLayer($config['persona'] ?? []);
-        if ($identityLayer) $parts[] = $identityLayer;
-
-        $knowledgeLayer = self::_buildKnowledgeLayer($config['knowledge'] ?? []);
-        if ($knowledgeLayer) $parts[] = $knowledgeLayer;
+        if ($identityLayer) $head[] = $identityLayer;
 
         $verifyGuideLayer = self::_buildVerifyGuideLayer();
-        if ($verifyGuideLayer) $parts[] = $verifyGuideLayer;
+        if ($verifyGuideLayer) $head[] = $verifyGuideLayer;
 
-        $out = implode("\n\n", $parts);
+        $core = implode("\n\n", $head);
 
+        // ★ 知识 + 强制指令放最末尾（利用近因效应，模型记得最牢）
+        $knowledgeLayer = self::_buildKnowledgeLayer($config['knowledge'] ?? []);
+        $tail = '';
+        if ($knowledgeLayer) {
+            $tail = "\n\n" . $knowledgeLayer . "\n\n" . self::FINAL_INSTRUCTION;
+        }
+
+        $out = $core . $tail;
+
+        // 超长时截取前半段，保留tail完整
         if (mb_strlen($out) > self::MAX_SYSTEM_PROMPT_CHARS) {
-            $out = mb_substr($out, 0, self::MAX_SYSTEM_PROMPT_CHARS)
-                   . "\n\n【说明】以上设定较长已截断，反幻觉规则和铁律优先遵守。";
+            $maxCore = self::MAX_SYSTEM_PROMPT_CHARS - mb_strlen($tail) - 50;
+            if ($maxCore < 100) $maxCore = 100;
+            $core = mb_substr($core, 0, $maxCore)
+                    . "\n\n【说明】以上设定较长已截断，请优先遵守末尾的【强制指令】。";
+            $out = $core . $tail;
         }
         return $out;
     }
