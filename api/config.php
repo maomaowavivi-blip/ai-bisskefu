@@ -9,7 +9,10 @@ if (!function_exists('str_starts_with')) {
     }
 }
 
+$_ENV_STORE = [];
+
 function loadDotEnv($path) {
+    global $_ENV_STORE;
     if (!is_file($path) || !is_readable($path)) return;
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
@@ -20,14 +23,14 @@ function loadDotEnv($path) {
         $key = trim(substr($line, 0, $eqPos));
         $val = trim(substr($line, $eqPos + 1));
         if ($key === '') continue;
-        $_ENV[$key] = $val;
-        putenv($key . '=' . $val);
+        $_ENV_STORE[$key] = $val;
     }
 }
 
 function envVal($key, $default = null) {
-    $val = getenv($key);
-    if ($val !== false && $val !== '') return $val;
+    global $_ENV_STORE;
+    if (isset($_ENV_STORE[$key]) && $_ENV_STORE[$key] !== '') return $_ENV_STORE[$key];
+    if (isset($_ENV[$key]) && $_ENV[$key] !== '') return $_ENV[$key];
     return $default;
 }
 
@@ -192,7 +195,10 @@ function callAI($messages, $opts = []) {
 
     $payload = array(
         'model' => $model,
-        'messages' => array(array('role' => 'user', 'content' => $merged)),
+        'messages' => array(
+            array('role' => 'system', 'content' => $systemContent ?: '你是企业在线客服。'),
+            array('role' => 'user', 'content' => $merged),
+        ),
         'temperature' => $temperature,
         'top_p' => 0.95,
         'max_completion_tokens' => $maxTokens,
@@ -239,6 +245,38 @@ function callAI($messages, $opts = []) {
         throw new Exception('AI返回内容为空');
     }
 
+    $textContent = sanitizeReply($textContent);
+
     $usage = $json['usage'] ?? array();
     return array('content' => $textContent, 'usage' => $usage);
+}
+
+/**
+ * 清理 AI 回复中的乱码和系统提示词泄漏
+ */
+function sanitizeReply($text) {
+    if (!is_string($text) || $text === '') return $text;
+
+    $original = $text;
+
+    // 1. 去除尾部重复的 ] } 0 等垃圾字符（至少连续3个以上才清理，避免误伤正常内容）
+    $text = preg_replace('/[\]\}0]{3,}$/', '', $text);
+
+    // 2. 如果清理后为空，回退
+    $text = trim($text);
+    if ($text === '') return $original;
+
+    // 3. 去除可能泄漏的【】系统标记段落（保留正文内容）
+    //    · 如果整段都是系统标记则去掉
+    $text = preg_replace('/^【[^】]*】[\s]*$/', '', $text);
+
+    // 4. 若回复包含不完整/多余的 markdown 代码块标记，清理
+    $text = preg_replace('/```[\s]*$/', '', $text);
+
+    // 5. 限制最大长度（500字符）
+    if (mb_strlen($text) > 500) {
+        $text = mb_substr($text, 0, 500);
+    }
+
+    return trim($text);
 }

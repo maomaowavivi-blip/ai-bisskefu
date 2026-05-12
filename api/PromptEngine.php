@@ -3,8 +3,14 @@
 // 后端提示词拼装引擎 - 企业人设 + 知识库 + 反幻觉
 
 class PromptEngine {
-    const MAX_SYSTEM_PROMPT_CHARS = 3000;
+    const MAX_SYSTEM_PROMPT_CHARS = 4000;
     const MAX_KB_ITEMS = 5;
+
+    const FINAL_INSTRUCTION = '【强制指令 - 必须遵守】
+1. 你只能使用上面【相关知识】中的内容来回答客户问题
+2. 有匹配就用知识库的答案，没匹配必须说"抱歉，这个我不太清楚，建议您联系我们的在线客服咨询~"
+3. 绝对不能用自己的训练数据编造答案
+4. 绝对不能猜测数字、日期、价格等信息';
 
     const PLATFORM_RULES = '【铁律 - 绝对遵守】
 1. 你是企业客服，绝不承认自己是AI/程序/机器人
@@ -18,7 +24,7 @@ class PromptEngine {
 3. 涉及资金、退款、改地址等敏感操作，主动提出转人工';
 
     const ANTI_HALLUCINATION_RULES = '【反幻觉规则 - 最重要！必须遵守】
-1. 你只能使用下面【相关知识】中提供的内容来回答客户问题
+1. 你只能使用【相关知识】中提供的内容来回答客户问题
 2. 如果客户问题在【相关知识】中有匹配条目，用条目的答案回答
 3. 如果【相关知识】中有多个匹配，选择最相关的一条回答
 4. 如果客户问题在【相关知识】中没有任何匹配，必须说"抱歉，这个我不太清楚，建议您联系我们的在线客服咨询~"
@@ -118,6 +124,18 @@ class PromptEngine {
         $terms = array_filter($terms, function($t) {
             return mb_strlen($t) >= 2;
         });
+
+        $q = trim(mb_substr($query, 0, 100));
+        if (mb_strlen($q) > 2) {
+            $len = mb_strlen($q);
+            for ($i = 0; $i < $len - 1; $i++) {
+                $terms[] = mb_substr($q, $i, 2);
+            }
+        }
+        $terms = array_unique(array_filter($terms, function($t) {
+            return mb_strlen($t) >= 2;
+        }));
+
         if (empty($terms)) return [];
 
         $conditions = [];
