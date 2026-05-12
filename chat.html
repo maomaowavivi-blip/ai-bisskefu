@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>智能客服</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; }
+.chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.chat-header .avatar { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.chat-header .info h2 { font-size: 16px; font-weight: 600; }
+.chat-header .info p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-break: break-word; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.message.bot { align-self: flex-start; background: #fff; border: 1px solid #e8e8e8; border-bottom-left-radius: 4px; }
+.message.user { align-self: flex-end; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border-bottom-right-radius: 4px; }
+.message .time { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+.typing { align-self: flex-start; display: flex; gap: 4px; padding: 12px 16px; background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; border-bottom-left-radius: 4px; }
+.typing span { width: 6px; height: 6px; background: #999; border-radius: 50%; animation: typing 1.4s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-4px); } }
+.input-area { display: flex; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid #e8e8e8; flex-shrink: 0; }
+.input-area input { flex: 1; height: 44px; border: 1px solid #ddd; border-radius: 22px; padding: 0 16px; font-size: 14px; outline: none; }
+.input-area input:focus { border-color: #667eea; }
+.input-area button { width: 44px; height: 44px; border: none; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 验证弹窗 */
+.verify-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+.verify-overlay.active { display: flex; }
+.verify-box { background: #fff; border-radius: 16px; padding: 24px; width: 90%; max-width: 360px; }
+.verify-box h3 { font-size: 18px; margin-bottom: 4px; }
+.verify-box p { font-size: 13px; color: #666; margin-bottom: 16px; }
+.verify-box input { width: 100%; height: 44px; border: 1px solid #ddd; border-radius: 10px; padding: 0 14px; font-size: 14px; outline: none; margin-bottom: 12px; }
+.verify-box input:focus { border-color: #667eea; }
+.verify-box .btn-row { display: flex; gap: 8px; }
+.verify-box .btn-row button { flex: 1; height: 44px; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; }
+.verify-box .btn-cancel { background: #f0f0f0; color: #666; }
+.verify-box .btn-confirm { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+.verify-box .btn-confirm:disabled { opacity: 0.5; }
+.verify-box .send-code { background: none; border: 1px solid #667eea; color: #667eea; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.verify-box .send-code:disabled { opacity: 0.5; }
+.verify-box .input-row { display: flex; gap: 8px; align-items: center; }
+.verify-box .input-row input { flex: 1; margin-bottom: 0; }
+.verify-box .order-result { margin-top: 12px; padding: 12px; background: #f8f9ff; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="chat-header">
+  <div class="avatar">🤖</div>
+  <div class="info">
+    <h2 id="botName">加载中...</h2>
+    <p id="botGreeting">在线客服</p>
+  </div>
+</div>
+
+<div class="messages" id="messages">
+  <div class="message bot">
+    您好~ 我是智能客服，很高兴为您服务！有什么可以帮助您的吗？😊
+    <div class="time">刚刚</div>
+  </div>
+</div>
+
+<div class="input-area">
+  <input type="text" id="msgInput" placeholder="请输入您的问题..." maxlength="500" autofocus>
+  <button id="sendBtn">➤</button>
+</div>
+
+<!-- 验证弹窗 -->
+<div class="verify-overlay" id="verifyOverlay">
+  <div class="verify-box">
+    <h3>🔒 身份验证</h3>
+    <p>查订单需要验证您的身份</p>
+    <input type="text" id="verifyOrderNo" placeholder="订单号" maxlength="50">
+    <div class="input-row">
+      <input type="tel" id="verifyPhone" placeholder="手机号" maxlength="11">
+      <button class="send-code" id="sendCodeBtn">获取验证码</button>
+    </div>
+    <input type="text" id="verifyOtp" placeholder="验证码" maxlength="6" style="margin-top:8px;">
+    <div id="orderResult" class="order-result" style="display:none;"></div>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn-cancel" id="verifyCancel">取消</button>
+      <button class="btn-confirm" id="verifyConfirm">验证查询</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+let isVerified = false;
+let history = [];
+
+const messagesEl = document.getElementById('messages');
+const msgInput = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const verifyOverlay = document.getElementById('verifyOverlay');
+const botName = document.getElementById('botName');
+const botGreeting = document.getElementById('botGreeting');
+
+// 加载人设信息
+fetch('/api/chat.php?action=persona')
+  .then(r => r.json())
+  .then(res => {
+    if (res.code === 0 && res.data) {
+      botName.textContent = res.data.name || '智能客服';
+      botGreeting.textContent = res.data.greeting || '在线客服';
+    }
+  });
+
+msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+sendBtn.addEventListener('click', sendMessage);
+
+// 验证弹窗事件
+document.getElementById('verifyCancel').addEventListener('click', () => verifyOverlay.classList.remove('active'));
+document.getElementById('sendCodeBtn').addEventListener('click', sendVerifyCode);
+document.getElementById('verifyConfirm').addEventListener('click', verifyOrder);
+
+function appendMessage(content, role) {
+  const div = document.createElement('div');
+  div.className = 'message ' + (role === 'user' ? 'user' : 'bot');
+  div.innerHTML = content + '<div class="time">刚刚</div>';
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'typing';
+  div.id = 'typingIndicator';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function hideTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function addSystemMessage(text) {
+  const div = document.createElement('div');
+  div.style.cssText = 'text-align:center;font-size:12px;color:#999;padding:4px 0;';
+  div.textContent = text;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function sendMessage() {
+  const msg = msgInput.value.trim();
+  if (!msg) return;
+
+  msgInput.value = '';
+  appendMessage(msg, 'user');
+
+  // 检查是否包含订单相关词，弹窗引导验证
+  const orderKeywords = ['订单', '快递', '物流', '发货', '到哪', '配送'];
+  const isOrderQuery = orderKeywords.some(kw => msg.includes(kw));
+
+  if (isOrderQuery && !isVerified) {
+    addSystemMessage('🔒 查询订单需要验证身份，已为您打开验证窗口');
+    verifyOverlay.classList.add('active');
+  }
+
+  history.push({ role: 'user', content: msg });
+  showTyping();
+
+  try {
+    const res = await fetch('/api/chat.php?action=chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, message: msg, history: history.slice(-10, -1) })
+    });
+    const data = await res.json();
+    hideTyping();
+
+    if (data.code === 0 && data.data) {
+      const reply = data.data.reply || '';
+      const orderHint = data.data.has_order_query && !data.data.is_verified;
+      appendMessage(reply, 'bot');
+      history.push({ role: 'assistant', content: reply });
+
+      if (orderHint && !isVerified) {
+        addSystemMessage('💡 要查询订单信息，请点击下方按钮完成验证');
+        const btnDiv = document.createElement('div');
+        btnDiv.style.cssText = 'text-align:center;padding:8px 0;';
+        btnDiv.innerHTML = '<button onclick="document.getElementById(\'verifyOverlay\').classList.add(\'active\')" style="background:#667eea;color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:13px;cursor:pointer;">📱 验证身份查订单</button>';
+        messagesEl.appendChild(btnDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    } else {
+      hideTyping();
+      appendMessage('抱歉，我遇到了一点问题，请稍后再试。', 'bot');
+    }
+  } catch (e) {
+    hideTyping();
+    appendMessage('网络异常，请检查连接后重试。', 'bot');
+  }
+}
+
+// ══════════════════════════════════════════
+// 验证码流程
+// ══════════════════════════════════════════
+let verifyPhone = '';
+let verifyOrderNo = '';
+let codeSent = false;
+
+document.getElementById('verifyPhone').addEventListener('input', function() {
+  document.getElementById('sendCodeBtn').disabled = this.value.length !== 11;
+});
+
+async function sendVerifyCode() {
+  const phone = document.getElementById('verifyPhone').value.trim();
+  const orderNo = document.getElementById('verifyOrderNo').value.trim();
+  if (!/^1[3-9]\d{9}$/.test(phone)) return alert('请输入正确的手机号');
+  if (!orderNo) return alert('请输入订单号');
+
+  const btn = document.getElementById('sendCodeBtn');
+  btn.disabled = true;
+  btn.textContent = '发送中...';
+
+  try {
+    const res = await fetch('/api/verify.php?action=send_code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, order_no: orderNo, session_id: sessionId })
+    });
+    const data = await res.json();
+    if (data.code === 0) {
+      verifyPhone = phone;
+      verifyOrderNo = orderNo;
+      codeSent = true;
+      let countdown = 60;
+      btn.textContent = countdown + 's';
+      const timer = setInterval(() => {
+        countdown--;
+        btn.textContent = countdown + 's';
+        if (countdown <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '重新获取'; }
+      }, 1000);
+    } else {
+      btn.disabled = false;
+      btn.textContent = '获取验证码';
+      alert(data.msg);
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '获取验证码';
+    alert('网络错误');
+  }
+}
+
+async function verifyOrder() {
+  if (!codeSent) return alert('请先获取验证码');
+  const otp = document.getElementById('verifyOtp').value.trim();
+  if (!otp) return alert('请输入验证码');
+
+  const btn = document.getElementById('verifyConfirm');
+  btn.disabled = true;
+  btn.textContent = '查询中...';
+
+  try {
+    const res = await fetch('/api/verify.php?action=verify_code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: verifyPhone, otp, order_no: verifyOrderNo, session_id: sessionId })
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = '验证查询';
+
+    if (data.code === 0 && data.data) {
+      isVerified = true;
+      const orderData = data.data.order_data;
+
+      document.getElementById('orderResult').style.display = 'block';
+      if (orderData) {
+        document.getElementById('orderResult').innerHTML = '✅ 验证通过！<br>' + formatOrderData(orderData) + '<br><br><small>可关闭窗口继续咨询其他问题</small>';
+      } else {
+        document.getElementById('orderResult').innerHTML = '✅ 验证通过！<br>（企业订单API未配置，仅完成身份验证）<br><br><small>可关闭窗口继续咨询</small>';
+      }
+
+      addSystemMessage('✅ 身份验证已通过，现在可以查询订单信息了');
+
+      setTimeout(() => verifyOverlay.classList.remove('active'), 2000);
+    } else {
+      document.getElementById('orderResult').style.display = 'block';
+      document.getElementById('orderResult').innerHTML = '❌ ' + data.msg;
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '验证查询';
+    alert('网络错误');
+  }
+}
+
+function formatOrderData(data) {
+  let html = '';
+  for (const [key, value] of Object.entries(data)) {
+    if (value) html += `<div>${key}: ${value}</div>`;
+  }
+  return html || '（暂无详细信息）';
+}
+
+// 初始欢迎消息替换为人设数据
+fetch('/api/chat.php?action=persona')
+  .then(r => r.json())
+  .then(res => {
+    if (res.code === 0 && res.data) {
+      const firstMsg = messagesEl.querySelector('.message.bot');
+      if (firstMsg) {
+        firstMsg.innerHTML = (res.data.greeting || '您好~ 很高兴为您服务！') + '<div class="time">刚刚</div>';
+      }
+    }
+  });
+</script>
+</body>
+</html>

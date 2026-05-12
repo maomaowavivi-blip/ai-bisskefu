@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>吉祥物人设配置 - 管理后台</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 18px; }
+.container { max-width: 800px; margin: 0 auto; padding: 20px 16px; }
+.card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.card h3 { font-size: 15px; margin-bottom: 12px; color: #667eea; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+.form-group input, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+.form-group input:focus, .form-group textarea:focus { border-color: #667eea; }
+.form-group textarea { min-height: 80px; resize: vertical; }
+.btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-secondary { background: #f0f0f0; color: #333; }
+.toast { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 100; }
+.toast.show { display: block; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.loading { text-align: center; color: #999; padding: 40px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎭 吉祥物人设配置</h1>
+  <div>
+    <a href="knowledge.html" style="color:#fff;font-size:13px;margin-right:16px;">知识库</a>
+    <span id="loginInfo" style="font-size:13px;opacity:0.8;"></span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="loading" id="loading">加载中...</div>
+
+  <form id="personaForm" style="display:none;">
+    <div class="card">
+      <h3>📋 基本信息</h3>
+      <div class="form-group">
+        <label>吉祥物名称</label>
+        <input type="text" id="name" placeholder="如：小智、小美" maxlength="50">
+      </div>
+      <div class="form-group">
+        <label>默认欢迎语</label>
+        <input type="text" id="greeting" placeholder="如：您好呀~ 很高兴为您服务！" maxlength="200">
+      </div>
+      <div class="form-group">
+        <label>头像链接（可选）</label>
+        <input type="text" id="avatar_url" placeholder="https://..." maxlength="500">
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💬 人格设定</h3>
+      <div class="form-group">
+        <label>品牌故事（品牌背景/核心理念）</label>
+        <textarea id="brand_story" placeholder="企业品牌起源、核心理念..." rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>性格描述（核心性格特征）</label>
+        <textarea id="personality" placeholder="如：热情、耐心、专业、可爱..." rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>说话风格（语气/称呼/口头禅）</label>
+        <textarea id="speak_style" placeholder="如：语气亲切自然，用'您'称呼客户..." rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📏 服务规范</h3>
+      <div class="form-group">
+        <label>服务边界规则（不能做什么、不懂时怎么办）</label>
+        <textarea id="service_rules" placeholder="如：不能泄露客户隐私、不能猜测订单信息..." rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>处事原则（核心价值观）</label>
+        <textarea id="principles" placeholder="如：客户第一、诚信为本..." rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>情绪应对策略（可选）</label>
+        <textarea id="emotion_strategy" placeholder="客户生气/投诉时的应对方式..." rows="3"></textarea>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;">💾 保存设置</button>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let token = localStorage.getItem('admin_token');
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function getHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + token
+  };
+}
+
+document.getElementById('loginInfo').textContent = token ? '已登录' : '未登录';
+
+// 加载当前配置
+fetch('/api/persona.php?action=get', { headers: getHeaders() })
+  .then(r => r.json())
+  .then(res => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('personaForm').style.display = 'block';
+    if (res.code === 0 && res.data) {
+      const d = res.data;
+      document.getElementById('name').value = d.name || '';
+      document.getElementById('greeting').value = d.greeting || '';
+      document.getElementById('avatar_url').value = d.avatar_url || '';
+      document.getElementById('brand_story').value = d.brand_story || '';
+      document.getElementById('personality').value = d.personality || '';
+      document.getElementById('speak_style').value = d.speak_style || '';
+      document.getElementById('service_rules').value = d.service_rules || '';
+      document.getElementById('principles').value = d.principles || '';
+      document.getElementById('emotion_strategy').value = d.emotion_strategy || '';
+    }
+  });
+
+document.getElementById('personaForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const data = {
+    name: document.getElementById('name').value,
+    greeting: document.getElementById('greeting').value,
+    avatar_url: document.getElementById('avatar_url').value,
+    brand_story: document.getElementById('brand_story').value,
+    personality: document.getElementById('personality').value,
+    speak_style: document.getElementById('speak_style').value,
+    service_rules: document.getElementById('service_rules').value,
+    principles: document.getElementById('principles').value,
+    emotion_strategy: document.getElementById('emotion_strategy').value,
+  };
+
+  fetch('/api/persona.php?action=save', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data)
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.code === 0) {
+      showToast('✅ 保存成功');
+    } else {
+      showToast('❌ ' + res.msg);
+    }
+  });
+});
+</script>
+</body>
+</html>

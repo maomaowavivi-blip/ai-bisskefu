@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 智能客服系统</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+.card { background: #fff; border-radius: 20px; padding: 40px; max-width: 420px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); text-align: center; }
+.logo { font-size: 48px; margin-bottom: 16px; }
+h1 { font-size: 24px; color: #333; margin-bottom: 8px; }
+p { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+.btn { display: inline-block; padding: 14px 32px; border: none; border-radius: 12px; font-size: 16px; cursor: pointer; text-decoration: none; width: 100%; }
+.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-outline { background: #fff; color: #667eea; border: 1px solid #667eea; margin-top: 8px; }
+.links { margin-top: 20px; display: flex; gap: 16px; justify-content: center; }
+.links a { color: #999; font-size: 12px; text-decoration: none; }
+.links a:hover { color: #667eea; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🤖</div>
+  <h1>AI 智能客服系统</h1>
+  <p>基于 AI 大模型的企业智能客服解决方案<br>支持知识库问答、订单查询、多渠道接入</p>
+  <a href="/chat.html" class="btn btn-primary">开始咨询</a>
+  <a href="/admin/persona.html" class="btn btn-outline" style="display:inline-block;margin-top:8px;">管理后台</a>
+  <div class="links">
+    <a href="/api/chat.php?action=persona">API 状态</a>
+  </div>
+</div>
+</body>
+</html>
