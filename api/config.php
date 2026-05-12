@@ -28,7 +28,7 @@ loadDotEnv(dirname(__DIR__) . '/.env');
 
 define('DB_HOST', envVal('DB_HOST', 'localhost'));
 define('DB_PORT', envVal('DB_PORT', '3306'));
-define('DB_NAME', envVal('DB_NAME', 'ai_kefu'));
+define('DB_NAME', envVal('DB_NAME', 'aibisskefu_com'));
 define('DB_USER', envVal('DB_USER', 'root'));
 define('DB_PASS', envVal('DB_PASS', ''));
 define('JWT_SECRET', envVal('JWT_SECRET', 'change_this_secret'));

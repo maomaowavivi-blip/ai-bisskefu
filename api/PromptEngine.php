@@ -63,11 +63,11 @@ class PromptEngine {
     }
 
     private static function _buildKnowledgeLayer(array $kbItems): string {
-        if (empty($kb_items)) return '';
+        if (empty($kbItems)) return '';
 
         $lines = ['【相关知识 - 回答客户问题时优先参考】'];
         $count = 0;
-        foreach ($kb_items as $item) {
+        foreach ($kbItems as $item) {
             if ($count >= self::MAX_KB_ITEMS) break;
             $q = trim($item['question'] ?? '');
             $a = trim($item['answer'] ?? '');
