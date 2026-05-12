@@ -154,18 +154,18 @@ function pcGetInt(PDO $db, $key, $default = 0) {
 define('DEFAULT_MODEL', 'M2-her');
 define('DEFAULT_API_URL', 'https://api.minimaxi.com/v1/text/chatcompletion_v2');
 
-function callAI(PDO $db, array $messages, array $opts = []) {
-    $apiKey  = envVal('MINIMAX_API_KEY', '');
+function callAI($messages, $opts = []) {
+    $apiKey = envVal('MINIMAX_API_KEY', '');
     if (!$apiKey) {
-        $apiKey = trim(strval(pcGet($db, 'ai.api_key', '')));
+        try { $db = getDB(); $apiKey = trim(strval(pcGet($db, 'ai.api_key', ''))); } catch (Exception $e) {}
     }
     if (!$apiKey) {
         throw new Exception('AI未配置：请在 .env 或 platform_config 配置 MINIMAX_API_KEY');
     }
 
-    $model   = envVal('MINIMAX_MODEL', pcGet($db, 'ai.model', DEFAULT_MODEL));
-    $apiUrl  = envVal('MINIMAX_API_URL', pcGet($db, 'ai.api_url', DEFAULT_API_URL));
-    $timeout = intval(envVal('MINIMAX_TIMEOUT', pcGet($db, 'ai.timeout', 60)));
+    $model   = envVal('MINIMAX_MODEL', DEFAULT_MODEL);
+    $apiUrl  = envVal('MINIMAX_API_URL', DEFAULT_API_URL);
+    $timeout = intval(envVal('MINIMAX_TIMEOUT', 60));
 
     $maxTokens   = min(intval($opts['max_tokens'] ?? 300), 1024);
     $temperature = floatval($opts['temperature'] ?? 0.8);
