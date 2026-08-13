@@ -3,33 +3,618 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 智能客服系统</title>
+<title>AI 智能客服 · 企业智能体</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-.card { background: #fff; border-radius: 20px; padding: 40px; max-width: 420px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); text-align: center; }
-.logo { font-size: 48px; margin-bottom: 16px; }
-h1 { font-size: 24px; color: #333; margin-bottom: 8px; }
-p { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
-.btn { display: inline-block; padding: 14px 32px; border: none; border-radius: 12px; font-size: 16px; cursor: pointer; text-decoration: none; width: 100%; }
-.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
-.btn-primary:hover { opacity: 0.9; }
-.btn-outline { background: #fff; color: #667eea; border: 1px solid #667eea; margin-top: 8px; }
-.links { margin-top: 20px; display: flex; gap: 16px; justify-content: center; }
-.links a { color: #999; font-size: 12px; text-decoration: none; }
-.links a:hover { color: #667eea; }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  min-height: 100vh;
+  background: #06060e;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Ambient Background ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 10% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 500px at 90% 30%, rgba(6, 182, 212, 0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+}
+
+/* ── Floating Orbs ── */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+  animation: orbFloat 20s ease-in-out infinite;
+}
+.orb-1 {
+  width: 500px; height: 500px;
+  background: rgba(99, 102, 241, 0.10);
+  top: -100px; left: -150px;
+  animation-delay: 0s;
+}
+.orb-2 {
+  width: 400px; height: 400px;
+  background: rgba(6, 182, 212, 0.08);
+  bottom: -100px; right: -100px;
+  animation-delay: -7s;
+}
+.orb-3 {
+  width: 300px; height: 300px;
+  background: rgba(139, 92, 246, 0.06);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: -14s;
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -40px) scale(1.05); }
+  50% { transform: translate(-20px, 20px) scale(0.95); }
+  75% { transform: translate(40px, 30px) scale(1.02); }
+}
+
+/* ── Main Wrapper ── */
+.wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1200px;
+  padding: 40px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* ── Nav Bar ── */
+.nav {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  margin-bottom: 80px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav-brand-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #6366F1, #06B6D4);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-links a {
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+}
+
+.nav-links .btn-nav {
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.nav-links .btn-nav:hover {
+  background: linear-gradient(135deg, #818CF8, #6366F1);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .nav { padding: 10px 16px; margin-bottom: 48px; }
+  .nav-links a:not(.btn-nav) { display: none; }
+}
+
+/* ── Hero Section ── */
+.hero {
+  text-align: center;
+  max-width: 720px;
+  margin-bottom: 60px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(99, 102, 241, 0.10);
+  border: 1px solid rgba(99, 102, 241, 0.20);
+  border-radius: 20px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 500;
+  margin-bottom: 24px;
+  letter-spacing: 0.02em;
+}
+
+.hero-badge .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+.hero h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 50%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero p {
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.7;
+  color: rgba(255,255,255,0.5);
+  max-width: 560px;
+  margin: 0 auto 32px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hero-actions .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.30);
+}
+
+.hero-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45);
+}
+
+.hero-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.hero-actions .btn-secondary:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.20);
+  color: #fff;
+}
+
+/* ── Stats Row ── */
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  padding: 28px 48px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  margin-bottom: 80px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item .num {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #a5b4fc, #67e8f9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-item .label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 2px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(255,255,255,0.08);
+}
+
+@media (max-width: 640px) {
+  .stats-row { gap: 24px; padding: 20px 24px; }
+  .stat-divider { display: none; }
+}
+
+/* ── Features Section ── */
+.section-title {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.section-title h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+
+.section-title p {
+  font-size: 15px;
+  color: rgba(255,255,255,0.4);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 80px;
+}
+
+@media (max-width: 768px) {
+  .features-grid { grid-template-columns: 1fr; }
+}
+
+.feature-card {
+  padding: 32px 24px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.feature-card:hover {
+  border-color: rgba(99, 102, 241, 0.20);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.feature-card:hover::before {
+  opacity: 1;
+}
+
+.feature-icon {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+
+.feature-card h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.feature-card p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.45);
+}
+
+/* ── CTA Section ── */
+.cta-section {
+  width: 100%;
+  padding: 56px 40px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 24px;
+  text-align: center;
+  margin-bottom: 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 400px 200px at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cta-section h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 700;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.cta-section p {
+  color: rgba(255,255,255,0.5);
+  font-size: 15px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.cta-section .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 36px;
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.30);
+  position: relative;
+}
+
+.cta-section .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45);
+}
+
+/* ── Footer ── */
+.footer {
+  width: 100%;
+  text-align: center;
+  padding: 20px 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.footer p {
+  font-size: 13px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.02em;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.4); }
+::selection { background: rgba(99, 102, 241, 0.3); }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="logo">🤖</div>
-  <h1>AI 智能客服系统</h1>
-  <p>基于 AI 大模型的企业智能客服解决方案<br>支持知识库问答、订单查询、多渠道接入</p>
-  <a href="/chat.html" class="btn btn-primary">开始咨询</a>
-  <a href="/admin/persona.html" class="btn btn-outline" style="display:inline-block;margin-top:8px;">管理后台</a>
-  <div class="links">
-    <a href="/api/chat.php?action=persona">API 状态</a>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="wrapper">
+
+  <nav class="nav">
+    <a href="/" class="nav-brand">
+      <div class="nav-brand-icon">AI</div>
+      NebulaBot
+    </a>
+    <div class="nav-links">
+      <a href="#features">产品功能</a>
+      <a href="chat.html" class="btn-nav">开始咨询</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      企业级 AI 智能体 · 已就绪
+    </div>
+    <h1>智能客服<br>重塑企业对话体验</h1>
+    <p>基于 AI 大模型的企业智能客服解决方案，支持知识库问答、订单查询、多渠道接入，7×24 小时提供专业服务</p>
+    <div class="hero-actions">
+      <a href="chat.html" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        开始对话
+      </a>
+      <a href="admin/persona.html" class="btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></path></svg>
+        管理后台
+      </a>
+    </div>
+  </section>
+
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="num">99.9%</div>
+      <div class="label">系统可用性</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="num">7×24</div>
+      <div class="label">全天候服务</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="num">AI</div>
+      <div class="label">大模型驱动</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="num">秒级</div>
+      <div class="label">响应速度</div>
+    </div>
   </div>
+
+  <div class="section-title" id="features">
+    <h2>核心功能</h2>
+    <p>为企业打造的智能客服解决方案，让每一段对话都创造价值</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <h3>AI 智能问答</h3>
+      <p>基于大模型技术，精准理解客户意图，提供自然流畅的对话体验，支持多轮上下文记忆</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <h3>知识库管理</h3>
+      <p>灵活的 FAQ 管理，支持分类、搜索、批量导入导出，让 AI 应答更加精准可靠</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎭</div>
+      <h3>人设配置</h3>
+      <p>自定义客服的姓名、性格、说话风格和品牌背景，打造独一无二的品牌形象</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3>订单查询</h3>
+      <p>集成验证码身份认证，客户可直接在对话中查询订单物流状态，无需切换系统</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>对话记录</h3>
+      <p>完整保存客户对话历史，支持检索和分析，持续优化服务质量和客户满意度</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔌</div>
+      <h3>灵活集成</h3>
+      <p>提供 JavaScript SDK，轻松嵌入任意网站，支持多渠道接入，快速部署上线</p>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <h2>准备好升级您的客服体验了吗？</h2>
+    <p>立即体验 AI 智能客服的强大能力，让每一刻都成为服务客户的最佳时机</p>
+    <a href="chat.html" class="btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      立即体验
+    </a>
+  </div>
+
+  <footer class="footer">
+    <p>NebulaBot · AIBISSKEFU Enterprise v1.0</p>
+  </footer>
+
 </div>
+
 </body>
 </html>

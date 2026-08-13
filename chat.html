@@ -3,59 +3,528 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>智能客服</title>
+<title>智能客服 · AI 助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; }
-.chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-.chat-header .avatar { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 20px; }
-.chat-header .info h2 { font-size: 16px; font-weight: 600; }
-.chat-header .info p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-.messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-break: break-word; animation: fadeIn 0.3s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.message.bot { align-self: flex-start; background: #fff; border: 1px solid #e8e8e8; border-bottom-left-radius: 4px; }
-.message.user { align-self: flex-end; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border-bottom-right-radius: 4px; }
-.message .time { font-size: 10px; opacity: 0.6; margin-top: 4px; }
-.typing { align-self: flex-start; display: flex; gap: 4px; padding: 12px 16px; background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; border-bottom-left-radius: 4px; }
-.typing span { width: 6px; height: 6px; background: #999; border-radius: 50%; animation: typing 1.4s infinite; }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --heading-font: 'Plus Jakarta Sans', sans-serif;
+  --primary: #6366F1;
+  --primary-dark: #4F46E5;
+  --accent: #06B6D4;
+  --bg-deep: #06060e;
+  --bg-surface: rgba(255,255,255,0.03);
+  --glass-border: rgba(255,255,255,0.06);
+  --glass-border-hover: rgba(99, 102, 241, 0.2);
+  --text: #fff;
+  --text-muted: rgba(255,255,255,0.45);
+  --glass-bg: rgba(255,255,255,0.04);
+  --glass-blur: 20px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 500px 400px at 10% 20%, rgba(99, 102, 241, 0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 400px at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+}
+
+/* ── Header ── */
+.chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--glass-border);
+  position: relative;
+  z-index: 10;
+}
+
+.chat-header .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.chat-header .info { flex: 1; min-width: 0; }
+.chat-header .info h2 {
+  font-family: var(--heading-font);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.chat-header .info p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.chat-header .header-desc:empty { display: none; }
+
+.chat-header .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  display: inline-block;
+  margin-right: 4px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+/* ── Messages Area ── */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 1;
+}
+
+.message {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+  animation: msgIn 0.3s ease;
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message.bot {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-bottom-left-radius: 4px;
+  color: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.message.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.message .time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  opacity: 0.6;
+}
+.message.user .time { color: rgba(255,255,255,0.5); }
+
+.message.admin {
+  align-self: flex-start;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-bottom-left-radius: 4px;
+  color: rgba(255,255,255,0.9);
+}
+
+/* ── Typing Indicator ── */
+.typing {
+  align-self: flex-start;
+  display: flex;
+  gap: 5px;
+  padding: 12px 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  animation: msgIn 0.2s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.typing span {
+  width: 7px;
+  height: 7px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite;
+}
 .typing span:nth-child(2) { animation-delay: 0.2s; }
 .typing span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes typing { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-4px); } }
-.input-area { display: flex; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid #e8e8e8; flex-shrink: 0; }
-.input-area input { flex: 1; height: 44px; border: 1px solid #ddd; border-radius: 22px; padding: 0 16px; font-size: 14px; outline: none; }
-.input-area input:focus { border-color: #667eea; }
-.input-area button { width: 44px; height: 44px; border: none; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* 验证弹窗 */
-.verify-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
-.verify-overlay.active { display: flex; }
-.verify-box { background: #fff; border-radius: 16px; padding: 24px; width: 90%; max-width: 360px; }
-.verify-box h3 { font-size: 18px; margin-bottom: 4px; }
-.verify-box p { font-size: 13px; color: #666; margin-bottom: 16px; }
-.verify-box input { width: 100%; height: 44px; border: 1px solid #ddd; border-radius: 10px; padding: 0 14px; font-size: 14px; outline: none; margin-bottom: 12px; }
-.verify-box input:focus { border-color: #667eea; }
-.verify-box .btn-row { display: flex; gap: 8px; }
-.verify-box .btn-row button { flex: 1; height: 44px; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; }
-.verify-box .btn-cancel { background: #f0f0f0; color: #666; }
-.verify-box .btn-confirm { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
-.verify-box .btn-confirm:disabled { opacity: 0.5; }
-.verify-box .send-code { background: none; border: 1px solid #667eea; color: #667eea; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-size: 13px; white-space: nowrap; }
-.verify-box .send-code:disabled { opacity: 0.5; }
-.verify-box .input-row { display: flex; gap: 8px; align-items: center; }
-.verify-box .input-row input { flex: 1; margin-bottom: 0; }
-.verify-box .order-result { margin-top: 12px; padding: 12px; background: #f8f9ff; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+@keyframes typingBounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-5px); }
+}
+
+/* ── System Message ── */
+.system-msg {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.handoff-notice {
+  text-align: center;
+  font-size: 12px;
+  padding: 8px 14px;
+  margin: 4px 16px;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.5;
+  animation: msgIn 0.3s ease;
+}
+.handoff-notice.takeover {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+.handoff-notice.return {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+/* ── Input Area ── */
+.input-area {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(255,255,255,0.03);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  position: relative;
+  z-index: 10;
+}
+
+.input-area input {
+  flex: 1;
+  height: 46px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 23px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+}
+.input-area input:focus {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.10);
+}
+.input-area input::placeholder {
+  color: rgba(255,255,255,0.25);
+}
+
+.input-area button {
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+}
+.input-area button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+.input-area button:active {
+  transform: scale(0.95);
+}
+.input-area button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Order Button ── */
+.order-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.order-btn:hover { transform: scale(1.04); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+.order-btn:active { transform: scale(0.96); }
+
+/* ── Scrollbar ── */
+.messages::-webkit-scrollbar { width: 4px; }
+.messages::-webkit-scrollbar-track { background: transparent; }
+.messages::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.2); border-radius: 2px; }
+.messages::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.35); }
+::selection { background: rgba(99, 102, 241, 0.3); }
+
+/* ── Responsive ── */
+@media (min-width: 480px) {
+  body { max-width: 420px; margin: 0 auto; border-left: 1px solid var(--glass-border); border-right: 1px solid var(--glass-border); }
+}
+@media (max-width: 380px) {
+  .message { max-width: 88%; font-size: 13px; }
+}
+
+/* ── Rich Content Card ── */
+.rich-card {
+  display: inline-block;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  text-decoration: none;
+  margin-top: 6px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  max-width: 100%;
+}
+.rich-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+}
+.rich-card img {
+  width: 100%;
+  max-width: 260px;
+  display: block;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.rich-card .rich-card-title {
+  display: block;
+  padding: 10px 14px 4px;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+  text-align: center;
+}
+.rich-card .rich-card-desc {
+  display: block;
+  padding: 0 14px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Room Pick Cards (方案 A) ── */
+.room-pick-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  max-width: 100%;
+}
+.room-pick-card {
+  min-width: 120px;
+  min-height: 88px;
+  flex: 1 1 120px;
+  max-width: 160px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.room-pick-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+}
+.room-pick-code {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.room-pick-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.room-pick-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Order Query Modal ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active {
+  display: flex;
+}
+.modal-box {
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px 28px 20px;
+  width: 320px;
+  max-width: 88vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: modalIn 0.2s ease-out;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-box h3 {
+  font-family: var(--heading-font);
+  font-size: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.modal-box input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  font-size: 15px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.modal-box input:focus {
+  border-color: var(--primary);
+}
+.modal-box input::placeholder {
+  color: var(--text-muted);
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.modal-actions button {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.modal-btn-cancel {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+}
+.modal-btn-cancel:hover {
+  background: rgba(255,255,255,0.1);
+}
+.modal-btn-submit {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+}
+.modal-btn-submit:hover {
+  transform: scale(1.02);
+}
+.modal-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 </style>
 </head>
 <body>
 
 <div class="chat-header">
-  <div class="avatar">🤖</div>
+  <img class="avatar" id="botAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%233b82f6'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-size='18'%3E🤖%3C/text%3E%3C/svg%3E" alt="avatar">
   <div class="info">
     <h2 id="botName">加载中...</h2>
-    <p id="botGreeting">在线客服</p>
+    <p id="botGreeting"><span class="status-dot"></span>在线</p>
   </div>
+  <button class="order-btn" id="orderBtn">订单查询</button>
 </div>
 
 <div class="messages" id="messages">
@@ -70,62 +539,144 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <button id="sendBtn">➤</button>
 </div>
 
-<!-- 验证弹窗 -->
-<div class="verify-overlay" id="verifyOverlay">
-  <div class="verify-box">
-    <h3>🔒 身份验证</h3>
-    <p>查订单需要验证您的身份</p>
-    <input type="text" id="verifyOrderNo" placeholder="订单号" maxlength="50">
-    <div class="input-row">
-      <input type="tel" id="verifyPhone" placeholder="手机号" maxlength="11">
-      <button class="send-code" id="sendCodeBtn">获取验证码</button>
-    </div>
-    <input type="text" id="verifyOtp" placeholder="验证码" maxlength="6" style="margin-top:8px;">
-    <div id="orderResult" class="order-result" style="display:none;"></div>
-    <div class="btn-row" style="margin-top:12px;">
-      <button class="btn-cancel" id="verifyCancel">取消</button>
-      <button class="btn-confirm" id="verifyConfirm">验证查询</button>
+<!-- ── 订单查询弹窗 ── -->
+<div class="modal-overlay" id="orderModal">
+  <div class="modal-box">
+    <h3>📋 订单查询</h3>
+    <input type="text" id="orderModalInput" placeholder="请输入订单号" maxlength="50" autocomplete="off">
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" id="orderModalCancel">取消</button>
+      <button class="modal-btn-submit" id="orderModalSubmit">查询</button>
     </div>
   </div>
 </div>
 
 <script>
+var API_BASE = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+
+// ── 设备指纹（访客标识，未验证时使用）──
+function getVisitorId() {
+  var key = '_visitor_id';
+  var id = localStorage.getItem(key);
+  if (id) return id;
+  var fp = navigator.userAgent + '|' + screen.width + 'x' + screen.height + '|' + new Date().getTimezoneOffset() + '|' + navigator.language + '|' + (navigator.hardwareConcurrency || '');
+  var hash = 0;
+  for (var i = 0; i < fp.length; i++) { var ch = fp.charCodeAt(i); hash = ((hash << 5) - hash) + ch; hash |= 0; }
+  id = 'v_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+  try { localStorage.setItem(key, id); } catch(e) {}
+  return id;
+}
+var visitorHash = getVisitorId();
+
 const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-let isVerified = false;
 let history = [];
+let handoffTimer = null;
+let handoffActive = false;
+let currentHandoffId = null;
+let lastHandoffMsgId = 0;
 
 const messagesEl = document.getElementById('messages');
 const msgInput = document.getElementById('msgInput');
 const sendBtn = document.getElementById('sendBtn');
-const verifyOverlay = document.getElementById('verifyOverlay');
 const botName = document.getElementById('botName');
 const botGreeting = document.getElementById('botGreeting');
 
-// 加载人设信息
-fetch('/api/chat.php?action=persona')
+fetch(API_BASE + 'api/chat.php?action=persona')
   .then(r => r.json())
   .then(res => {
     if (res.code === 0 && res.data) {
       botName.textContent = res.data.name || '智能客服';
-      botGreeting.textContent = res.data.greeting || '在线客服';
+      botGreeting.innerHTML = '<span class="status-dot"></span><span class="header-desc">' + (res.data.description || '在线') + '</span>';
+      if (res.data.avatar_url) {
+        document.getElementById('botAvatar').src = res.data.avatar_url;
+      }
     }
   });
 
 msgInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
-sendBtn.addEventListener('click', sendMessage);
+sendBtn.addEventListener('click', function() { sendMessage(); });
 
-// 验证弹窗事件
-document.getElementById('verifyCancel').addEventListener('click', () => verifyOverlay.classList.remove('active'));
-document.getElementById('sendCodeBtn').addEventListener('click', sendVerifyCode);
-document.getElementById('verifyConfirm').addEventListener('click', verifyOrder);
+// ── 订单查询弹窗 ──
+const orderModal = document.getElementById('orderModal');
+const orderModalInput = document.getElementById('orderModalInput');
+const orderModalSubmit = document.getElementById('orderModalSubmit');
+const orderModalCancel = document.getElementById('orderModalCancel');
+
+function openOrderModal() {
+  orderModal.classList.add('active');
+  orderModalInput.value = '';
+  orderModalSubmit.disabled = false;
+  setTimeout(function() { orderModalInput.focus(); }, 100);
+}
+
+function closeOrderModal() {
+  orderModal.classList.remove('active');
+}
+
+function submitOrderQuery() {
+  const orderNo = orderModalInput.value.trim();
+  if (!orderNo) return;
+  orderModalSubmit.disabled = true;
+  closeOrderModal();
+  sendMessage('order_query:' + orderNo);
+}
+
+document.getElementById('orderBtn').addEventListener('click', function() {
+  openOrderModal();
+});
+
+orderModalSubmit.addEventListener('click', submitOrderQuery);
+orderModalInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); submitOrderQuery(); }
+});
+orderModalCancel.addEventListener('click', closeOrderModal);
+orderModal.addEventListener('click', function(e) {
+  if (e.target === orderModal) closeOrderModal();
+});
 
 function appendMessage(content, role) {
   const div = document.createElement('div');
-  div.className = 'message ' + (role === 'user' ? 'user' : 'bot');
+  div.className = 'message ' + role;
   div.innerHTML = content + '<div class="time">刚刚</div>';
   messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function appendRichContent(cards) {
+  var msgDiv = document.createElement('div');
+  msgDiv.className = 'message bot';
+  var html = '';
+  var hasRoomPick = false;
+  for (var i = 0; i < cards.length; i++) {
+    var c = cards[i];
+    if (c.type === 'image_link') {
+      html += '<a href="' + c.link_url + '" target="_blank" rel="noopener" class="rich-card">';
+      html += '<img src="' + c.image_url + '" alt="' + (c.title || '') + '" loading="lazy">';
+      if (c.title) html += '<span class="rich-card-title">' + c.title + '</span>';
+      if (c.description) html += '<span class="rich-card-desc">' + c.description + '</span>';
+      html += '</a>';
+    } else if (c.type === 'room_pick') {
+      if (!hasRoomPick) {
+        html += '<div class="room-pick-grid">';
+        hasRoomPick = true;
+      }
+      html += '<button type="button" class="room-pick-card" data-room-id="' + c.sidecar_room_id + '">';
+      if (c.room_code) html += '<span class="room-pick-code">' + c.room_code + '</span>';
+      if (c.title) html += '<span class="room-pick-title">' + c.title + '</span>';
+      if (c.description) html += '<span class="room-pick-desc">' + c.description + '</span>';
+      html += '</button>';
+    }
+  }
+  if (hasRoomPick) html += '</div>';
+  msgDiv.innerHTML = html + '<div class="time">刚刚</div>';
+  messagesEl.appendChild(msgDiv);
+  msgDiv.querySelectorAll('.room-pick-card').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      sendMessage('room_pick:' + btn.getAttribute('data-room-id'));
+    });
+  });
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -145,53 +696,118 @@ function hideTyping() {
 
 function addSystemMessage(text) {
   const div = document.createElement('div');
-  div.style.cssText = 'text-align:center;font-size:12px;color:#999;padding:4px 0;';
+  div.className = 'system-msg';
   div.textContent = text;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-async function sendMessage() {
-  const msg = msgInput.value.trim();
+function addHandoffNotice(text, type) {
+  const div = document.createElement('div');
+  div.className = 'handoff-notice ' + (type || 'takeover');
+  div.textContent = text;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function startHandoffPolling() {
+  if (handoffTimer) return;
+  handoffTimer = setInterval(function() {
+    fetch(API_BASE + 'api/handoff.php?action=status&session_id=' + encodeURIComponent(sessionId))
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.code === 0 && res.data) {
+          var status = res.data.status;
+          var hid = res.data.handoff_id;
+          if (hid && hid !== currentHandoffId) {
+            currentHandoffId = hid;
+            lastHandoffMsgId = 0;
+          }
+
+          if (status === 1 && !handoffActive) {
+            handoffActive = true;
+            msgInput.disabled = true;
+            sendBtn.disabled = true;
+            msgInput.placeholder = '当前由人工客服接待...';
+            addHandoffNotice('您好，专属客服已为您服务，有什么可以帮您的吗？', 'takeover');
+          } else if (status === 0 && handoffActive) {
+            handoffActive = false;
+            currentHandoffId = null;
+            msgInput.disabled = false;
+            sendBtn.disabled = false;
+            msgInput.placeholder = '请输入您的问题...';
+            msgInput.focus();
+            addHandoffNotice('客服暂时离开，继续由智能客服为您服务', 'return');
+            stopHandoffPolling();
+          } else if (status === 2 && handoffActive) {
+            handoffActive = false;
+            currentHandoffId = null;
+            msgInput.disabled = false;
+            sendBtn.disabled = false;
+            msgInput.placeholder = '请输入您的问题...';
+            msgInput.focus();
+            addHandoffNotice('已回到智能客服接待，您可以继续提问', 'return');
+            stopHandoffPolling();
+          }
+
+          if (status === 1 && res.data.messages) {
+            for (var i = 0; i < res.data.messages.length; i++) {
+              var m = res.data.messages[i];
+              if (m.id > lastHandoffMsgId && m.role === 'admin') {
+                appendMessage(m.content, 'admin');
+                lastHandoffMsgId = m.id;
+              }
+            }
+          }
+        }
+      });
+  }, 3000);
+}
+
+function stopHandoffPolling() {
+  if (handoffTimer) {
+    clearInterval(handoffTimer);
+    handoffTimer = null;
+  }
+}
+
+async function sendMessage(text) {
+  const msg = text || msgInput.value.trim();
   if (!msg) return;
 
   msgInput.value = '';
   appendMessage(msg, 'user');
 
-  // 检查是否包含订单相关词，弹窗引导验证
-  const orderKeywords = ['订单', '快递', '物流', '发货', '到哪', '配送'];
-  const isOrderQuery = orderKeywords.some(kw => msg.includes(kw));
-
-  if (isOrderQuery && !isVerified) {
-    addSystemMessage('🔒 查询订单需要验证身份，已为您打开验证窗口');
-    verifyOverlay.classList.add('active');
-  }
-
   history.push({ role: 'user', content: msg });
   showTyping();
 
   try {
-    const res = await fetch('/api/chat.php?action=chat', {
+    const res = await fetch(API_BASE + 'api/chat.php?action=chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, message: msg, history: history.slice(-10, -1) })
+      body: JSON.stringify({ session_id: sessionId, message: msg, history: history.slice(-10, -1), visitor_hash: visitorHash })
     });
     const data = await res.json();
     hideTyping();
 
     if (data.code === 0 && data.data) {
       const reply = data.data.reply || '';
-      const orderHint = data.data.has_order_query && !data.data.is_verified;
       appendMessage(reply, 'bot');
-      history.push({ role: 'assistant', content: reply });
-
-      if (orderHint && !isVerified) {
-        addSystemMessage('💡 要查询订单信息，请点击下方按钮完成验证');
-        const btnDiv = document.createElement('div');
-        btnDiv.style.cssText = 'text-align:center;padding:8px 0;';
-        btnDiv.innerHTML = '<button onclick="document.getElementById(\'verifyOverlay\').classList.add(\'active\')" style="background:#667eea;color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:13px;cursor:pointer;">📱 验证身份查订单</button>';
-        messagesEl.appendChild(btnDiv);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+      var historyReply = reply;
+      if (data.data.rich_content && data.data.rich_content.length > 0) {
+        for (var ri = 0; ri < data.data.rich_content.length; ri++) {
+          var rc = data.data.rich_content[ri];
+          if (rc.type === 'image_link') {
+            historyReply += ' [云房卡卡片：' + (rc.title || '查看云房卡') + ' ' + (rc.description || '') + ']';
+          }
+        }
+      }
+      history.push({ role: 'assistant', content: historyReply });
+      if (data.data.rich_content && data.data.rich_content.length > 0) {
+        appendRichContent(data.data.rich_content);
+      }
+      if (data.data.handoff_status !== undefined && data.data.handoff_status >= 0) {
+        startHandoffPolling();
       }
     } else {
       hideTyping();
@@ -203,111 +819,7 @@ async function sendMessage() {
   }
 }
 
-// ══════════════════════════════════════════
-// 验证码流程
-// ══════════════════════════════════════════
-let verifyPhone = '';
-let verifyOrderNo = '';
-let codeSent = false;
-
-document.getElementById('verifyPhone').addEventListener('input', function() {
-  document.getElementById('sendCodeBtn').disabled = this.value.length !== 11;
-});
-
-async function sendVerifyCode() {
-  const phone = document.getElementById('verifyPhone').value.trim();
-  const orderNo = document.getElementById('verifyOrderNo').value.trim();
-  if (!/^1[3-9]\d{9}$/.test(phone)) return alert('请输入正确的手机号');
-  if (!orderNo) return alert('请输入订单号');
-
-  const btn = document.getElementById('sendCodeBtn');
-  btn.disabled = true;
-  btn.textContent = '发送中...';
-
-  try {
-    const res = await fetch('/api/verify.php?action=send_code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, order_no: orderNo, session_id: sessionId })
-    });
-    const data = await res.json();
-    if (data.code === 0) {
-      verifyPhone = phone;
-      verifyOrderNo = orderNo;
-      codeSent = true;
-      let countdown = 60;
-      btn.textContent = countdown + 's';
-      const timer = setInterval(() => {
-        countdown--;
-        btn.textContent = countdown + 's';
-        if (countdown <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '重新获取'; }
-      }, 1000);
-    } else {
-      btn.disabled = false;
-      btn.textContent = '获取验证码';
-      alert(data.msg);
-    }
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = '获取验证码';
-    alert('网络错误');
-  }
-}
-
-async function verifyOrder() {
-  if (!codeSent) return alert('请先获取验证码');
-  const otp = document.getElementById('verifyOtp').value.trim();
-  if (!otp) return alert('请输入验证码');
-
-  const btn = document.getElementById('verifyConfirm');
-  btn.disabled = true;
-  btn.textContent = '查询中...';
-
-  try {
-    const res = await fetch('/api/verify.php?action=verify_code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: verifyPhone, otp, order_no: verifyOrderNo, session_id: sessionId })
-    });
-    const data = await res.json();
-    btn.disabled = false;
-    btn.textContent = '验证查询';
-
-    if (data.code === 0 && data.data) {
-      isVerified = true;
-      const orderData = data.data.order_data;
-
-      document.getElementById('orderResult').style.display = 'block';
-      if (orderData) {
-        document.getElementById('orderResult').innerHTML = '✅ 验证通过！<br>' + formatOrderData(orderData) + '<br><br><small>可关闭窗口继续咨询其他问题</small>';
-      } else {
-        document.getElementById('orderResult').innerHTML = '✅ 验证通过！<br>（企业订单API未配置，仅完成身份验证）<br><br><small>可关闭窗口继续咨询</small>';
-      }
-
-      addSystemMessage('✅ 身份验证已通过，现在可以查询订单信息了');
-
-      setTimeout(() => verifyOverlay.classList.remove('active'), 2000);
-    } else {
-      document.getElementById('orderResult').style.display = 'block';
-      document.getElementById('orderResult').innerHTML = '❌ ' + data.msg;
-    }
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = '验证查询';
-    alert('网络错误');
-  }
-}
-
-function formatOrderData(data) {
-  let html = '';
-  for (const [key, value] of Object.entries(data)) {
-    if (value) html += `<div>${key}: ${value}</div>`;
-  }
-  return html || '（暂无详细信息）';
-}
-
-// 初始欢迎消息替换为人设数据
-fetch('/api/chat.php?action=persona')
+fetch(API_BASE + 'api/chat.php?action=persona')
   .then(r => r.json())
   .then(res => {
     if (res.code === 0 && res.data) {

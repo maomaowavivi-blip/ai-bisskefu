@@ -3,85 +3,144 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>仪表盘 - 管理后台</title>
-<script src="auth-guard.js"></script>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
-.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; }
-.header h1 { font-size: 17px; font-weight: 600; }
-.header .user-area { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-.header .user-area .logout-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-.header .user-area .logout-btn:hover { background: rgba(255,255,255,0.25); }
-.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-.stat-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.stat-card .num { font-size: 28px; font-weight: 700; color: #667eea; }
-.stat-card .label { font-size: 13px; color: #999; margin-top: 4px; }
-.nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.nav-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; text-decoration: none; color: inherit; display: block; }
-.nav-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.nav-card .icon { font-size: 32px; margin-bottom: 12px; }
-.nav-card h3 { font-size: 15px; margin-bottom: 4px; }
-.nav-card p { font-size: 12px; color: #999; }
-.loading { text-align: center; padding: 40px; color: #999; }
-</style>
+<title>概览 · AI 智能客服</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
 </head>
 <body>
-<div class="header">
-  <h1>🤖 AI 智能客服 · 管理后台</h1>
-  <div class="user-area">
-    <span id="username">管理员</span>
-    <button class="logout-btn" onclick="doLogout()">退出登录</button>
-  </div>
-</div>
-<div class="container">
-  <div class="loading" id="loading">加载中...</div>
-  <div id="content" style="display:none;">
-    <div class="stats">
-      <div class="stat-card">
-        <div class="num" id="kbCount">-</div>
-        <div class="label">知识库条目</div>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
       </div>
-      <div class="stat-card">
-        <div class="num" id="chatCount">-</div>
-        <div class="label">今日对话</div>
-      </div>
-      <div class="stat-card">
-        <div class="num" id="personaStatus">✅</div>
-        <div class="label">人设状态</div>
+    </a>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item active" href="dashboard.html" data-page="dashboard">
+        <span class="nav-icon">📊</span><span class="nav-label">概览</span>
+      </a>
+      <a class="nav-item" href="persona.html" data-page="persona">
+        <span class="nav-icon">🎭</span><span class="nav-label">吉祥物人设</span>
+      </a>
+      <a class="nav-item" href="knowledge.html" data-page="knowledge">
+        <span class="nav-icon">📚</span><span class="nav-label">知识库管理</span>
+      </a>
+      <a class="nav-item" href="chat-logs.html" data-page="chat-logs">
+        <span class="nav-icon">💬</span><span class="nav-label">对话记录</span>
+      </a>
+      <a class="nav-item" href="users.html" data-page="users">
+        <span class="nav-icon">👥</span><span class="nav-label">账号管理</span>
+      </a>
+      <a class="nav-item" href="settings.html" data-page="settings">
+        <span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span>
+      </a>
+      <a class="nav-item" href="handoff.html" data-page="handoff">
+        <span class="nav-icon">🔄</span><span class="nav-label">人工接管</span>
+        <span class="handoff-badge" id="navHandoffBadge" style="display:none;margin-left:auto;background:#EF4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;">0</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
       </div>
     </div>
-    <div class="nav-grid">
-      <a class="nav-card" href="persona.html">
-        <div class="icon">🎭</div>
-        <h3>吉祥物人设</h3>
-        <p>配置客服的姓名、性格、说话风格</p>
-      </a>
-      <a class="nav-card" href="knowledge.html">
-        <div class="icon">📚</div>
-        <h3>知识库管理</h3>
-        <p>管理FAQ问答对，支持分类和搜索</p>
-      </a>
-      <a class="nav-card" href="chat-logs.html">
-        <div class="icon">💬</div>
-        <h3>对话记录</h3>
-        <p>查看客户聊天历史</p>
-      </a>
-      <a class="nav-card" href="settings.html">
-        <div class="icon">⚙️</div>
-        <h3>系统设置</h3>
-        <p>API配置、短信通道、接入代码</p>
-      </a>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title">概览</div>
+        <div class="page-sub">系统运行状态一览</div>
+      </div>
+    </header>
+
+    <div class="main-body">
+      <div class="loading" id="loading" style="display:flex;align-items:center;justify-content:center;padding:60px;color:rgba(255,255,255,0.3);gap:10px;">
+        <span style="font-size:20px;animation:spin 0.8s linear infinite;">⟳</span>
+        <span>加载中...</span>
+      </div>
+
+      <div id="content" style="display:none;">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-value" id="kbCount">-</div>
+            <div class="stat-label">知识库条目</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎭</div>
+            <div class="stat-value" id="personaStatus" style="font-size:20px;">-</div>
+            <div class="stat-label">人设状态</div>
+          </div>
+        </div>
+
+        <div class="section-header" style="margin-top:40px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <h3 style="font-family:var(--font-heading);font-size:16px;font-weight:600;color:var(--text);">快速导航</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">管理您的智能客服系统</p>
+          </div>
+        </div>
+
+        <div class="nav-grid">
+          <a class="nav-card" href="persona.html">
+            <span class="nav-arrow">→</span>
+            <span class="nav-icon">🎭</span>
+            <h3>吉祥物人设</h3>
+            <p>配置客服的姓名、性格、说话风格和品牌背景</p>
+          </a>
+          <a class="nav-card" href="knowledge.html">
+            <span class="nav-arrow">→</span>
+            <span class="nav-icon">📚</span>
+            <h3>知识库管理</h3>
+            <p>管理FAQ问答对，支持分类、搜索和批量导入</p>
+          </a>
+          <a class="nav-card" href="chat-logs.html">
+            <span class="nav-arrow">→</span>
+            <span class="nav-icon">💬</span>
+            <h3>对话记录</h3>
+            <p>查看客户聊天历史和AI回复日志</p>
+          </a>
+          <a class="nav-card" href="users.html">
+            <span class="nav-arrow">→</span>
+            <span class="nav-icon">👥</span>
+            <h3>账号管理</h3>
+            <p>管理管理员账号、权限分配和密码重置</p>
+          </a>
+          <a class="nav-card" href="settings.html">
+            <span class="nav-arrow">→</span>
+            <span class="nav-icon">⚙️</span>
+            <h3>系统设置</h3>
+            <p>API配置、企业数据接口、嵌入代码等系统管理</p>
+          </a>
+        </div>
+      </div>
     </div>
-  </div>
+  </main>
 </div>
+
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
 <script>
 var token = localStorage.getItem('admin_token');
+if (!token) { window.location.href = 'login.html'; }
 
-function getHeaders() {
-  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+function getHeaders() { return { 'Content-Type': 'application/json' }; }
+function apiUrl(path) {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  var sep = path.indexOf('?') > -1 ? '&' : '?';
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
 }
 
 function doLogout() {
@@ -90,19 +149,22 @@ function doLogout() {
     window.location.href = 'login.html';
   }
 }
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
 
-fetch('/api/auth.php?action=me', { headers: getHeaders() })
+fetch(apiUrl('/api/auth.php?action=me'), { headers: getHeaders() })
   .then(function(r) { return r.json(); })
   .then(function(res) {
     if (res.code === 0 && res.data) {
-      document.getElementById('username').textContent = res.data.username || '管理员';
+      document.getElementById('sidebarUsername').textContent = res.data.username || '管理员';
     }
   });
 
 Promise.all([
-  fetch('/api/knowledge.php?action=list&page=1&size=1', { headers: getHeaders() }).then(function(r) { return r.json(); }),
-  fetch('/api/chat.php?action=stats', { headers: getHeaders() }).catch(function() { return { code: -1 }; }),
-  fetch('/api/persona.php?action=get', { headers: getHeaders() }).then(function(r) { return r.json(); })
+  fetch(apiUrl('/api/knowledge.php?action=list&page=1&size=1'), { headers: getHeaders() }).then(function(r) { return r.json(); }),
+  fetch(apiUrl('/api/persona.php?action=get'), { headers: getHeaders() }).then(function(r) { return r.json(); })
 ])
 .then(function(results) {
   document.getElementById('loading').style.display = 'none';
@@ -111,10 +173,29 @@ Promise.all([
   var kbTotal = (results[0].code === 0) ? results[0].data.total : 0;
   document.getElementById('kbCount').textContent = kbTotal || 0;
 
-  var persona = (results[2].code === 0 && results[2].data && results[2].data.name) ? results[2].data : null;
-  document.getElementById('personaStatus').textContent = persona ? persona.name : '⚠️ 未设置';
-  document.getElementById('personaStatus').style.color = persona ? '#2e7d32' : '#ff9800';
+  var persona = (results[1].code === 0 && results[1].data && results[1].data.name) ? results[1].data : null;
+  var personaEl = document.getElementById('personaStatus');
+  personaEl.textContent = persona ? persona.name : '⚠️ 未设置';
 });
+
+function loadHandoffBadge() {
+  fetch(apiUrl('/api/handoff.php?action=pending_count'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0) {
+        var badge = document.getElementById('navHandoffBadge');
+        var count = res.data.count || 0;
+        if (count > 0) {
+          badge.textContent = count > 99 ? '99+' : count;
+          badge.style.display = 'inline';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    });
+}
+loadHandoffBadge();
+setInterval(loadHandoffBadge, 15000);
 </script>
 </body>
 </html>

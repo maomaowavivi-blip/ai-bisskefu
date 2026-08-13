@@ -43,6 +43,12 @@ define('DB_USER', envVal('DB_USER', 'root'));
 define('DB_PASS', envVal('DB_PASS', ''));
 define('JWT_SECRET', envVal('JWT_SECRET', 'change_this_secret'));
 
+define('SIDECAR_DB_HOST', envVal('SIDECAR_DB_HOST', DB_HOST));
+define('SIDECAR_DB_PORT', envVal('SIDECAR_DB_PORT', DB_PORT));
+define('SIDECAR_DB_NAME', envVal('SIDECAR_DB_NAME', 'sujia_ai_sidecar_dev'));
+define('SIDECAR_DB_USER', envVal('SIDECAR_DB_USER', DB_USER));
+define('SIDECAR_DB_PASS', envVal('SIDECAR_DB_PASS', DB_PASS));
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -68,6 +74,19 @@ function getDB() {
             echo json_encode(['code' => 500, 'msg' => '数据库连接失败']);
             exit();
         }
+    }
+    return $pdo;
+}
+
+function getSidecarDB() {
+    static $pdo = null;
+    if ($pdo === null) {
+        $dsn = 'mysql:host=' . SIDECAR_DB_HOST . ';port=' . SIDECAR_DB_PORT . ';dbname=' . SIDECAR_DB_NAME . ';charset=utf8mb4';
+        $pdo = new PDO($dsn, SIDECAR_DB_USER, SIDECAR_DB_PASS, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
     }
     return $pdo;
 }
@@ -105,7 +124,10 @@ function makeToken($userId, $role) {
 function authToken() {
     $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     if (!$auth || !str_starts_with($auth, 'Bearer ')) {
-        fail('未登录', 401);
+        $auth = 'Bearer ' . ($_GET['token'] ?? '');
+        if (!str_starts_with($auth, 'Bearer ') || trim(substr($auth, 7)) === '') {
+            fail('未登录', 401);
+        }
     }
     $token = substr($auth, 7);
     $parts = explode('.', $token);
@@ -151,58 +173,77 @@ function pcGetInt(PDO $db, $key, $default = 0) {
 }
 
 // ══════════════════════════════════════════
-// AI 调用（MiniMax M2-her）
+// AI 调用
+// ══════════════════════════════════════════
+// 设计：单一 Key 多 Provider
+//   - 后台只暴露一个「AI API Key」输入框（存 platform_config.ai.api_key）
+//   - 根据 model 名自动选择 endpoint（含 "deepseek" 走 DeepSeek，否则走 MiniMax）
+//   - 默认主聊天模型 = deepseek-v4-flash
+//   - .env 可覆盖单独 provider 的 key（DEEPSEEK_API_KEY / MINIMAX_API_KEY）
 // ══════════════════════════════════════════
 
-define('DEFAULT_MODEL', 'M2-her');
-define('DEFAULT_API_URL', 'https://api.minimaxi.com/v1/text/chatcompletion_v2');
+define('DEFAULT_MODEL', 'deepseek-v4-flash');
+define('DEFAULT_API_URL', 'https://api.deepseek.com/v1/chat/completions');
+define('MINIMAX_API_URL_DEFAULT', 'https://api.minimaxi.com/v1/text/chatcompletion_v2');
 
 function callAI($messages, $opts = []) {
-    $apiKey = envVal('MINIMAX_API_KEY', '');
+    $model = $opts['model'] ?? envVal('AI_MODEL', DEFAULT_MODEL);
+
+    // 根据 model 名选 endpoint
+    $isDeepSeek = (strpos($model, 'deepseek') !== false);
+    $apiUrl = $isDeepSeek
+        ? envVal('DEEPSEEK_API_URL', DEFAULT_API_URL)
+        : envVal('MINIMAX_API_URL', MINIMAX_API_URL_DEFAULT);
+
+    // Key 查找优先级：opts > provider 专属 env > 统一 ai.api_key (DB)
+    $apiKey = $opts['api_key'] ?? '';
+    if (!$apiKey) {
+        $apiKey = $isDeepSeek
+            ? envVal('DEEPSEEK_API_KEY', '')
+            : envVal('MINIMAX_API_KEY', '');
+    }
     if (!$apiKey) {
         try { $db = getDB(); $apiKey = trim(strval(pcGet($db, 'ai.api_key', ''))); } catch (Exception $e) {}
     }
     if (!$apiKey) {
-        throw new Exception('AI未配置：请在 .env 或 platform_config 配置 MINIMAX_API_KEY');
+        throw new Exception('AI API Key 未配置：请到管理后台「设置」页面填入 AI API Key');
     }
 
-    $model   = envVal('MINIMAX_MODEL', DEFAULT_MODEL);
-    $apiUrl  = envVal('MINIMAX_API_URL', DEFAULT_API_URL);
-    $timeout = intval(envVal('MINIMAX_TIMEOUT', 60));
+    $timeout = intval($opts['timeout'] ?? envVal('AI_TIMEOUT', 60));
 
-    $maxTokens   = min(intval($opts['max_tokens'] ?? 300), 1024);
-    $temperature = floatval($opts['temperature'] ?? 0.8);
+    $maxTokens   = min(intval($opts['max_tokens'] ?? 150), 1024);
+    $temperature = floatval($opts['temperature'] ?? 0.5);
     if ($temperature < 0.01) $temperature = 0.01;
-    if ($temperature > 1.0) $temperature = 1.0;
+    if ($temperature > 1.0)  $temperature = 1.0;
 
-    $systemContent = '';
-    $dialogParts = array();
+    $cleanMessages = array();
     foreach ($messages as $msg) {
-        $role = $msg['role'] ?? '';
+        $role    = $msg['role'] ?? '';
         $content = is_string($msg['content'] ?? '') ? trim($msg['content']) : '';
-        if (!$content) continue;
-        if ($role === 'system') {
-            $systemContent .= $content . "\n\n";
-        } else {
-            $dialogParts[] = $content;
-        }
+        if (!$content || !in_array($role, array('system', 'user', 'assistant'), true)) continue;
+        $cleanMessages[] = array('role' => $role, 'content' => $content);
     }
-    $merged = trim($systemContent);
-    if (!empty($dialogParts)) {
-        $merged .= ($merged ? "\n\n---\n\n" : '') . implode("\n\n", $dialogParts);
-    }
-    if (!$merged) throw new Exception('AI请求内容为空');
+    if (empty($cleanMessages)) throw new Exception('AI请求内容为空');
 
     $payload = array(
-        'model' => $model,
-        'messages' => array(
-            array('role' => 'system', 'content' => $systemContent ?: '你是企业在线客服。'),
-            array('role' => 'user', 'content' => $merged),
-        ),
-        'temperature' => $temperature,
-        'top_p' => 0.95,
+        'model'                 => $model,
+        'messages'              => $cleanMessages,
+        'temperature'           => $temperature,
+        'top_p'                 => 0.95,
         'max_completion_tokens' => $maxTokens,
     );
+
+    // DeepSeek V4 系推理模型支持 thinking 控制（Anthropic 兼容协议）
+    //  - {"type":"disabled"} 关闭推理，省 90% completion tokens
+    //  - {"type":"enabled","budget_tokens":N} 启用并限制推理预算
+    // 普通模型会忽略此字段
+    if (isset($opts['thinking']) && is_array($opts['thinking'])) {
+        $payload['thinking'] = $opts['thinking'];
+    }
+    // 或使用 OpenAI 兼容字段 reasoning_effort: low/medium/high/max/xhigh
+    if (isset($opts['reasoning_effort']) && is_string($opts['reasoning_effort'])) {
+        $payload['reasoning_effort'] = $opts['reasoning_effort'];
+    }
 
     $ch = curl_init($apiUrl);
     if (!$ch) throw new Exception('curl初始化失败');

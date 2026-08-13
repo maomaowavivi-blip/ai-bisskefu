@@ -4,3 +4,10 @@
 node_modules/
 uploads/*
 !uploads/.gitkeep
+
+# 业务数据导出(本地使用,不入公网仓库)
+exports/
+
+# IDE 配置(个人偏好,不入公网仓库)
+.cursor/
+.vscode/

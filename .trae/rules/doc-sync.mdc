@@ -1,65 +1,62 @@
 ---
-description: 【AI 铁律】改代码必须同步更新文档
+description: 【AI 铁律】改代码必须同步更新 PRD 与相关文档
 globs: *
+alwaysApply: true
 ---
 
 # 【AI 铁律】文档与代码强制同步规则
 
-## 第一条：这是你的义务
+## 第一条：这是你的义务，无需用户提醒
 
-**每次修改代码后，必须同步更新相关文档。** 这不是可选的，是强制义务。
+**每次修改代码后，必须在同一轮对话内同步更新相关文档。** 用户不应再提醒「PRD 同步了吗」——漏同步 = 任务未完成。
 
-用户的痛点：以前改代码后文档没人更新，导致文档和代码脱节，AI 一对比就乱套。
-
-解决方案就是**你来做这个同步工作**——用户只管提需求，改代码和更新文档都是你的事。
+主文档：**`PRD_AI_CUSTOMER_SERVICE_v1.0.md`**（宿家客服产品真相源，与代码同级）。
 
 ## 第二条：映射表
 
-| 改这个文件 | 同时更新这篇文档的哪个部分 |
-|-----------|--------------------------|
-| `api/PromptEngine.php` | `.trae/documents/customer-service-plan-v2.md` → PromptEngine 分层章节 |
-| `api/verify.php` | `.trae/documents/customer-service-plan-v2.md` → 验证流程/安全章节 |
-| `api/knowledge.php` | `.trae/documents/customer-service-plan-v2.md` → 知识库章节 |
-| `api/chat.php` | `.trae/documents/customer-service-plan-v2.md` → API/聊天接口章节 |
-| `admin/persona.html` | `.trae/documents/customer-service-plan-v2.md` → 人设配置章节 |
-| `admin/knowledge.html` | `.trae/documents/customer-service-plan-v2.md` → 知识库管理章节 |
-| `chat.html` | `.trae/documents/customer-service-plan-v2.md` → 客服聊天页面章节 |
-| `sql/init.sql` 或 `sql/migrations/*.sql` | `.trae/documents/customer-service-plan-v2.md` → 数据库章节 |
-| `deploy.sh` | `.trae/documents/customer-service-plan-v2.md` → 部署章节 |
+| 改这个文件 | 必须同步的文档 |
+|-----------|----------------|
+| `api/chat.php` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §2 路由顺序、§3.3 查单/云房卡、§3.4 增强表、§7 验收、附录 A |
+| `api/PromptEngine.php` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §3.4 PromptEngine；`.trae/documents/configurable-agent-blueprint.md` 若动 AgentConfig |
+| `chat.html` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §3.5 访客窗、history/rich_content |
+| `api/knowledge.php` / `KnowledgeBaseSeed.php` / `templates/**/kb_seed.json` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §3.2 / §3.3.2 KB 政策 |
+| `api/RoomQueryFlow.php` / `api/sidecar/**` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §3.3.1 Sidecar；`.trae/documents/room-query-flow-blueprint.md` |
+| `api/HandoffTriggers.php` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §3.3.3 转人工 |
+| `admin/*.html` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §3.5 后台 |
+| `sql/migrations/*.sql` | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §5 文件清单；相关 blueprint |
+| `scripts/sync-to-mamp.sh` / 部署脚本 | `PRD_AI_CUSTOMER_SERVICE_v1.0.md` → §2.2 部署 |
 
-## 第三条：你的工作流
+次要文档（按需）：`.trae/documents/customer-service-plan-v2.md`、各 blueprint。
+
+## 第三条：工作流（与 dev-workflow-soul 一致）
 
 ```
 用户提需求
     ↓
-你修改代码文件
+改工作区代码
     ↓
-你自动查映射表，找到受影响的文档
+bash scripts/sync-to-mamp.sh + 测试
     ↓
-你同步更新文档内容
+查映射表 → 更新 PRD（及 blueprint）
     ↓
-你在同一个 commit 中包含：【代码改动 + 文档更新】
+向用户汇报时说明「PRD 已同步」——若未同步不得声称完成
 ```
 
-## 第四条：例外（只有这一种情况可以不同步）
+## 第四条：PRD 要更新什么
 
-只有 **纯样式改动**（CSS 颜色值/间距/字体大小/背景图）可以不更新文档。
+- **路由/优先级变化** → §2 分流表 + chat.php 处理顺序
+- **新函数/新分支** → 对应功能节 + §5 文件清单 + 附录 A（若有规划差异）
+- **KB 文案/政策** → §3.3.2 + 验收清单
+- **前端交互** → §3.5 + 验收清单
+- **bug 修复若改变行为** → 验收项或「已实现增强」表；纯 typo/样式可略
 
-除此之外，**任何代码改动都必须同步更新文档**，包括但不限于：
-- 新增功能 → 文档新增对应章节
-- 修改逻辑 → 文档更新对应描述
-- 删除功能 → 文档删除对应章节或标记为已废弃
-- 修复 bug → 文档无需大改，但涉及逻辑变化要更新
-
-## 第五条：自查清单
-
-每次提交代码前，过一遍这个清单：
+## 第五条：自查清单（提交前）
 
 ```
 [ ] 改了哪些代码文件？
-[ ] 查映射表，哪些文档受影响？
-[ ] 文档更新了吗？
-[ ] 代码和文档在同一个 commit 里吗？
+[ ] PRD 对应章节更新了吗？
+[ ] 附录 A / 暂缓项 是否仍准确？
+[ ] 用户无需提醒 PRD 同步
 ```
 
-三条都满足才能算完成。少一条就是工作没做完。
+三条都满足才算完成。

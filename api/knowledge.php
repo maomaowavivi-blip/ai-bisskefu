@@ -11,6 +11,8 @@
 // GET    /api/knowledge.php?action=search             检索知识库
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/PromptEngine.php';
+require_once __DIR__ . '/KnowledgeBaseSeed.php';
 
 $action = $_GET['action'] ?? '';
 $body   = getBody();
@@ -95,6 +97,9 @@ if ($action === 'save') {
 
     if (!$question || !$answer) fail('问题和答案不能为空');
 
+    // XSS 防护：富文本只保留安全标签
+    $answer = strip_tags($answer, '<p><br><b><strong><i><em><u><s><a><ul><ol><li><table><tr><td><th><thead><tbody><tfoot><caption><colgroup><col><blockquote><pre><code><h1><h2><h3><h4><h5><h6><span><div><hr><img><sup><sub><del><ins>');
+
     $similarJson = $similar ? json_encode($similar, JSON_UNESCAPED_UNICODE) : null;
 
     if ($id) {
@@ -106,6 +111,86 @@ if ($action === 'save') {
         $id = $db->lastInsertId();
     }
     ok(['id' => intval($id)], '保存成功');
+}
+
+// ══════════════════════════════════════════
+// 获取单条知识条目
+// ══════════════════════════════════════════
+
+if ($action === 'get') {
+    $id = intval($_GET['id'] ?? $body['id'] ?? 0);
+    if (!$id) fail('参数错误');
+
+    $stmt = $db->prepare("SELECT id, category_id, question, answer, keywords, similar_questions, status, hit_count, created_at, updated_at FROM kb_entries WHERE id = ?");
+    $stmt->execute([$id]);
+    $entry = $stmt->fetch();
+    if (!$entry) fail('条目不存在');
+
+    if ($entry['similar_questions']) {
+        $entry['similar_questions'] = json_decode($entry['similar_questions'], true);
+    }
+    ok($entry);
+}
+
+// ══════════════════════════════════════════
+// 向量化操作（代理到 embedding.php）
+// ══════════════════════════════════════════
+
+if ($action === 'vectorize') {
+    adminGuard();
+    $id = intval($body['id'] ?? 0);
+    if (!$id) fail('参数错误');
+
+    $embedFile = __DIR__ . '/embedding.php';
+    if (!file_exists($embedFile)) fail('向量服务未部署');
+
+    $ch = curl_init('http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/embedding.php?action=vectorize');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['id' => $id]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    ]);
+    $resp = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($resp && $httpCode === 200) {
+        $result = json_decode($resp, true);
+        if ($result['code'] === 0) {
+            ok(['id' => $id], '向量化成功');
+        }
+        fail($result['msg'] ?? '向量化失败');
+    }
+    fail('向量化请求失败');
+}
+
+if ($action === 'batch_vectorize') {
+    adminGuard();
+    $embedFile = __DIR__ . '/embedding.php';
+    if (!file_exists($embedFile)) fail('向量服务未部署');
+
+    $ch = curl_init('http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/embedding.php?action=batch_vectorize');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode([]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 120,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    ]);
+    $resp = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($resp && $httpCode === 200) {
+        $result = json_decode($resp, true);
+        if ($result['code'] === 0) {
+            ok(['count' => $result['data']['count'] ?? 0], $result['msg'] ?? '向量化完成');
+        }
+        fail($result['msg'] ?? '批量向量化失败');
+    }
+    fail('批量向量化请求失败');
 }
 
 if ($action === 'delete') {
@@ -121,36 +206,106 @@ if ($action === 'delete') {
 
 if ($action === 'search') {
     $query = trim($_GET['q'] ?? '');
-    $limit = min(10, max(1, intval($_GET['limit'] ?? 5)));
+    $limit = min(50, max(1, intval($_GET['limit'] ?? 20)));
 
     if (!$query) ok(['list' => []]);
 
-    // 先尝试全文检索
-    $items = PromptEngine::searchKnowledge($db, $query, $limit);
+    $like = '%' . $query . '%';
 
-    // 如果全文检索没结果，降级为 LIKE 模糊匹配
-    if (empty($items)) {
-        $like = '%' . $query . '%';
+    // 管理后台搜索：返回完整字段（含 id），不过滤禁用状态
+    try {
         $stmt = $db->prepare("
-            SELECT question, answer, MATCH(question, answer, keywords) AGAINST(? IN BOOLEAN MODE) AS relevance
+            SELECT id, category_id, question, answer, keywords, status, hit_count, created_at, updated_at
             FROM kb_entries
-            WHERE status = 1
-              AND (question LIKE ? OR answer LIKE ? OR keywords LIKE ?)
-            ORDER BY hit_count DESC
+            WHERE question LIKE ? OR answer LIKE ? OR keywords LIKE ?
+            ORDER BY updated_at DESC
             LIMIT ?
         ");
-        $stmt->execute([$query, $like, $like, $like, $limit]);
+        $stmt->execute([$like, $like, $like, $limit]);
         $items = $stmt->fetchAll();
-    }
-
-    // 增加命中计数
-    if (!empty($items)) {
-        foreach ($items as $item) {
-            $db->prepare('UPDATE kb_entries SET hit_count = hit_count + 1 WHERE question = ?')->execute([$item['question']]);
-        }
+    } catch (Exception $e) {
+        $items = [];
     }
 
     ok(['list' => $items]);
+}
+
+// ══════════════════════════════════════════
+// POST /api/knowledge.php?action=import（CSV批量导入）
+// ══════════════════════════════════════════
+
+if ($action === 'import') {
+    adminGuard();
+    if (empty($_FILES['file'])) fail('请上传CSV文件');
+    if ($_FILES['file']['error'] !== UPLOAD_ERR_OK) fail('文件上传失败');
+
+    $csvPath = $_FILES['file']['tmp_name'];
+    $fh = fopen($csvPath, 'r');
+    if (!$fh) fail('无法读取文件');
+
+    // 检测并跳过 UTF-8 BOM
+    $bom = fread($fh, 3);
+    if ($bom !== "\xEF\xBB\xBF") {
+        rewind($fh);
+    }
+
+    // 跳过表头行
+    fgetcsv($fh);
+
+    $success = 0;
+    $skip = 0;
+    $errors = [];
+
+    while (($row = fgetcsv($fh)) !== false) {
+        $question   = trim($row[0] ?? '');
+        $answer     = trim($row[1] ?? '');
+        $keywords   = trim($row[2] ?? '');
+        $categoryName = trim($row[3] ?? '');
+
+        if (!$question || !$answer) {
+            $skip++;
+            continue;
+        }
+
+        try {
+            // 处理分类
+            $categoryId = 0;
+            if ($categoryName) {
+                $catStmt = $db->prepare("SELECT id FROM kb_categories WHERE name = ? LIMIT 1");
+                $catStmt->execute([$categoryName]);
+                $catRow = $catStmt->fetch();
+                if ($catRow) {
+                    $categoryId = intval($catRow['id']);
+                } else {
+                    $db->prepare("INSERT INTO kb_categories (name) VALUES (?)")->execute([$categoryName]);
+                    $categoryId = intval($db->lastInsertId());
+                }
+            }
+
+            // 插入知识条目
+            $insStmt = $db->prepare("INSERT INTO kb_entries (category_id, question, answer, keywords) VALUES (?, ?, ?, ?)");
+            $insStmt->execute([$categoryId, $question, $answer, $keywords]);
+            $success++;
+        } catch (Exception $e) {
+            $errors[] = '第' . ($success + $skip + count($errors) + 2) . '行导入失败: ' . $e->getMessage();
+        }
+    }
+
+    fclose($fh);
+    ok(['success' => $success, 'skip' => $skip, 'errors' => $errors], '导入完成');
+}
+
+// ══════════════════════════════════════════
+// 管理员 - 重建系统默认知识库（清空后写入）
+// ══════════════════════════════════════════
+if ($action === 'rebuild_defaults') {
+    adminGuard();
+    try {
+        $stats = KnowledgeBaseSeed::rebuild($db);
+        ok($stats, '知识库已按系统默认模板重建');
+    } catch (Exception $e) {
+        fail('重建失败：' . $e->getMessage());
+    }
 }
 
 fail('未知操作');

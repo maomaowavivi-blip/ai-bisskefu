@@ -1,0 +1,57 @@
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
+      </div>
+    </a>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html" data-page="dashboard">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">概览</span>
+      </a>
+      <a class="nav-item" href="persona.html" data-page="persona">
+        <span class="nav-icon">🎭</span>
+        <span class="nav-label">吉祥物人设</span>
+      </a>
+      <a class="nav-item" href="knowledge.html" data-page="knowledge">
+        <span class="nav-icon">📚</span>
+        <span class="nav-label">知识库管理</span>
+      </a>
+      <a class="nav-item" href="chat-logs.html" data-page="chat-logs">
+        <span class="nav-icon">💬</span>
+        <span class="nav-label">对话记录</span>
+      </a>
+      <a class="nav-item" href="users.html" data-page="users">
+        <span class="nav-icon">👥</span>
+        <span class="nav-label">账号管理</span>
+      </a>
+      <a class="nav-item" href="settings.html" data-page="settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">系统设置</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title" id="pageTitle"></div>
+        <div class="page-sub" id="pageSub"></div>
+      </div>
+    </header>
+
+    <div class="main-body">

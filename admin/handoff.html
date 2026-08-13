@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人工接管 · AI 智能客服</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+<style>
+.handoff-layout {
+  display: flex;
+  height: calc(100vh - 80px);
+  gap: var(--space-4);
+}
+.handoff-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.handoff-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-light);
+}
+.handoff-tab {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  position: relative;
+  transition: color 0.15s;
+}
+.handoff-tab:hover { color: var(--text); }
+.handoff-tab.active { color: var(--primary); font-weight: 600; }
+.handoff-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--primary);
+}
+.handoff-badge {
+  display: inline-block;
+  background: var(--danger, #ef4444);
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+  vertical-align: top;
+}
+.handoff-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.handoff-item {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background 0.1s;
+  border-left: 3px solid transparent;
+}
+.handoff-item:hover { background: var(--neutral-50); }
+.handoff-item.active {
+  background: var(--primary-light, #eff6ff);
+  border-left-color: var(--primary);
+}
+.handoff-item-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.handoff-item-preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.handoff-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.handoff-chat {
+  flex: 1;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.handoff-chat-header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.handoff-chat-header h3 { margin: 0; font-size: var(--text-base); }
+.handoff-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.handoff-msg {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  word-break: break-word;
+}
+.handoff-msg.user {
+  align-self: flex-start;
+  background: var(--neutral-100);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+.handoff-msg.admin {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.handoff-msg.system {
+  align-self: center;
+  background: var(--warning-50, #fffbeb);
+  color: var(--warning-700, #b45309);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  max-width: 60%;
+  text-align: center;
+}
+.handoff-msg .msg-time {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+  display: block;
+}
+.handoff-chat-input {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  gap: var(--space-3);
+}
+.handoff-chat-input textarea {
+  flex: 1;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  resize: none;
+  height: 48px;
+  font-size: var(--text-sm);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.handoff-chat-input textarea:focus { border-color: var(--primary); }
+.handoff-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: var(--space-3);
+}
+.handoff-placeholder .placeholder-icon { font-size: 48px; opacity: 0.4; }
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+.empty-state .empty-icon { font-size: 36px; opacity: 0.3; margin-bottom: 8px; }
+.empty-state p { font-size: var(--text-sm); }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
+      </div>
+    </a>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">📊</span><span class="nav-label">概览</span></a>
+      <a class="nav-item" href="persona.html"><span class="nav-icon">🎭</span><span class="nav-label">吉祥物人设</span></a>
+      <a class="nav-item" href="knowledge.html"><span class="nav-icon">📚</span><span class="nav-label">知识库管理</span></a>
+      <a class="nav-item" href="chat-logs.html"><span class="nav-icon">💬</span><span class="nav-label">对话记录</span></a>
+      <a class="nav-item" href="users.html"><span class="nav-icon">👥</span><span class="nav-label">账号管理</span></a>
+      <a class="nav-item active" href="handoff.html"><span class="nav-icon">🔄</span><span class="nav-label">人工接管</span><span class="handoff-badge" id="navHandoffBadge" style="display:none;">0</span></a>
+      <a class="nav-item" href="settings.html"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title">人工接管</div>
+        <div class="page-sub">查看待处理会话，接管后可直接回复客户</div>
+      </div>
+    </header>
+
+    <div class="main-body">
+      <div class="handoff-layout">
+        <!-- 左侧会话列表 -->
+        <div class="handoff-sidebar">
+          <div class="handoff-tabs">
+            <button class="handoff-tab active" data-type="pending" onclick="switchTab('pending')">
+              待处理 <span class="handoff-badge" id="pendingBadge" style="display:none;">0</span>
+            </button>
+            <button class="handoff-tab" data-type="active" onclick="switchTab('active')">接管中</button>
+            <button class="handoff-tab" data-type="history" onclick="switchTab('history')">已结束</button>
+          </div>
+          <div class="handoff-list" id="handoffList">
+            <div class="empty-state">
+              <div class="empty-icon">📭</div>
+              <p>加载中...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧聊天区域 -->
+        <div class="handoff-chat" id="handoffChatArea">
+          <div class="handoff-placeholder" id="handoffPlaceholder">
+            <div class="placeholder-icon">💬</div>
+            <p>选择一个会话进行接管</p>
+          </div>
+          <div id="handoffChatContent" style="display:none;flex-direction:column;height:100%;">
+            <div class="handoff-chat-header">
+              <div>
+                <h3 id="chatSessionTitle">会话</h3>
+                <span id="chatSessionStatus" style="font-size:12px;color:var(--text-muted);"></span>
+              </div>
+              <div>
+                <button class="btn btn-sm btn-primary" id="takeOverBtn" onclick="takeOver()">接管</button>
+                <button class="btn btn-sm btn-danger" id="releaseHandoffBtn" onclick="releaseHandoff()" style="display:none;">放弃接管</button>
+                <button class="btn btn-sm btn-secondary" id="endHandoffBtn" onclick="endHandoff()" style="display:none;">结束接管</button>
+              </div>
+            </div>
+            <div class="handoff-chat-messages" id="chatMessages"></div>
+            <div class="handoff-chat-input" id="chatInputArea" style="display:none;">
+              <textarea id="adminMsgInput" placeholder="输入回复内容..." rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAdminMsg();}"></textarea>
+              <button class="btn btn-primary" onclick="sendAdminMsg()" style="white-space:nowrap;">发送</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+
+<script>
+var token = localStorage.getItem('admin_token');
+if (!token) { window.location.href = 'login.html'; }
+
+function getHeaders() { return { 'Content-Type': 'application/json' }; }
+function apiUrl(path) {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  var sep = path.indexOf('?') > -1 ? '&' : '?';
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+}
+
+var currentHandoffId = null;
+function doLogout() {
+  if (confirm('确定退出登录？')) {
+    localStorage.removeItem('admin_token');
+    window.location.href = 'login.html';
+  }
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+
+fetch(apiUrl('/api/auth.php?action=me'), { headers: getHeaders() })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0 && res.data) {
+      document.getElementById('sidebarUsername').textContent = res.data.username || '管理员';
+    }
+  });
+
+var currentTab = 'pending';
+var currentHandoffId = 0;
+var currentSessionId = '';
+var pollTimer = null;
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.handoff-tab').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.type === tab);
+  });
+  loadList();
+}
+
+function loadList() {
+  var listEl = document.getElementById('handoffList');
+  listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div><p>加载中...</p></div>';
+
+  fetch(apiUrl('/api/handoff.php?action=pending_list'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ type: currentTab })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code !== 0 || !res.data.list) {
+      listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>暂无数据</p></div>';
+      return;
+    }
+    var list = res.data.list;
+    if (list.length === 0) {
+      listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>暂无数据</p></div>';
+      return;
+    }
+    listEl.innerHTML = list.map(function(item) {
+      var activeClass = (currentHandoffId == item.id) ? ' active' : '';
+      var title = '会话 #' + item.id;
+      var preview = item.last_message ? item.last_message.substring(0, 50) : '暂无消息';
+      var time = item.last_time || item.created_at;
+      return '<div class="handoff-item' + activeClass + '" data-handoff-id="' + item.id + '" data-session-id="' + item.session_id + '" onclick="selectHandoff(' + item.id + ',\'' + item.session_id + '\',' + item.status + ')">' +
+        '<div class="handoff-item-title"><span>' + title + '</span><span style="font-size:10px;color:var(--text-muted);">' + formatTime(time) + '</span></div>' +
+        '<div class="handoff-item-preview">' + escapeHtml(preview) + '</div>' +
+        '<div class="handoff-item-time">' + (item.reason ? escapeHtml(item.reason) : '') + '</div>' +
+        '</div>';
+    }).join('');
+  })
+  .catch(function() {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>加载失败，请重试</p></div>';
+  });
+}
+
+function selectHandoff(id, sessionId, status) {
+  currentHandoffId = id;
+  currentSessionId = sessionId;
+
+  document.querySelectorAll('.handoff-item').forEach(function(el) {
+    el.classList.toggle('active', parseInt(el.dataset.handoffId) === id);
+  });
+
+  document.getElementById('handoffPlaceholder').style.display = 'none';
+  document.getElementById('handoffChatContent').style.display = 'flex';
+  document.getElementById('chatSessionTitle').textContent = '会话 #' + id;
+  document.getElementById('chatSessionStatus').textContent = status == 0 ? '⏳ 待处理' : (status == 1 ? '✅ 已被你接管' : '🔚 已结束');
+
+  document.getElementById('takeOverBtn').style.display = status == 0 ? 'inline-block' : 'none';
+  document.getElementById('releaseHandoffBtn').style.display = status == 1 ? 'inline-block' : 'none';
+  document.getElementById('endHandoffBtn').style.display = status == 1 ? 'inline-block' : 'none';
+  document.getElementById('chatInputArea').style.display = status == 1 ? 'flex' : 'none';
+
+  loadMessages(id, sessionId);
+
+  if (pollTimer) clearInterval(pollTimer);
+  if (status === 1) {
+    pollTimer = setInterval(function() { loadMessages(currentHandoffId, currentSessionId); }, 3000);
+  }
+}
+
+function loadMessages(handoffId, sessionId) {
+  fetch(apiUrl('/api/handoff.php?action=messages'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ handoff_id: handoffId, session_id: sessionId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code !== 0) return;
+    renderMessages(res.data.chat_logs || [], res.data.handoff_messages || []);
+  });
+}
+
+function renderMessages(chatLogs, handoffMessages) {
+  var el = document.getElementById('chatMessages');
+  var html = '';
+
+  chatLogs.forEach(function(msg) {
+    var roleClass = msg.role === 'user' ? 'user' : 'assistant';
+    var roleLabel = msg.role === 'user' ? '👤 客户' : '🤖 AI';
+    html += '<div class="handoff-msg ' + roleClass + '">' +
+      '<strong style="font-size:11px;display:block;margin-bottom:2px;">' + roleLabel + '</strong>' +
+      escapeHtml(msg.content) +
+      '<span class="msg-time">' + formatTime(msg.created_at) + '</span></div>';
+  });
+
+  // 分隔线
+  if (chatLogs.length > 0 && handoffMessages.length > 0) {
+    html += '<div style="text-align:center;font-size:11px;color:var(--text-muted);padding:4px 0;border-top:1px dashed var(--border-light);">⬇️ 人工接管开始 ⬇️</div>';
+  }
+
+  handoffMessages.forEach(function(msg) {
+    var roleClass = msg.role === 'admin' ? 'admin' : (msg.role === 'system' ? 'system' : 'user');
+    var roleLabel = msg.role === 'admin' ? '👨‍💼 客服' : (msg.role === 'system' ? '' : '👤 客户');
+    if (msg.role === 'system') {
+      html += '<div class="handoff-msg system">' + escapeHtml(msg.content) + '</div>';
+    } else {
+      html += '<div class="handoff-msg ' + roleClass + '">' +
+        (roleLabel ? '<strong style="font-size:11px;display:block;margin-bottom:2px;">' + roleLabel + '</strong>' : '') +
+        escapeHtml(msg.content) +
+        '<span class="msg-time">' + formatTime(msg.created_at) + '</span></div>';
+    }
+  });
+
+  el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
+
+function takeOver() {
+  if (!currentHandoffId) return;
+  fetch(apiUrl('/api/handoff.php?action=take_over'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ handoff_id: currentHandoffId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('✅ 已接管会话');
+      loadList();
+      selectHandoff(currentHandoffId, currentSessionId, 1);
+    } else {
+      showToast(res.msg);
+      loadList();
+    }
+  });
+}
+
+function sendAdminMsg() {
+  var input = document.getElementById('adminMsgInput');
+  var content = input.value.trim();
+  if (!content || !currentHandoffId) return;
+
+  input.value = '';
+  fetch(apiUrl('/api/handoff.php?action=send_message'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ handoff_id: currentHandoffId, content: content })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      loadMessages(currentHandoffId, currentSessionId);
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function endHandoff() {
+  if (!confirm('确定结束当前接管？')) return;
+  fetch(apiUrl('/api/handoff.php?action=end'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ handoff_id: currentHandoffId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('🔚 已结束接管');
+      if (pollTimer) clearInterval(pollTimer);
+      loadList();
+      selectHandoff(currentHandoffId, currentSessionId, 2);
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function releaseHandoff() {
+  if (!confirm('确定放弃接管？该会话将重新回到待处理列表，其他管理员可继续接管。')) return;
+  fetch(apiUrl('/api/handoff.php?action=release'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ handoff_id: currentHandoffId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('🔄 已放弃接管');
+      if (pollTimer) clearInterval(pollTimer);
+      loadList();
+      selectHandoff(currentHandoffId, currentSessionId, 0);
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function formatTime(t) {
+  if (!t) return '';
+  var d = new Date(t.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return t.substring(11, 16);
+  var h = String(d.getHours()).padStart(2, '0');
+  var m = String(d.getMinutes()).padStart(2, '0');
+  return h + ':' + m;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;z-index:9999;animation:fadeIn 0.2s;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(function() { t.remove(); }, 300); }, 2500);
+}
+
+// 加载待处理数量（导航badge和tab badge）
+function loadPendingCount() {
+  fetch(apiUrl('/api/handoff.php?action=pending_count'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0) {
+        var count = res.data.count;
+        var badge = document.getElementById('navHandoffBadge');
+        var pendingBadge = document.getElementById('pendingBadge');
+        if (count > 0) {
+          badge.style.display = 'inline-block';
+          badge.textContent = count;
+          pendingBadge.style.display = 'inline-block';
+          pendingBadge.textContent = count;
+        } else {
+          badge.style.display = 'none';
+          pendingBadge.style.display = 'none';
+        }
+      }
+    });
+}
+
+loadList();
+loadPendingCount();
+setInterval(loadPendingCount, 15000);
+</script>
+</body>
+</html>

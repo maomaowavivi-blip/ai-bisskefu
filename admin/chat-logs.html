@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对话记录 · AI 智能客服</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+<style>
+.session-item { cursor: pointer; transition: background var(--transition-fast); }
+.session-item:hover td { background: var(--primary-50); }
+.session-detail {
+  background: var(--neutral-50);
+  border-top: 2px solid var(--primary-200);
+  border-bottom: 1px solid var(--border);
+}
+.session-detail td { padding: var(--space-4); }
+.msg-bubble {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  max-width: 85%;
+  line-height: 1.6;
+  font-size: var(--text-base);
+}
+.msg-user {
+  background: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  margin-left: auto;
+  border-bottom-right-radius: 2px;
+}
+.msg-assistant {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  margin-right: auto;
+  border-bottom-left-radius: 2px;
+}
+.msg-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+  display: flex;
+  gap: var(--space-3);
+}
+.msg-label {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+.msg-label-user {
+  background: var(--primary-100);
+  color: var(--primary-700);
+}
+.msg-label-assistant {
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-light);
+}
+.detail-header h4 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
+      </div>
+    </a>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html" data-page="dashboard"><span class="nav-icon">📊</span><span class="nav-label">概览</span></a>
+      <a class="nav-item" href="persona.html" data-page="persona"><span class="nav-icon">🎭</span><span class="nav-label">吉祥物人设</span></a>
+      <a class="nav-item" href="knowledge.html" data-page="knowledge"><span class="nav-icon">📚</span><span class="nav-label">知识库管理</span></a>
+      <a class="nav-item active" href="chat-logs.html" data-page="chat-logs"><span class="nav-icon">💬</span><span class="nav-label">对话记录</span></a>
+      <a class="nav-item" href="users.html" data-page="users"><span class="nav-icon">👥</span><span class="nav-label">账号管理</span></a>
+      <a class="nav-item" href="settings.html" data-page="settings"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title">对话记录</div>
+        <div class="page-sub">查看客户聊天历史和AI回复日志</div>
+      </div>
+    </header>
+    <div class="main-body">
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="form-input" id="searchInput" placeholder="搜索对话内容..." onkeydown="if(event.key==='Enter')loadList()">
+        </div>
+        <div class="spacer"></div>
+        <span class="text-sm text-muted" id="statsInfo">加载中...</span>
+      </div>
+
+      <div class="card" style="padding:0;">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:22%">会话ID</th>
+                <th style="width:13%">开始时间</th>
+                <th style="width:9%">消息数</th>
+                <th style="width:12%">身份验证</th>
+                <th style="width:20%">用户</th>
+                <th style="width:9%">Token</th>
+                <th style="width:12%">操作</th>
+              </tr>
+            </thead>
+            <tbody id="logList"></tbody>
+          </table>
+        </div>
+        <div class="loading" id="loading">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+          <span>加载中...</span>
+        </div>
+        <div class="empty-state" id="empty" style="display:none;">
+          <div class="empty-icon">📭</div>
+          <h4>暂无对话记录</h4>
+          <p>当有客户与客服机器人对话后，记录将显示在这里</p>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+
+<!-- 消息明细弹窗 -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h3>💬 对话详情</h3>
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div id="detailContent" style="max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDetailModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var token = localStorage.getItem('admin_token');
+
+if (!token) { window.location.href = 'login.html'; }
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2000);
+}
+
+function getHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+function apiUrl(path) {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  var sep = path.indexOf('?') > -1 ? '&' : '?';
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+}
+
+function doLogout() {
+  if (confirm('确定退出登录？')) {
+    localStorage.removeItem('admin_token');
+    window.location.href = 'login.html';
+  }
+}
+
+var currentPage = 1;
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('visible');
+  document.body.classList.toggle('sidebar-open');
+}
+
+loadStats();
+loadList();
+
+function loadStats() {
+  fetch(apiUrl('/api/chat.php?action=stats'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        document.getElementById('statsInfo').textContent =
+          '今日 ' + (res.data.today_sessions || 0) +
+          ' 会话 · 本周 ' + (res.data.week_sessions || 0) +
+          ' 会话 · 累计 ' + (res.data.total_messages || 0) + ' 条消息';
+      }
+    });
+}
+
+function loadList() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('empty').style.display = 'none';
+  var q = document.getElementById('searchInput').value.trim();
+  var url = '/api/chat.php?action=logs&page=' + currentPage;
+  if (q) url += '&q=' + encodeURIComponent(q);
+
+  fetch(apiUrl(url), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      document.getElementById('loading').style.display = 'none';
+      var tbody = document.getElementById('logList');
+      if (res.code === 0 && res.data.list && res.data.list.length > 0) {
+        tbody.innerHTML = res.data.list.map(function(item) {
+          return renderSessionRow(item);
+        }).join('');
+        renderPagination(res.data.total, res.data.page);
+      } else {
+        tbody.innerHTML = '';
+        document.getElementById('empty').style.display = 'block';
+        document.getElementById('pagination').innerHTML = '';
+      }
+    });
+}
+
+function renderSessionRow(item) {
+  var sid = item.session_id || '';
+  var shortSid = sid.length > 12 ? sid.substring(0, 12) + '...' : sid;
+  var time = item.last_time || item.started_at || '';
+  var verified = item.has_verified == 1
+    ? '<span class="badge badge-success">已验证</span>'
+    : '<span class="badge badge-neutral">未验证</span>';
+  // 用户标识：已验证显示脱敏手机号，否则显示设备指纹，都没有则显示IP
+  var userLabel = '';
+  var userTitle = '';
+  if (item.phone_mask) {
+    userLabel = item.phone_mask;
+    userTitle = '已验证手机号';
+  } else if (item.visitor_hash) {
+    userLabel = item.visitor_hash.length > 12 ? item.visitor_hash.substring(0, 12) + '…' : item.visitor_hash;
+    userTitle = '设备指纹: ' + item.visitor_hash + (item.source_ip ? ' | IP: ' + item.source_ip : '');
+  } else if (item.source_ip) {
+    userLabel = item.source_ip;
+    userTitle = 'IP: ' + item.source_ip;
+  } else {
+    userLabel = '-';
+    userTitle = '';
+  }
+  return '<tr class="session-item">' +
+    '<td><span title="' + sid + '" style="font-family:var(--font-mono);font-size:var(--text-sm);">' + shortSid + '</span></td>' +
+    '<td><span class="text-sm text-secondary">' + time + '</span></td>' +
+    '<td>' + (item.msg_count || 0) + '</td>' +
+    '<td>' + verified + '</td>' +
+    '<td><span title="' + userTitle + '" class="text-sm" style="font-family:var(--font-mono);color:var(--text-secondary);">' + userLabel + '</span></td>' +
+    '<td>' + (item.total_tokens || 0) + '</td>' +
+    '<td><button class="btn btn-sm btn-primary" onclick="viewDetail(\'' + sid + '\')">查看</button></td>' +
+  '</tr>';
+}
+
+function renderPagination(total, page) {
+  var pages = Math.ceil(total / 20);
+  if (pages <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+  var html = '';
+  for (var i = 1; i <= pages && i <= 20; i++) {
+    html += '<button class="' + (i === page ? 'active' : '') + '" onclick="gotoPage(' + i + ')">' + i + '</button>';
+  }
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function gotoPage(p) { currentPage = p; loadList(); }
+
+function viewDetail(sessionId) {
+  fetch(apiUrl('/api/chat.php?action=logs&session_id=' + encodeURIComponent(sessionId)), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data && res.data.messages) {
+        renderMessages(res.data.messages);
+      } else {
+        showToast('加载失败');
+      }
+    });
+}
+
+function renderMessages(messages) {
+  var html = '';
+  var showUserInfo = messages.some(function(m) { return m.visitor_hash || m.source_ip; });
+  messages.forEach(function(m) {
+    var role = m.role === 'user' ? '用户' : '客服';
+    var labelClass = m.role === 'user' ? 'msg-label-user' : 'msg-label-assistant';
+    var bubbleClass = m.role === 'user' ? 'msg-user' : 'msg-assistant';
+    var content = m.content || '';
+    var metaParts = [];
+    if (m.created_at) metaParts.push(m.created_at);
+    if (m.tokens) metaParts.push('Token: ' + m.tokens);
+    if (m.visitor_hash) metaParts.push('设备: ' + m.visitor_hash);
+    if (m.source_ip) metaParts.push('IP: ' + m.source_ip);
+    html += '<div>' +
+      '<span class="msg-label ' + labelClass + '">' + role + '</span>' +
+      '<div class="msg-bubble ' + bubbleClass + '">' +
+        '<div style="white-space:pre-wrap;word-break:break-word;">' + content + '</div>' +
+        '<div class="msg-meta">' +
+          '<span>' + metaParts.join(' · ') + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailModal').classList.add('active');
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.remove('active');
+}
+
+setTimeout(function() {
+  var loading = document.getElementById('loading');
+  if (loading.style.display !== 'none') {
+    loading.style.display = 'none';
+    document.getElementById('empty').style.display = 'block';
+  }
+}, 5000);
+</script>
+</body>
+</html>

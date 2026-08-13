@@ -1,0 +1,280 @@
+<?php
+
+/**
+ * 转人工触发词库（与后台 settings → 转人工规则 共用 handoff_triggers 表）
+ *
+ * 优先级（priority）：
+ *   0 P0 紧急 — 安全、门锁、漏水漏电、人身
+ *   1 P1 高   — 设施故障、卫生投诉、纠纷
+ *   2 P2 中   — 续住换房、改期取消、补给、退款赔偿
+ *   3 P3 常规 — 发票押金、遗失物品、政策咨询
+ *   4 兜底    — 明确要求人工
+ *
+ * 设计原则：
+ *   - 不含 Sidecar 可答的信息类词（地址/停车/WiFi密码/垃圾指引/设备怎么用等）
+ *   - 故障/诉求/纠纷类表述才进库；Room 流优先，未命中后再转人工
+ *   - 词库以 INSERT IGNORE 增量合并，不删运营在后台自增的词
+ */
+class HandoffTriggers {
+    private static ?array $keywordCache = null;
+
+    /** 各优先级说明（供后台/文档引用） */
+    public static function priorityMeta(): array {
+        return [
+            0 => ['label' => 'P0 紧急', 'desc' => '门锁无法进入、漏水漏电、火灾、受伤等危及安全'],
+            1 => ['label' => 'P1 高', 'desc' => '热水空调故障、网络中断、马桶堵塞、卫生虫害、投诉纠纷'],
+            2 => ['label' => 'P2 中', 'desc' => '续住换房、提前入住/延迟退房、改期取消、退款、补给加床'],
+            3 => ['label' => 'P3 常规', 'desc' => '发票、押金扣费、物品遗失、带宠物、噪音'],
+            4 => ['label' => '兜底', 'desc' => '转人工、找客服、有人吗等明确要人工的表述'],
+        ];
+    }
+
+    /**
+     * 系统默认词库（唯一权威来源，migration / 后台「补全默认词库」均以此为准）
+     *
+     * @return array<int, array{0:string,1:int}>
+     */
+    public static function defaultSeed(): array {
+        $p0 = [
+            // 门禁 / 密码
+            '密码错误', '密码不对', '密码失效', '密码无效', '验证码错误', '验证码不对',
+            '收不到密码', '没收到密码', '未收到密码', '没有密码', '没给密码',
+            // 无法进入
+            '打不开门', '开不了门', '进不去', '进不了门', '门外进不去', '被锁在外面', '被锁在门外', '被锁门外',
+            // 门锁故障
+            '门锁故障', '门锁坏了', '门锁打不开', '门锁没反应', '电子锁坏了', '电子锁打不开',
+            '指纹锁坏了', '密码锁坏了', '锁坏了', '锁打不开', '锁没反应', '锁反锁', '锁卡住了', '锁没电',
+            '闪红灯', '一直红灯', '红灯闪', '绿灯不亮',
+            // 漏水 / 燃气 / 火
+            '漏水', '严重漏水', '大量漏水', '天花板漏水', '漏气', '煤气味', '燃气泄漏', '燃气味', '煤气味儿',
+            '着火', '起火', '火灾', '冒烟', '有烟',
+            // 电
+            '触电', '漏电', '电线火花', '全屋停电', '房间停电', '突然停电', '跳闸', '合不上闸', '电闸跳了',
+            // 人身
+            '受伤', '滑倒', '摔伤', '晕倒', '急救', '需要报警', '要报警',
+            // 找不到
+            '找不到位置', '找不到门', '找不到入口', '找不到房间', '找不到楼',
+            // 隐私 / 安全
+            '针孔摄像头', '隐藏摄像头', '偷拍', '有人闯入', '陌生人闯入', '陌生人进入',
+        ];
+
+        $p1 = [
+            // 热水
+            '没热水', '没有热水', '热水不热', '水不热', '热水很小', '热水出不来',
+            '热水器坏了', '热水器不工作', '热水器报错', '忽冷忽热',
+            // 空调
+            '空调不制冷', '空调不制热', '空调坏了', '空调没反应', '空调打不开', '空调漏水', '空调太吵', '空调异响',
+            '调不了温度', '空调不凉', '空调不暖',
+            // 网络（故障类，不含 WiFi密码 / 网密码 等信息查询）
+            'WiFi连不上', '连不上WiFi', '连不上网', '上不了网', '断网', '没网络', '网络断了', '网络不能用',
+            'wifi连不上', '无线连不上',
+            // 卫浴
+            '马桶堵了', '马桶堵', '马桶不通', '下水堵了', '下水道堵', '下水道不通', '不下水', '反味', '恶臭', '很臭',
+            // 卫生 / 虫害
+            '床单脏', '被子脏', '枕头脏', '毛巾脏', '没打扫', '房间脏', '太脏了', '有蟑螂', '看见蟑螂', '有虫子',
+            '有老鼠', '有飞蛾', '异味太重', '味道很大',
+            // 设备故障
+            '电视打不开', '电视坏了', '洗衣机坏了', '洗衣机不能用', '冰箱不制冷', '冰箱坏了', '吹风机坏了',
+            '电磁炉坏了', '微波炉坏了',
+            // 投诉 / 纠纷
+            '投诉', '要投诉', '严重投诉', '我要投诉', '差评', '给差评', '写差评',
+            '与描述不符', '图文不符', '货不对板', '照片不符', '差距太大',
+            '太离谱', '不能接受', '欺骗',
+        ];
+
+        $p2 = [
+            // 续住 / 退房时间变更（诉求类，非「退房几点」信息问句）
+            '续住', '续房', '续一晚', '再住一天', '再住一晚', '多住一天', '多住一晚',
+            '延长入住', '延住', '延时入住', '能不能续', '可以续吗',
+            '延迟退房', '晚退房', '推迟退房', '晚点退房', '能不能晚退', '可以晚退吗', '延迟离店',
+            // 换房
+            '换房', '换房间', '换个房间', '调换房间', '换一间', '换一间房',
+            '别的房间', '另一间', '另一间房', '其他房间', '房间不满意', '想换房', '能换房吗', '换个房',
+            // 入住 / 订单变更
+            '提前入住', '早到入住', '能不能提前', '能提前进吗', '提前进房',
+            '不想住了', '不住了',
+            // 赔偿（取消/改期/退款政策走通用 KB → 平台处理，不转人工）
+            '赔偿', '索赔', '要求赔偿', '补偿',
+            // 补给 / 加床
+            '毛巾不够', '缺毛巾', '没有毛巾', '加被子', '加枕头', '加床', '加一张床',
+            '卫生纸没了', '没纸巾', '缺纸巾', '补洗漱', '补用品', '送毛巾', '送被子',
+        ];
+
+        $p3 = [
+            // 发票
+            '发票', '开发票', '要发票', '开票', '电子发票', '专用发票', '补开发票', '重开发票',
+            // 押金 / 费用（「交押金」走云房卡 KB，不含裸词「押金」）
+            '押金不退', '押金纠纷', '押金什么时候退', '退押金', '扣押金', '乱扣费', '扣费', '多收费',
+            '多扣钱', '收费不对', '账单不对',
+            // 遗失
+            '落东西', '落了东西', '忘带', '忘记拿', '遗落', '丢东西', '东西丢了', '物品遗失',
+            '充电器', '充电线', '数据线', '身份证丢', '护照丢',
+            // 环境（宠物政策走通用 KB，不转人工）
+            '多一个人', '加人', '能加人吗', '多住人',
+            '太吵', '隔壁太吵', '楼上太吵', '楼下太吵', '装修噪音', '噪音太大', '吵死了',
+            // 其它需人工协调
+            '商务合作', '合作洽谈',
+        ];
+
+        $p4 = [
+            '转人工', '转接人工', '找人工', '要人工', '人工客服', '真人客服', '在线客服',
+            '找客服', '联系客服', '人工服务', '接人工', '换人工',
+            '有人吗', '人呢', '在吗', '还在吗', '活人', '真人', '人工',
+            '找前台', '联系前台', '叫前台',
+        ];
+
+        $rows = [];
+        foreach ($p0 as $kw) {
+            $rows[] = [$kw, 0];
+        }
+        foreach ($p1 as $kw) {
+            $rows[] = [$kw, 1];
+        }
+        foreach ($p2 as $kw) {
+            $rows[] = [$kw, 2];
+        }
+        foreach ($p3 as $kw) {
+            $rows[] = [$kw, 3];
+        }
+        foreach ($p4 as $kw) {
+            $rows[] = [$kw, 4];
+        }
+        return $rows;
+    }
+
+    /** 已退役：改由通用 KB 直答，同步时从 handoff_triggers 删除 */
+    public static function retiredKeywords(): array {
+        return [
+            '退款', '退钱', '申请退款', '全额退款', '部分退款', '要求退款',
+            '带宠物', '能否带狗', '能否带猫', '带狗', '带猫', '宠物入住',
+            '取消订单', '退订', '改期', '改时间', '换日期', '更改日期', '改入住',
+            '押金',
+        ];
+    }
+
+    public static function pruneRetiredKeywords(PDO $db): int {
+        $deleted = 0;
+        try {
+            $stmt = $db->prepare('DELETE FROM handoff_triggers WHERE keyword = ?');
+            foreach (self::retiredKeywords() as $kw) {
+                $stmt->execute([$kw]);
+                $deleted += $stmt->rowCount();
+            }
+            self::$keywordCache = null;
+        } catch (Exception $e) {
+            error_log('HandoffTriggers prune error: ' . $e->getMessage());
+        }
+        return $deleted;
+    }
+
+    /** Sidecar 负责回答、故意不放入触发词库的示例（文档/测试用） */
+    public static function sidecarReservedExamples(): array {
+        return [
+            '地址', '怎么去', '停车', '停车场', 'WiFi密码', '无线密码', '网密码',
+            '垃圾放哪', '退房时间', '几点退房', '怎么用空调', '门禁密码', '怎么入住',
+        ];
+    }
+
+    /** 增量合并默认词（不删、不覆盖已有词的优先级） */
+    public static function ensureSeeded(PDO $db): void {
+        try {
+            $stmt = $db->prepare('INSERT IGNORE INTO handoff_triggers (keyword, priority) VALUES (?, ?)');
+            foreach (self::defaultSeed() as [$kw, $priority]) {
+                $stmt->execute([$kw, $priority]);
+            }
+            self::pruneRetiredKeywords($db);
+            self::$keywordCache = null;
+        } catch (Exception $e) {
+            error_log('HandoffTriggers seed error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 补全/对齐系统默认词库：新增缺失词，并将系统默认词的 priority 更新到最新
+     *
+     * @return array{added:int, updated:int, total:int}
+     */
+    public static function syncDefaultLibrary(PDO $db): array {
+        $added = 0;
+        $updated = 0;
+        try {
+            $db->beginTransaction();
+            $insert = $db->prepare('INSERT INTO handoff_triggers (keyword, priority) VALUES (?, ?)');
+            $update = $db->prepare('UPDATE handoff_triggers SET priority = ? WHERE keyword = ?');
+            $exists = $db->prepare('SELECT id, priority FROM handoff_triggers WHERE keyword = ? LIMIT 1');
+
+            foreach (self::defaultSeed() as [$kw, $priority]) {
+                $exists->execute([$kw]);
+                $row = $exists->fetch();
+                if (!$row) {
+                    $insert->execute([$kw, $priority]);
+                    $added++;
+                    continue;
+                }
+                if ((int)$row['priority'] !== $priority) {
+                    $update->execute([$priority, $kw]);
+                    $updated++;
+                }
+            }
+            $db->commit();
+            self::pruneRetiredKeywords($db);
+            self::$keywordCache = null;
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('HandoffTriggers sync error: ' . $e->getMessage());
+            throw $e;
+        }
+
+        $total = (int)$db->query('SELECT COUNT(*) FROM handoff_triggers')->fetchColumn();
+        return ['added' => $added, 'updated' => $updated, 'total' => $total];
+    }
+
+    /** @return string[] */
+    public static function getKeywords(PDO $db): array {
+        if (self::$keywordCache !== null) {
+            return self::$keywordCache;
+        }
+        self::ensureSeeded($db);
+        try {
+            $stmt = $db->query('SELECT keyword FROM handoff_triggers ORDER BY LENGTH(keyword) DESC, priority ASC, id ASC');
+            $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            self::$keywordCache = is_array($rows) ? array_values(array_filter($rows)) : [];
+        } catch (Exception $e) {
+            error_log('HandoffTriggers load error: ' . $e->getMessage());
+            self::$keywordCache = array_column(self::defaultSeed(), 0);
+        }
+        return self::$keywordCache;
+    }
+
+    /** @return array{keyword:string,priority:int}|null */
+    public static function matchKeyword(PDO $db, string $message): ?array {
+        try {
+            self::ensureSeeded($db);
+            $stmt = $db->query('SELECT keyword, priority FROM handoff_triggers ORDER BY LENGTH(keyword) DESC, priority ASC, id ASC');
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $kw = (string)($row['keyword'] ?? '');
+                if ($kw !== '' && mb_strpos($message, $kw) !== false) {
+                    return ['keyword' => $kw, 'priority' => (int)$row['priority']];
+                }
+            }
+        } catch (Exception $e) {
+            error_log('HandoffTriggers match error: ' . $e->getMessage());
+            foreach (self::defaultSeed() as [$kw, $priority]) {
+                if (mb_strpos($message, $kw) !== false) {
+                    return ['keyword' => $kw, 'priority' => $priority];
+                }
+            }
+        }
+        return null;
+    }
+
+    public static function matchesMessage(PDO $db, string $message): bool {
+        return self::matchKeyword($db, $message) !== null;
+    }
+
+    public static function clearCache(): void {
+        self::$keywordCache = null;
+    }
+}

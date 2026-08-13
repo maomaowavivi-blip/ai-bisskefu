@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>账号管理 · AI 智能客服</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
+      </div>
+    </a>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html" data-page="dashboard"><span class="nav-icon">📊</span><span class="nav-label">概览</span></a>
+      <a class="nav-item" href="persona.html" data-page="persona"><span class="nav-icon">🎭</span><span class="nav-label">吉祥物人设</span></a>
+      <a class="nav-item" href="knowledge.html" data-page="knowledge"><span class="nav-icon">📚</span><span class="nav-label">知识库管理</span></a>
+      <a class="nav-item" href="chat-logs.html" data-page="chat-logs"><span class="nav-icon">💬</span><span class="nav-label">对话记录</span></a>
+      <a class="nav-item active" href="users.html" data-page="users"><span class="nav-icon">👥</span><span class="nav-label">账号管理</span></a>
+      <a class="nav-item" href="settings.html" data-page="settings"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title">账号管理</div>
+        <div class="page-sub">管理管理员账号、权限分配和密码重置</div>
+      </div>
+    </header>
+    <div class="main-body">
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openCreateModal()">+ 新增管理员</button>
+    <div class="spacer"></div>
+    <span class="text-sm text-muted" id="userCount"></span>
+  </div>
+
+  <div class="card" style="padding:0;">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>用户名</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="userList"></tbody>
+      </table>
+    </div>
+    <div class="loading" id="loading">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <span>加载中...</span>
+    </div>
+    <div class="empty-state" id="empty" style="display:none;">
+      <div class="empty-icon">👥</div>
+      <h4>暂无管理员账号</h4>
+    </div>
+  </div>
+</div>
+
+<!-- 新增管理员弹窗 -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>新增管理员</h3>
+      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">用户名</label>
+      <input type="text" class="form-input" id="newUsername" maxlength="20" placeholder="3-20位字母数字或下划线">
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码</label>
+      <input type="password" class="form-input" id="newPassword" placeholder="至少6位密码">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+      <button class="btn btn-primary" onclick="createUser()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重置密码弹窗 -->
+<div class="modal-overlay" id="resetPwdModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>重置密码</h3>
+      <button class="modal-close" onclick="closeResetPwdModal()">✕</button>
+    </div>
+    <p class="text-secondary" style="margin-bottom:var(--space-4);">将为此账号生成一個随机8位密码：</p>
+    <div class="key-display" id="newPwdDisplay" style="font-size:var(--text-xl);text-align:center;padding:var(--space-4);letter-spacing:2px;font-weight:700;"></div>
+    <div class="form-hint" style="text-align:center;margin-top:var(--space-2);">请务必复制并保存此密码，关闭后将无法再次查看</div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeResetPwdModal()">关闭</button>
+      <button class="btn btn-primary" onclick="copyNewPwd()">📋 复制密码</button>
+    </div>
+  </div>
+</div>
+  </main>
+</div>
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var token = localStorage.getItem('admin_token');
+
+if (!token) { window.location.href = 'login.html'; }
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2000);
+}
+
+function getHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+function apiUrl(path) {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  var sep = path.indexOf('?') > -1 ? '&' : '?';
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+}
+
+var token = localStorage.getItem('admin_token');
+function doLogout() {
+  if (confirm('确定退出登录？')) {
+    localStorage.removeItem('admin_token');
+    window.location.href = 'login.html';
+  }
+}
+
+function toggleSidebar() {
+  document.body.classList.toggle('sidebar-open');
+}
+
+var currentUser = null;
+
+fetch(apiUrl('/api/auth.php?action=me'), { headers: getHeaders() })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0 && res.data) {
+      currentUser = res.data;
+    }
+  });
+
+loadUsers();
+
+function loadUsers() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('empty').style.display = 'none';
+
+  fetch(apiUrl('/api/auth.php?action=list_users'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      document.getElementById('loading').style.display = 'none';
+      var tbody = document.getElementById('userList');
+      if (res.code === 0 && res.data.list && res.data.list.length > 0) {
+        tbody.innerHTML = res.data.list.map(function(item) {
+          return renderUserRow(item);
+        }).join('');
+        document.getElementById('userCount').textContent = '共 ' + res.data.list.length + ' 个账号';
+      } else {
+        tbody.innerHTML = '';
+        document.getElementById('empty').style.display = 'block';
+        document.getElementById('userCount').textContent = '';
+      }
+    });
+}
+
+function renderUserRow(item) {
+  var status = item.status == 1
+    ? '<span class="badge badge-success">正常</span>'
+    : '<span class="badge badge-error">已禁用</span>';
+  var isSelf = currentUser && currentUser.id == item.id;
+  var toggleBtn = item.status == 1
+    ? '<button class="btn btn-sm btn-secondary" onclick="toggleUser(' + item.id + ', 0)">禁用</button>'
+    : '<button class="btn btn-sm btn-secondary" onclick="toggleUser(' + item.id + ', 1)">启用</button>';
+  var deleteBtn = isSelf
+    ? ''
+    : '<button class="btn btn-sm btn-danger" onclick="deleteUser(' + item.id + ')">删除</button>';
+  return '<tr>' +
+    '<td><strong>' + item.username + '</strong></td>' +
+    '<td>' + status + '</td>' +
+    '<td><span class="text-sm text-secondary">' + (item.created_at || '') + '</span></td>' +
+    '<td><div class="cell-actions">' +
+      '<button class="btn btn-sm btn-primary" onclick="resetPwd(' + item.id + ')">重置密码</button>' +
+      toggleBtn +
+      deleteBtn +
+    '</div></td>' +
+  '</tr>';
+}
+
+function openCreateModal() {
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('createModal').classList.add('active');
+}
+
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('active');
+}
+
+function createUser() {
+  var username = document.getElementById('newUsername').value.trim();
+  var password = document.getElementById('newPassword').value;
+
+  if (!username) { showToast('请输入用户名'); return; }
+  if (!password || password.length < 6) { showToast('密码至少6位'); return; }
+
+  fetch(apiUrl('/api/auth.php?action=create_user'), {
+    method: 'POST', headers: getHeaders(), body: JSON.stringify({ username: username, password: password })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('✅ 创建成功');
+      closeCreateModal();
+      loadUsers();
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function toggleUser(id, status) {
+  var label = status ? '启用' : '禁用';
+  if (!confirm('确定' + label + '该账号？')) return;
+
+  fetch(apiUrl('/api/auth.php?action=update_user'), {
+    method: 'POST', headers: getHeaders(), body: JSON.stringify({ id: id, status: status })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('✅ ' + label + '成功');
+      loadUsers();
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function resetPwd(id) {
+  var newPwd = '';
+  var chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  for (var i = 0; i < 8; i++) {
+    newPwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  fetch(apiUrl('/api/auth.php?action=update_user'), {
+    method: 'POST', headers: getHeaders(), body: JSON.stringify({ id: id, new_password: newPwd })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      document.getElementById('newPwdDisplay').textContent = newPwd;
+      document.getElementById('resetPwdModal').classList.add('active');
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function closeResetPwdModal() {
+  document.getElementById('resetPwdModal').classList.remove('active');
+}
+
+function copyNewPwd() {
+  var pwd = document.getElementById('newPwdDisplay').textContent;
+  navigator.clipboard.writeText(pwd);
+  showToast('✅ 已复制密码');
+}
+
+function deleteUser(id) {
+  if (!confirm('确定删除该账号？此操作不可撤销！')) return;
+
+  fetch(apiUrl('/api/auth.php?action=delete_user'), {
+    method: 'POST', headers: getHeaders(), body: JSON.stringify({ id: id })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('✅ 已删除');
+      loadUsers();
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+setTimeout(function() {
+  var loading = document.getElementById('loading');
+  if (loading.style.display !== 'none') {
+    loading.style.display = 'none';
+    document.getElementById('empty').style.display = 'block';
+  }
+}, 5000);
+</script>
+</body>
+</html>

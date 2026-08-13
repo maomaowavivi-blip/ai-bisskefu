@@ -1,0 +1,1130 @@
+[
+    {
+        "keyword": "密码错误",
+        "priority": 0
+    },
+    {
+        "keyword": "密码不对",
+        "priority": 0
+    },
+    {
+        "keyword": "密码失效",
+        "priority": 0
+    },
+    {
+        "keyword": "密码无效",
+        "priority": 0
+    },
+    {
+        "keyword": "验证码错误",
+        "priority": 0
+    },
+    {
+        "keyword": "验证码不对",
+        "priority": 0
+    },
+    {
+        "keyword": "收不到密码",
+        "priority": 0
+    },
+    {
+        "keyword": "没收到密码",
+        "priority": 0
+    },
+    {
+        "keyword": "未收到密码",
+        "priority": 0
+    },
+    {
+        "keyword": "没有密码",
+        "priority": 0
+    },
+    {
+        "keyword": "没给密码",
+        "priority": 0
+    },
+    {
+        "keyword": "打不开门",
+        "priority": 0
+    },
+    {
+        "keyword": "开不了门",
+        "priority": 0
+    },
+    {
+        "keyword": "进不去",
+        "priority": 0
+    },
+    {
+        "keyword": "进不了门",
+        "priority": 0
+    },
+    {
+        "keyword": "门外进不去",
+        "priority": 0
+    },
+    {
+        "keyword": "被锁在外面",
+        "priority": 0
+    },
+    {
+        "keyword": "被锁在门外",
+        "priority": 0
+    },
+    {
+        "keyword": "被锁门外",
+        "priority": 0
+    },
+    {
+        "keyword": "门锁故障",
+        "priority": 0
+    },
+    {
+        "keyword": "门锁坏了",
+        "priority": 0
+    },
+    {
+        "keyword": "门锁打不开",
+        "priority": 0
+    },
+    {
+        "keyword": "门锁没反应",
+        "priority": 0
+    },
+    {
+        "keyword": "电子锁坏了",
+        "priority": 0
+    },
+    {
+        "keyword": "电子锁打不开",
+        "priority": 0
+    },
+    {
+        "keyword": "指纹锁坏了",
+        "priority": 0
+    },
+    {
+        "keyword": "密码锁坏了",
+        "priority": 0
+    },
+    {
+        "keyword": "锁坏了",
+        "priority": 0
+    },
+    {
+        "keyword": "锁打不开",
+        "priority": 0
+    },
+    {
+        "keyword": "锁没反应",
+        "priority": 0
+    },
+    {
+        "keyword": "锁反锁",
+        "priority": 0
+    },
+    {
+        "keyword": "锁卡住了",
+        "priority": 0
+    },
+    {
+        "keyword": "锁没电",
+        "priority": 0
+    },
+    {
+        "keyword": "闪红灯",
+        "priority": 0
+    },
+    {
+        "keyword": "一直红灯",
+        "priority": 0
+    },
+    {
+        "keyword": "红灯闪",
+        "priority": 0
+    },
+    {
+        "keyword": "绿灯不亮",
+        "priority": 0
+    },
+    {
+        "keyword": "漏水",
+        "priority": 0
+    },
+    {
+        "keyword": "严重漏水",
+        "priority": 0
+    },
+    {
+        "keyword": "大量漏水",
+        "priority": 0
+    },
+    {
+        "keyword": "天花板漏水",
+        "priority": 0
+    },
+    {
+        "keyword": "漏气",
+        "priority": 0
+    },
+    {
+        "keyword": "煤气味",
+        "priority": 0
+    },
+    {
+        "keyword": "燃气泄漏",
+        "priority": 0
+    },
+    {
+        "keyword": "燃气味",
+        "priority": 0
+    },
+    {
+        "keyword": "煤气味儿",
+        "priority": 0
+    },
+    {
+        "keyword": "着火",
+        "priority": 0
+    },
+    {
+        "keyword": "起火",
+        "priority": 0
+    },
+    {
+        "keyword": "火灾",
+        "priority": 0
+    },
+    {
+        "keyword": "冒烟",
+        "priority": 0
+    },
+    {
+        "keyword": "有烟",
+        "priority": 0
+    },
+    {
+        "keyword": "触电",
+        "priority": 0
+    },
+    {
+        "keyword": "漏电",
+        "priority": 0
+    },
+    {
+        "keyword": "电线火花",
+        "priority": 0
+    },
+    {
+        "keyword": "全屋停电",
+        "priority": 0
+    },
+    {
+        "keyword": "房间停电",
+        "priority": 0
+    },
+    {
+        "keyword": "突然停电",
+        "priority": 0
+    },
+    {
+        "keyword": "跳闸",
+        "priority": 0
+    },
+    {
+        "keyword": "合不上闸",
+        "priority": 0
+    },
+    {
+        "keyword": "电闸跳了",
+        "priority": 0
+    },
+    {
+        "keyword": "受伤",
+        "priority": 0
+    },
+    {
+        "keyword": "滑倒",
+        "priority": 0
+    },
+    {
+        "keyword": "摔伤",
+        "priority": 0
+    },
+    {
+        "keyword": "晕倒",
+        "priority": 0
+    },
+    {
+        "keyword": "急救",
+        "priority": 0
+    },
+    {
+        "keyword": "需要报警",
+        "priority": 0
+    },
+    {
+        "keyword": "要报警",
+        "priority": 0
+    },
+    {
+        "keyword": "找不到位置",
+        "priority": 0
+    },
+    {
+        "keyword": "找不到门",
+        "priority": 0
+    },
+    {
+        "keyword": "找不到入口",
+        "priority": 0
+    },
+    {
+        "keyword": "找不到房间",
+        "priority": 0
+    },
+    {
+        "keyword": "找不到楼",
+        "priority": 0
+    },
+    {
+        "keyword": "针孔摄像头",
+        "priority": 0
+    },
+    {
+        "keyword": "隐藏摄像头",
+        "priority": 0
+    },
+    {
+        "keyword": "偷拍",
+        "priority": 0
+    },
+    {
+        "keyword": "有人闯入",
+        "priority": 0
+    },
+    {
+        "keyword": "陌生人闯入",
+        "priority": 0
+    },
+    {
+        "keyword": "陌生人进入",
+        "priority": 0
+    },
+    {
+        "keyword": "没热水",
+        "priority": 1
+    },
+    {
+        "keyword": "没有热水",
+        "priority": 1
+    },
+    {
+        "keyword": "热水不热",
+        "priority": 1
+    },
+    {
+        "keyword": "水不热",
+        "priority": 1
+    },
+    {
+        "keyword": "热水很小",
+        "priority": 1
+    },
+    {
+        "keyword": "热水出不来",
+        "priority": 1
+    },
+    {
+        "keyword": "热水器坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "热水器不工作",
+        "priority": 1
+    },
+    {
+        "keyword": "热水器报错",
+        "priority": 1
+    },
+    {
+        "keyword": "忽冷忽热",
+        "priority": 1
+    },
+    {
+        "keyword": "空调不制冷",
+        "priority": 1
+    },
+    {
+        "keyword": "空调不制热",
+        "priority": 1
+    },
+    {
+        "keyword": "空调坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "空调没反应",
+        "priority": 1
+    },
+    {
+        "keyword": "空调打不开",
+        "priority": 1
+    },
+    {
+        "keyword": "空调漏水",
+        "priority": 1
+    },
+    {
+        "keyword": "空调太吵",
+        "priority": 1
+    },
+    {
+        "keyword": "空调异响",
+        "priority": 1
+    },
+    {
+        "keyword": "调不了温度",
+        "priority": 1
+    },
+    {
+        "keyword": "空调不凉",
+        "priority": 1
+    },
+    {
+        "keyword": "空调不暖",
+        "priority": 1
+    },
+    {
+        "keyword": "WiFi连不上",
+        "priority": 1
+    },
+    {
+        "keyword": "连不上WiFi",
+        "priority": 1
+    },
+    {
+        "keyword": "连不上网",
+        "priority": 1
+    },
+    {
+        "keyword": "上不了网",
+        "priority": 1
+    },
+    {
+        "keyword": "断网",
+        "priority": 1
+    },
+    {
+        "keyword": "没网络",
+        "priority": 1
+    },
+    {
+        "keyword": "网络断了",
+        "priority": 1
+    },
+    {
+        "keyword": "网络不能用",
+        "priority": 1
+    },
+    {
+        "keyword": "wifi连不上",
+        "priority": 1
+    },
+    {
+        "keyword": "无线连不上",
+        "priority": 1
+    },
+    {
+        "keyword": "马桶堵了",
+        "priority": 1
+    },
+    {
+        "keyword": "马桶堵",
+        "priority": 1
+    },
+    {
+        "keyword": "马桶不通",
+        "priority": 1
+    },
+    {
+        "keyword": "下水堵了",
+        "priority": 1
+    },
+    {
+        "keyword": "下水道堵",
+        "priority": 1
+    },
+    {
+        "keyword": "下水道不通",
+        "priority": 1
+    },
+    {
+        "keyword": "不下水",
+        "priority": 1
+    },
+    {
+        "keyword": "反味",
+        "priority": 1
+    },
+    {
+        "keyword": "恶臭",
+        "priority": 1
+    },
+    {
+        "keyword": "很臭",
+        "priority": 1
+    },
+    {
+        "keyword": "床单脏",
+        "priority": 1
+    },
+    {
+        "keyword": "被子脏",
+        "priority": 1
+    },
+    {
+        "keyword": "枕头脏",
+        "priority": 1
+    },
+    {
+        "keyword": "毛巾脏",
+        "priority": 1
+    },
+    {
+        "keyword": "没打扫",
+        "priority": 1
+    },
+    {
+        "keyword": "房间脏",
+        "priority": 1
+    },
+    {
+        "keyword": "太脏了",
+        "priority": 1
+    },
+    {
+        "keyword": "有蟑螂",
+        "priority": 1
+    },
+    {
+        "keyword": "看见蟑螂",
+        "priority": 1
+    },
+    {
+        "keyword": "有虫子",
+        "priority": 1
+    },
+    {
+        "keyword": "有老鼠",
+        "priority": 1
+    },
+    {
+        "keyword": "有飞蛾",
+        "priority": 1
+    },
+    {
+        "keyword": "异味太重",
+        "priority": 1
+    },
+    {
+        "keyword": "味道很大",
+        "priority": 1
+    },
+    {
+        "keyword": "电视打不开",
+        "priority": 1
+    },
+    {
+        "keyword": "电视坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "洗衣机坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "洗衣机不能用",
+        "priority": 1
+    },
+    {
+        "keyword": "冰箱不制冷",
+        "priority": 1
+    },
+    {
+        "keyword": "冰箱坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "吹风机坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "电磁炉坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "微波炉坏了",
+        "priority": 1
+    },
+    {
+        "keyword": "投诉",
+        "priority": 1
+    },
+    {
+        "keyword": "要投诉",
+        "priority": 1
+    },
+    {
+        "keyword": "严重投诉",
+        "priority": 1
+    },
+    {
+        "keyword": "我要投诉",
+        "priority": 1
+    },
+    {
+        "keyword": "差评",
+        "priority": 1
+    },
+    {
+        "keyword": "给差评",
+        "priority": 1
+    },
+    {
+        "keyword": "写差评",
+        "priority": 1
+    },
+    {
+        "keyword": "与描述不符",
+        "priority": 1
+    },
+    {
+        "keyword": "图文不符",
+        "priority": 1
+    },
+    {
+        "keyword": "货不对板",
+        "priority": 1
+    },
+    {
+        "keyword": "照片不符",
+        "priority": 1
+    },
+    {
+        "keyword": "差距太大",
+        "priority": 1
+    },
+    {
+        "keyword": "太离谱",
+        "priority": 1
+    },
+    {
+        "keyword": "不能接受",
+        "priority": 1
+    },
+    {
+        "keyword": "欺骗",
+        "priority": 1
+    },
+    {
+        "keyword": "续住",
+        "priority": 2
+    },
+    {
+        "keyword": "续房",
+        "priority": 2
+    },
+    {
+        "keyword": "续一晚",
+        "priority": 2
+    },
+    {
+        "keyword": "再住一天",
+        "priority": 2
+    },
+    {
+        "keyword": "再住一晚",
+        "priority": 2
+    },
+    {
+        "keyword": "多住一天",
+        "priority": 2
+    },
+    {
+        "keyword": "多住一晚",
+        "priority": 2
+    },
+    {
+        "keyword": "延长入住",
+        "priority": 2
+    },
+    {
+        "keyword": "延住",
+        "priority": 2
+    },
+    {
+        "keyword": "延时入住",
+        "priority": 2
+    },
+    {
+        "keyword": "能不能续",
+        "priority": 2
+    },
+    {
+        "keyword": "可以续吗",
+        "priority": 2
+    },
+    {
+        "keyword": "延迟退房",
+        "priority": 2
+    },
+    {
+        "keyword": "晚退房",
+        "priority": 2
+    },
+    {
+        "keyword": "推迟退房",
+        "priority": 2
+    },
+    {
+        "keyword": "晚点退房",
+        "priority": 2
+    },
+    {
+        "keyword": "能不能晚退",
+        "priority": 2
+    },
+    {
+        "keyword": "可以晚退吗",
+        "priority": 2
+    },
+    {
+        "keyword": "延迟离店",
+        "priority": 2
+    },
+    {
+        "keyword": "换房",
+        "priority": 2
+    },
+    {
+        "keyword": "换房间",
+        "priority": 2
+    },
+    {
+        "keyword": "换个房间",
+        "priority": 2
+    },
+    {
+        "keyword": "调换房间",
+        "priority": 2
+    },
+    {
+        "keyword": "换一间",
+        "priority": 2
+    },
+    {
+        "keyword": "换一间房",
+        "priority": 2
+    },
+    {
+        "keyword": "别的房间",
+        "priority": 2
+    },
+    {
+        "keyword": "另一间",
+        "priority": 2
+    },
+    {
+        "keyword": "另一间房",
+        "priority": 2
+    },
+    {
+        "keyword": "其他房间",
+        "priority": 2
+    },
+    {
+        "keyword": "房间不满意",
+        "priority": 2
+    },
+    {
+        "keyword": "想换房",
+        "priority": 2
+    },
+    {
+        "keyword": "能换房吗",
+        "priority": 2
+    },
+    {
+        "keyword": "换个房",
+        "priority": 2
+    },
+    {
+        "keyword": "提前入住",
+        "priority": 2
+    },
+    {
+        "keyword": "早到入住",
+        "priority": 2
+    },
+    {
+        "keyword": "能不能提前",
+        "priority": 2
+    },
+    {
+        "keyword": "能提前进吗",
+        "priority": 2
+    },
+    {
+        "keyword": "提前进房",
+        "priority": 2
+    },
+    {
+        "keyword": "不想住了",
+        "priority": 2
+    },
+    {
+        "keyword": "不住了",
+        "priority": 2
+    },
+    {
+        "keyword": "赔偿",
+        "priority": 2
+    },
+    {
+        "keyword": "索赔",
+        "priority": 2
+    },
+    {
+        "keyword": "要求赔偿",
+        "priority": 2
+    },
+    {
+        "keyword": "补偿",
+        "priority": 2
+    },
+    {
+        "keyword": "毛巾不够",
+        "priority": 2
+    },
+    {
+        "keyword": "缺毛巾",
+        "priority": 2
+    },
+    {
+        "keyword": "没有毛巾",
+        "priority": 2
+    },
+    {
+        "keyword": "加被子",
+        "priority": 2
+    },
+    {
+        "keyword": "加枕头",
+        "priority": 2
+    },
+    {
+        "keyword": "加床",
+        "priority": 2
+    },
+    {
+        "keyword": "加一张床",
+        "priority": 2
+    },
+    {
+        "keyword": "卫生纸没了",
+        "priority": 2
+    },
+    {
+        "keyword": "没纸巾",
+        "priority": 2
+    },
+    {
+        "keyword": "缺纸巾",
+        "priority": 2
+    },
+    {
+        "keyword": "补洗漱",
+        "priority": 2
+    },
+    {
+        "keyword": "补用品",
+        "priority": 2
+    },
+    {
+        "keyword": "送毛巾",
+        "priority": 2
+    },
+    {
+        "keyword": "送被子",
+        "priority": 2
+    },
+    {
+        "keyword": "发票",
+        "priority": 3
+    },
+    {
+        "keyword": "开发票",
+        "priority": 3
+    },
+    {
+        "keyword": "要发票",
+        "priority": 3
+    },
+    {
+        "keyword": "开票",
+        "priority": 3
+    },
+    {
+        "keyword": "电子发票",
+        "priority": 3
+    },
+    {
+        "keyword": "专用发票",
+        "priority": 3
+    },
+    {
+        "keyword": "补开发票",
+        "priority": 3
+    },
+    {
+        "keyword": "重开发票",
+        "priority": 3
+    },
+    {
+        "keyword": "押金不退",
+        "priority": 3
+    },
+    {
+        "keyword": "押金纠纷",
+        "priority": 3
+    },
+    {
+        "keyword": "押金什么时候退",
+        "priority": 3
+    },
+    {
+        "keyword": "退押金",
+        "priority": 3
+    },
+    {
+        "keyword": "扣押金",
+        "priority": 3
+    },
+    {
+        "keyword": "乱扣费",
+        "priority": 3
+    },
+    {
+        "keyword": "扣费",
+        "priority": 3
+    },
+    {
+        "keyword": "多收费",
+        "priority": 3
+    },
+    {
+        "keyword": "多扣钱",
+        "priority": 3
+    },
+    {
+        "keyword": "收费不对",
+        "priority": 3
+    },
+    {
+        "keyword": "账单不对",
+        "priority": 3
+    },
+    {
+        "keyword": "落东西",
+        "priority": 3
+    },
+    {
+        "keyword": "落了东西",
+        "priority": 3
+    },
+    {
+        "keyword": "忘带",
+        "priority": 3
+    },
+    {
+        "keyword": "忘记拿",
+        "priority": 3
+    },
+    {
+        "keyword": "遗落",
+        "priority": 3
+    },
+    {
+        "keyword": "丢东西",
+        "priority": 3
+    },
+    {
+        "keyword": "东西丢了",
+        "priority": 3
+    },
+    {
+        "keyword": "物品遗失",
+        "priority": 3
+    },
+    {
+        "keyword": "充电器",
+        "priority": 3
+    },
+    {
+        "keyword": "充电线",
+        "priority": 3
+    },
+    {
+        "keyword": "数据线",
+        "priority": 3
+    },
+    {
+        "keyword": "身份证丢",
+        "priority": 3
+    },
+    {
+        "keyword": "护照丢",
+        "priority": 3
+    },
+    {
+        "keyword": "多一个人",
+        "priority": 3
+    },
+    {
+        "keyword": "加人",
+        "priority": 3
+    },
+    {
+        "keyword": "能加人吗",
+        "priority": 3
+    },
+    {
+        "keyword": "多住人",
+        "priority": 3
+    },
+    {
+        "keyword": "太吵",
+        "priority": 3
+    },
+    {
+        "keyword": "隔壁太吵",
+        "priority": 3
+    },
+    {
+        "keyword": "楼上太吵",
+        "priority": 3
+    },
+    {
+        "keyword": "楼下太吵",
+        "priority": 3
+    },
+    {
+        "keyword": "装修噪音",
+        "priority": 3
+    },
+    {
+        "keyword": "噪音太大",
+        "priority": 3
+    },
+    {
+        "keyword": "吵死了",
+        "priority": 3
+    },
+    {
+        "keyword": "商务合作",
+        "priority": 3
+    },
+    {
+        "keyword": "合作洽谈",
+        "priority": 3
+    },
+    {
+        "keyword": "转人工",
+        "priority": 4
+    },
+    {
+        "keyword": "转接人工",
+        "priority": 4
+    },
+    {
+        "keyword": "找人工",
+        "priority": 4
+    },
+    {
+        "keyword": "要人工",
+        "priority": 4
+    },
+    {
+        "keyword": "人工客服",
+        "priority": 4
+    },
+    {
+        "keyword": "真人客服",
+        "priority": 4
+    },
+    {
+        "keyword": "在线客服",
+        "priority": 4
+    },
+    {
+        "keyword": "找客服",
+        "priority": 4
+    },
+    {
+        "keyword": "联系客服",
+        "priority": 4
+    },
+    {
+        "keyword": "人工服务",
+        "priority": 4
+    },
+    {
+        "keyword": "接人工",
+        "priority": 4
+    },
+    {
+        "keyword": "换人工",
+        "priority": 4
+    },
+    {
+        "keyword": "有人吗",
+        "priority": 4
+    },
+    {
+        "keyword": "人呢",
+        "priority": 4
+    },
+    {
+        "keyword": "在吗",
+        "priority": 4
+    },
+    {
+        "keyword": "还在吗",
+        "priority": 4
+    },
+    {
+        "keyword": "活人",
+        "priority": 4
+    },
+    {
+        "keyword": "真人",
+        "priority": 4
+    },
+    {
+        "keyword": "人工",
+        "priority": 4
+    },
+    {
+        "keyword": "找前台",
+        "priority": 4
+    },
+    {
+        "keyword": "联系前台",
+        "priority": 4
+    },
+    {
+        "keyword": "叫前台",
+        "priority": 4
+    }
+]

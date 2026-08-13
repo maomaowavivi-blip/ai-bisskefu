@@ -1,0 +1,381 @@
+<?php
+
+/**
+ * 南宁宿家民宿 · 通用知识库默认种子
+ *
+ * 边界：
+ *   - 本库：品牌 / 通用政策 / 服务路由 / 南宁泛攻略
+ *   - Sidecar：地址、停车、设备、垃圾等（需订单号）；WiFi/门锁/交押金/公安核验 → 云房卡
+ *   - 转人工词库：续住、换房、发票、投诉等
+ */
+class KnowledgeBaseSeed {
+    private const BRAND = '宿家民宿';
+    private const PLATFORMS = '携程、美团、去哪儿';
+    private const CHECKIN = '14:00';
+    private const CHECKOUT = '12:00';
+    private const YUNFANGKA_CREDENTIAL = 'WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。';
+
+    /** @return array<string, array{desc:string, entries:array<int,array{question:string,answer:string,keywords:string,similar?:string[]}>}> */
+    public static function catalog(): array {
+        return [
+            'brand' => ['desc' => '品牌介绍', 'entries' => self::brandEntries()],
+            'booking' => ['desc' => '预订与订单', 'entries' => self::bookingEntries()],
+            'checkin' => ['desc' => '入住与退房', 'entries' => self::checkinEntries()],
+            'rules' => ['desc' => '房规与禁忌', 'entries' => self::rulesEntries()],
+            'fees' => ['desc' => '费用与退改', 'entries' => self::feesEntries()],
+            'service' => ['desc' => '服务边界与路由', 'entries' => self::serviceEntries()],
+            'nanning' => ['desc' => '南宁本地攻略', 'entries' => self::nanningEntries()],
+            'handoff' => ['desc' => '需人工处理', 'entries' => self::handoffEntries()],
+        ];
+    }
+
+    /** @return array<int, array{question:string,answer:string,keywords:string,similar?:string[]}> */
+    public static function defaultEntries(): array {
+        $all = [];
+        foreach (self::catalog() as $group) {
+            foreach ($group['entries'] as $entry) {
+                $all[] = $entry;
+            }
+        }
+        return $all;
+    }
+
+    private static function brandEntries(): array {
+        return [
+            [
+                'question' => '宿家民宿是什么？',
+                'answer' => '宿家民宿是面向客人的南宁城市民宿品牌，运营分散式公寓房源，为商旅客和短住客提供入住咨询与订单服务。',
+                'keywords' => '宿家,宿家民宿,品牌,是什么,介绍,橙途',
+                'similar' => ['你们是什么民宿', '橙途民宿是什么', '你们是什么品牌'],
+            ],
+            [
+                'question' => '南宁宿家民宿有哪些区域？',
+                'answer' => '南宁房源分布在青秀区、西乡塘区、江南区、良庆区等多个板块，覆盖万象城、民族大道、广西大学、万达茂等商圈周边，具体以您预订房源为准。',
+                'keywords' => '南宁,区域,分布,哪里,地址范围',
+                'similar' => ['在南宁哪些地方有房', '有几家店'],
+            ],
+            [
+                'question' => '你们提供什么类型的房间？',
+                'answer' => '以城市公寓为主，含大床、双床、套房等；部分房源有亲子、商旅、观影等主题配置，具体以预订页面展示为准。',
+                'keywords' => '房型,主题,公寓,套房',
+                'similar' => ['有没有亲子房', '有什么房型'],
+            ],
+            [
+                'question' => 'AI客服小橙能帮我做什么？',
+                'answer' => '小橙不能代您预订；可协助查询订单与云房卡，并在您提供订单号后查询该套房的地址、停车等信息；WiFi密码、门锁密码、交押金和公安刷脸核验请在云房卡内查看；续住换房发票投诉等由人工处理。',
+                'keywords' => '小橙,能做什么,客服,范围',
+                'similar' => ['你能帮我什么'],
+            ],
+        ];
+    }
+
+    private static function bookingEntries(): array {
+        $brand = self::BRAND;
+        $platforms = self::PLATFORMS;
+        return [
+            [
+                'question' => '怎么预订房间？',
+                'answer' => "请前往{$platforms}搜索「{$brand}」并下单；本客服不支持在线预订，也不接受通过 AI 或聊天窗口订房。下单后请保留平台订单号，便于查询与入住。",
+                'keywords' => '预订,下单,怎么订,预约,订房',
+                'similar' => ['如何订房', '在哪里预订', '怎么订房间'],
+            ],
+            [
+                'question' => '可以在这里预订吗？',
+                'answer' => "不可以。AI 客服和聊天窗口均不提供预订服务，请前往{$platforms}搜索{$brand}并完成下单。",
+                'keywords' => '这里订,在线订,聊天订,AI订,帮你订,代订,帮我订,订一间',
+                'similar' => ['你帮我订', '能在客服这订吗', '直接在这里下单', '你帮我订一间'],
+            ],
+            [
+                'question' => '怎么查询我的订单？',
+                'answer' => '在聊天窗口点击「订单查询」，或直接发送 order_query:您的订单号，即可查看订单信息与云房卡。',
+                'keywords' => '查订单,订单查询,订单号',
+                'similar' => ['帮我查订单', '订单在哪看'],
+            ],
+            [
+                'question' => '预订后没收到确认信息怎么办？',
+                'answer' => "请先在{$platforms}的订单详情中查看；若仍无法确认，请核对平台订单号后使用本窗口的订单查询功能。",
+                'keywords' => '确认,短信,没收到,预订成功',
+            ],
+            [
+                'question' => '可以订当天的房间吗？',
+                'answer' => "能否当日预订取决于{$platforms}上该房源的房态，请直接在上述平台尝试；旺季建议提前预订。",
+                'keywords' => '当天,今日,临时,紧急',
+            ],
+            [
+                'question' => '可以现场订房吗？',
+                'answer' => "请通过{$platforms}下单，本客服不接受现场订房或 AI 代订；是否仍有空房以平台展示为准。",
+                'keywords' => '现场,到店,直接订,线下',
+            ],
+            [
+                'question' => '云房卡是什么？',
+                'answer' => '云房卡是您订单关联的电子入住凭证。查询订单成功后点击云房卡，可办理公安刷脸核验、在线交押金，并查看该房间的WiFi密码、门锁密码及入住指引。',
+                'keywords' => '云房卡,电子房卡,房卡',
+                'similar' => ['电子房卡怎么用', '云房卡多少钱', '云房卡退款', '云房卡有什么'],
+            ],
+        ];
+    }
+
+    private static function checkinEntries(): array {
+        return [
+            [
+                'question' => '几点可以入住？',
+                'answer' => '宿家民宿统一标准入住时间为当日14:00；如需提前入住，请联系掌柜，视房态协调。',
+                'keywords' => '入住时间,几点入住,入住几点,几点进,什么时候能住,14点',
+                'similar' => ['最早几点入住', '可以提前进吗', '下午几点入住', '几点可以入住'],
+            ],
+            [
+                'question' => '几点退房？',
+                'answer' => '宿家民宿统一标准退房时间为当日12:00；如需延迟退房，请联系掌柜，视房态安排。',
+                'keywords' => '退房时间,几点退房,退房几点,几点走,离店,12点,中午几点,必须几点走',
+                'similar' => ['最迟几点退房', '中午几点退', '几点可以退房', '中午几点必须走', '必须几点走'],
+            ],
+            [
+                'question' => '入住需要带什么证件？',
+                'answer' => '按公安机关要求，入住须登记有效身份证件（身份证、护照、港澳通行证等）；无有效证件无法办理入住。',
+                'keywords' => '证件,身份证,登记,护照',
+                'similar' => ['忘带身份证能住吗'],
+            ],
+            [
+                'question' => '儿童需要登记吗？',
+                'answer' => '14周岁以下儿童随监护人入住，一般随成人登记并注明人数；14周岁及以上建议携带身份证或户口本登记。',
+                'keywords' => '儿童,小孩,登记',
+            ],
+            [
+                'question' => '可以朋友先帮我办理入住吗？',
+                'answer' => '可以代办，但入住人须完成身份登记；建议提前联系掌柜说明情况，按该房源要求准备证件。',
+                'keywords' => '代办,朋友先住,代办理',
+            ],
+            [
+                'question' => '怎么办理入住？',
+                'answer' => '请先查询订单并打开云房卡，按指引完成公安刷脸核验、交押金，并查看门锁密码与WiFi；小区地址与停车等可在提供订单号后继续咨询。',
+                'keywords' => '怎么入住,办理,进门,流程',
+                'similar' => ['到了怎么进去', '入住流程'],
+            ],
+            [
+                'question' => '公安刷脸核验怎么做？',
+                'answer' => self::YUNFANGKA_CREDENTIAL,
+                'keywords' => '刷脸,公安,核验,实名,人脸,身份登记',
+                'similar' => ['要刷脸吗', '怎么实名登记', '公安登记'],
+            ],
+        ];
+    }
+
+    private static function rulesEntries(): array {
+        return [
+            [
+                'question' => '可以带宠物吗？',
+                'answer' => '南宁宿家民宿统一不接受宠物入住（导盲犬等特殊需求请提前联系掌柜确认）。',
+                'keywords' => '宠物,猫,狗,带宠',
+            ],
+            [
+                'question' => '可以吸烟吗？',
+                'answer' => '南宁宿家民宿室内统一禁止吸烟（含电子烟）；请在室外允许区域吸烟，违规可能产生清洁费用。',
+                'keywords' => '吸烟,抽烟,电子烟,禁烟',
+            ],
+            [
+                'question' => '可以带朋友进房间吗？',
+                'answer' => '非住客进入须遵守房源管理规定；请勿超过订单核定人数，具体以该房源要求为准。',
+                'keywords' => '访客,朋友,外人,人数',
+            ],
+            [
+                'question' => '可以在房间聚会吗？',
+                'answer' => '请勿在公寓内举办影响他人的聚会或超出核定人数的活动；严重扰民可能被要求离开。',
+                'keywords' => '聚会,派对,吵闹',
+            ],
+            [
+                'question' => '可以在房间做饭吗？',
+                'answer' => '如无明火厨房，请勿使用明火；部分房源配有厨房，使用时请保持通风并注意用电安全，具体以房间配置为准。',
+                'keywords' => '做饭,厨房,明火,电磁炉',
+            ],
+        ];
+    }
+
+    private static function feesEntries(): array {
+        $platforms = self::PLATFORMS;
+        return [
+            [
+                'question' => '取消订单怎么算？',
+                'answer' => "取消与改期请在您下单的{$platforms}订单内按平台规则操作，宿家民宿线上客服不办理取消或退款。",
+                'keywords' => '取消,退订,取消订单,改期',
+            ],
+            [
+                'question' => '怎么申请退款？',
+                'answer' => "请在{$platforms}的订单详情中按平台流程申请退款；本客服不处理退款，也不承诺退款时效。",
+                'keywords' => '退款,退钱,申请退款,退费',
+                'similar' => ['能退吗', '不想住了退钱'],
+            ],
+            [
+                'question' => '押金怎么交？',
+                'answer' => self::YUNFANGKA_CREDENTIAL,
+                'keywords' => '交押金,付押金,缴纳押金,押金怎么交,在线押金',
+                'similar' => ['押金在哪交', '押金多少钱'],
+            ],
+            [
+                'question' => '押金什么时候退？有纠纷怎么办？',
+                'answer' => "押金退还以{$platforms}订单及平台规则为准；如有扣款争议请在平台申诉或联系人工客服。",
+                'keywords' => '退押金,押金退,押金纠纷,扣押金,乱扣费',
+            ],
+            [
+                'question' => '提前退房能退钱吗？',
+                'answer' => "提前离店是否退款以{$platforms}订单规则为准，请在平台订单内查看或申请。",
+                'keywords' => '提前退房,提前走,退钱',
+            ],
+            [
+                'question' => '东西落在房间怎么办？',
+                'answer' => '请尽快联系掌柜并提供订单号与物品描述；我们会协助查找，寄回快递费一般需您承担。',
+                'keywords' => '遗落,忘带,落东西,丢了',
+            ],
+        ];
+    }
+
+    private static function serviceEntries(): array {
+        return [
+            [
+                'question' => '有没有接送机、生日布置等特殊服务？',
+                'answer' => '宿家民宿不提供接送机、生日布置、行李寄存等特殊增值服务。',
+                'keywords' => '接送机,接机,送机,生日,布置,寄存,行李,增值,特殊服务',
+                'similar' => ['能接机吗', '能寄存行李吗', '能布置房间吗'],
+            ],
+            [
+                'question' => 'WiFi密码是多少？',
+                'answer' => self::YUNFANGKA_CREDENTIAL,
+                'keywords' => 'WiFi,wifi,无线,网密码,网络,WiFi密码,wifi密码',
+                'similar' => ['有没有WiFi', '怎么连网', '无线密码多少'],
+            ],
+            [
+                'question' => '房间地址在哪里？怎么去？',
+                'answer' => '每套公寓地址不同，请提供订单号，我们为您查询该订单对应房源的地址与交通指引。',
+                'keywords' => '地址,在哪,怎么去,导航,路线',
+                'similar' => ['位置在哪', '怎么到'],
+            ],
+            [
+                'question' => '停车怎么停？有没有停车场？',
+                'answer' => '停车位置与收费因楼盘而异，请提供订单号，我们查询该房源的停车指引。',
+                'keywords' => '停车,停车场,车位,停车费',
+            ],
+            [
+                'question' => '门锁密码或门禁密码是多少？',
+                'answer' => self::YUNFANGKA_CREDENTIAL,
+                'keywords' => '门禁,门锁,密码锁,门锁密码,进门密码,钥匙,大门密码',
+                'similar' => ['门禁密码', '房间密码', '怎么开门'],
+            ],
+            [
+                'question' => '空调电视热水器怎么用？',
+                'answer' => '设备位置与用法因房间而异，请提供订单号，我们按该套房的设备指引答复。',
+                'keywords' => '空调,电视,热水器,洗衣机,怎么用,设备',
+            ],
+            [
+                'question' => '垃圾放哪里？',
+                'answer' => '垃圾投放方式因房源而异，请提供订单号，我们按该房间在店贴士答复。',
+                'keywords' => '垃圾,保洁,卫生',
+            ],
+        ];
+    }
+
+    private static function nanningEntries(): array {
+        return [
+            [
+                'question' => '南宁有什么特色美食？',
+                'answer' => '南宁常见特色有老友粉、柠檬鸭、酸嘢、粉饺等；具体店铺因您所在区域不同，建议用地图搜索附近评价高的店。',
+                'keywords' => '美食,特色,吃什么,老友粉',
+            ],
+            [
+                'question' => '南宁天气怎么样？',
+                'answer' => '南宁属亚热带气候，夏季炎热多雨，秋冬较温和；建议出行前查看当日天气预报，备雨具和防晒。',
+                'keywords' => '天气,穿衣,气候,热',
+            ],
+            [
+                'question' => '青秀山怎么去？门票多少？',
+                'answer' => '青秀山是南宁主要景区，交通与门票以景区官方或地图导航为准；从您住处出发请用手机地图规划路线最准确。',
+                'keywords' => '青秀山,景点,门票,旅游',
+            ],
+            [
+                'question' => '附近有什么好吃的？',
+                'answer' => '各套公寓周边餐饮不同，建议打开地图搜索您入住地址附近的餐厅；如需推荐，请提供订单号以便确认您所在区域。',
+                'keywords' => '附近,好吃,餐厅,外卖',
+            ],
+        ];
+    }
+
+    private static function handoffEntries(): array {
+        return [
+            [
+                'question' => '怎么开发票？',
+                'answer' => '正在为您转接人工客服，请稍候。',
+                'keywords' => '发票,开票,电子发票',
+            ],
+            [
+                'question' => '我要续住怎么办？',
+                'answer' => '正在为您转接人工客服，请稍候。',
+                'keywords' => '续住,延住,多住',
+            ],
+            [
+                'question' => '我要换房怎么办？',
+                'answer' => '正在为您转接人工客服，请稍候。',
+                'keywords' => '换房,换房间,调房',
+            ],
+            [
+                'question' => '我要投诉怎么办？',
+                'answer' => '正在为您转接人工客服，请稍候。',
+                'keywords' => '投诉,不满意,差评',
+            ],
+        ];
+    }
+
+    /**
+     * 重建默认知识库（清空后写入）
+     *
+     * @return array{categories:int, entries:int, deleted_entries:int}
+     */
+    public static function rebuild(PDO $db): array {
+        $deleted = (int)$db->query('SELECT COUNT(*) FROM kb_entries')->fetchColumn();
+
+        $db->beginTransaction();
+        try {
+            $db->exec('DELETE FROM kb_entries');
+            $db->exec('DELETE FROM kb_categories');
+
+            $catStmt = $db->prepare('INSERT INTO kb_categories (name, parent_id, sort_order) VALUES (?, 0, ?)');
+            $catIds = [];
+            $sort = 0;
+            foreach (self::catalog() as $key => $group) {
+                $catStmt->execute([$group['desc'], $sort++]);
+                $catIds[$key] = (int)$db->lastInsertId();
+            }
+
+            $ins = $db->prepare(
+                'INSERT INTO kb_entries (category_id, question, answer, keywords, similar_questions, status, hit_count)
+                 VALUES (?, ?, ?, ?, ?, 1, 0)'
+            );
+
+            $entryCount = 0;
+            foreach (self::catalog() as $key => $group) {
+                $catId = $catIds[$key];
+                foreach ($group['entries'] as $entry) {
+                    $similar = !empty($entry['similar'])
+                        ? json_encode($entry['similar'], JSON_UNESCAPED_UNICODE)
+                        : null;
+                    $ins->execute([
+                        $catId,
+                        $entry['question'],
+                        $entry['answer'],
+                        $entry['keywords'] ?? '',
+                        $similar,
+                    ]);
+                    $entryCount++;
+                }
+            }
+
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+        return [
+            'categories' => count($catIds),
+            'entries' => $entryCount,
+            'deleted_entries' => $deleted,
+        ];
+    }
+}

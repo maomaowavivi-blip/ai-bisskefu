@@ -120,7 +120,7 @@ if ($action === 'verify_code') {
                 CURLOPT_TIMEOUT => 10,
                 CURLOPT_HTTPHEADER => [
                     'Content-Type: application/json',
-                    'Authorization: Bearer ' . $orderApiKey,
+                    'Authorization: ' . (strpos($orderApiKey, 'Bearer ') === 0 ? $orderApiKey : 'Bearer ' . $orderApiKey),
                 ],
             ]);
             $resp = curl_exec($ch);
@@ -169,6 +169,159 @@ if ($action === 'get_order_api') {
         'api_url' => pcGet($db, 'order.api_url', ''),
         'api_key' => pcGet($db, 'order.api_key', '') ? '已配置' : '',
     ]);
+}
+
+// ══════════════════════════════════════════
+// 统一网关配置（管理后台用）
+// ══════════════════════════════════════════
+if ($action === 'save_gateway_config') {
+    adminGuard();
+
+    $url = trim($body['api_url'] ?? '');
+    $key = trim($body['api_key'] ?? '');
+    $roomKeywords = trim($body['room_keywords'] ?? '');
+
+    if (!$url || !$key) fail('参数不完整');
+
+    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $stmt->execute(['gateway.api_url', $url]);
+    $stmt->execute(['gateway.api_key', $key]);
+    $stmt->execute(['gateway.room_keywords', $roomKeywords]);
+
+    ok([], '网关配置保存成功');
+}
+
+if ($action === 'get_gateway_config') {
+    adminGuard();
+    ok([
+        'api_url' => pcGet($db, 'gateway.api_url', ''),
+        'api_key' => pcGet($db, 'gateway.api_key', '') ? '已配置' : '',
+        'room_keywords' => pcGet($db, 'gateway.room_keywords', ''),
+    ]);
+}
+
+// ══════════════════════════════════════════
+// AI API Key 配置（管理后台用）
+// ══════════════════════════════════════════
+if ($action === 'save_ai_api') {
+    adminGuard();
+
+    $apiKey = trim($body['api_key'] ?? '');
+
+    if (!$apiKey) fail('API Key 不能为空');
+
+    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $stmt->execute(['ai.api_key', $apiKey]);
+
+    ok([], 'AI API Key 保存成功');
+}
+
+if ($action === 'get_ai_api') {
+    adminGuard();
+    $saved = pcGet($db, 'ai.api_key', '');
+    $temp  = pcGet($db, 'ai.temperature', '0.5');
+    ok([
+        'api_key' => $saved ? '已配置' : '',
+        'has_key' => $saved ? true : false,
+        'temperature' => floatval($temp),
+    ]);
+}
+
+// ══════════════════════════════════════════
+// AI 温度调节
+// ══════════════════════════════════════════
+if ($action === 'save_temperature') {
+    adminGuard();
+    $temperature = floatval($body['temperature'] ?? 0.5);
+    if ($temperature < 0.01) $temperature = 0.01;
+    if ($temperature > 1.0)  $temperature = 1.0;
+    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $stmt->execute(['ai.temperature', (string)$temperature]);
+    ok([], 'AI 温度已保存');
+}
+if ($action === 'get_temperature') {
+    adminGuard();
+    $temp = pcGet($db, 'ai.temperature', '0.5');
+    ok(['temperature' => floatval($temp)]);
+}
+
+// ══════════════════════════════════════════
+// 企业微信对接配置（管理后台用）
+// ══════════════════════════════════════════
+if ($action === 'save_wecom_config') {
+    adminGuard();
+
+    $corpId = trim($body['corpid'] ?? '');
+    $token  = trim($body['token'] ?? '');
+    $aesKey = trim($body['aes_key'] ?? '');
+
+    if (!$corpId || !$token || !$aesKey) fail('参数不完整');
+
+    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $stmt->execute(['wecom.corpid', $corpId]);
+    $stmt->execute(['wecom.token', $token]);
+    $stmt->execute(['wecom.aes_key', $aesKey]);
+
+    ok([], '企业微信配置保存成功');
+}
+
+if ($action === 'get_wecom_config') {
+    adminGuard();
+    ok([
+        'corpid'  => pcGet($db, 'wecom.corpid', ''),
+        'token'   => pcGet($db, 'wecom.token', ''),
+        'aes_key' => pcGet($db, 'wecom.aes_key', ''),
+    ]);
+}
+
+// ══════════════════════════════════════════
+// API 密钥管理（管理后台用）
+// ══════════════════════════════════════════
+if ($action === 'create_api_key') {
+    adminGuard();
+
+    $name = trim($body['name'] ?? '未命名');
+    if (mb_strlen($name) > 100) fail('名称过长');
+
+    $key = 'neb_' . bin2hex(random_bytes(24));
+
+    $stmt = $db->prepare('INSERT INTO api_keys (name, api_key, enabled) VALUES (?, ?, 1)');
+    $stmt->execute([$name, $key]);
+
+    ok(['id' => intval($db->lastInsertId()), 'api_key' => $key]);
+}
+
+if ($action === 'list_api_keys') {
+    adminGuard();
+
+    $stmt = $db->query('SELECT id, name, api_key, enabled, last_used_at, created_at FROM api_keys ORDER BY created_at DESC');
+    $list = $stmt->fetchAll();
+
+    ok(['list' => $list]);
+}
+
+if ($action === 'toggle_api_key') {
+    adminGuard();
+
+    $id = intval($body['id'] ?? 0);
+    if (!$id) fail('参数错误');
+
+    $stmt = $db->prepare('UPDATE api_keys SET enabled = 1 - enabled WHERE id = ?');
+    $stmt->execute([$id]);
+
+    ok([], '操作成功');
+}
+
+if ($action === 'delete_api_key') {
+    adminGuard();
+
+    $id = intval($body['id'] ?? 0);
+    if (!$id) fail('参数错误');
+
+    $stmt = $db->prepare('DELETE FROM api_keys WHERE id = ?');
+    $stmt->execute([$id]);
+
+    ok([], '已删除');
 }
 
 fail('未知操作');

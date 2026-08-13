@@ -3,53 +3,283 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>管理后台登录</title>
+<title>登录 · AI 智能客服</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.login-card { background: #fff; border-radius: 20px; padding: 40px 32px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-.logo { text-align: center; margin-bottom: 32px; }
-.logo .icon { font-size: 48px; }
-.logo h1 { font-size: 22px; color: #333; margin-top: 8px; }
-.logo p { font-size: 13px; color: #999; margin-top: 4px; }
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 500; }
-.form-group input { width: 100%; height: 46px; border: 1px solid #ddd; border-radius: 10px; padding: 0 14px; font-size: 14px; outline: none; transition: border-color 0.2s; }
-.form-group input:focus { border-color: #667eea; }
-.login-btn { width: 100%; height: 46px; border: none; border-radius: 10px; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-.login-btn:hover { opacity: 0.9; }
-.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.error-msg { color: #ff4757; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #06060e;
+  position: relative;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 500px 400px at 15% 30%, rgba(99, 102, 241, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 500px at 85% 70%, rgba(6, 182, 212, 0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at 50% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+  animation: orbFloat 20s ease-in-out infinite;
+}
+.orb-1 {
+  width: 500px; height: 500px;
+  background: rgba(99, 102, 241, 0.10);
+  top: -200px; right: -150px;
+  animation-delay: 0s;
+}
+.orb-2 {
+  width: 400px; height: 400px;
+  background: rgba(6, 182, 212, 0.08);
+  bottom: -200px; left: -100px;
+  animation-delay: -8s;
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -40px) scale(1.05); }
+  50% { transform: translate(-20px, 20px) scale(0.95); }
+  75% { transform: translate(40px, 30px) scale(1.02); }
+}
+
+.login-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header .brand-icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #6366F1, #06B6D4);
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+}
+
+.login-header h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+}
+
+.login-header p {
+  font-size: 13px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 6px;
+}
+
+.login-card {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 32px;
+  transition: border-color 0.3s;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.login-card:focus-within {
+  border-color: rgba(99, 102, 241, 0.30);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(99, 102, 241, 0.05);
+}
+
+.form-group { margin-bottom: 18px; }
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-group input {
+  width: 100%;
+  height: 46px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #fff;
+  outline: none;
+  transition: all 0.2s;
+}
+.form-group input:focus {
+  border-color: rgba(99, 102, 241, 0.40);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.10);
+}
+.form-group input::placeholder { color: rgba(255,255,255,0.2); }
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0px 1000px rgba(15, 23, 42, 0.9) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.login-btn {
+  width: 100%;
+  height: 46px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.login-btn:hover {
+  background: linear-gradient(135deg, #818CF8, #6366F1);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.40);
+  transform: translateY(-1px);
+}
+.login-btn:active {
+  transform: translateY(0);
+}
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.login-btn.loading {
+  color: transparent;
+}
+.login-btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-msg {
+  color: #F87171;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 12px;
+  display: none;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 8px;
+}
 .error-msg.show { display: block; }
-.loading { text-align: center; padding: 20px; color: #999; font-size: 14px; display: none; }
+
+.login-footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.02em;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.4); }
+::selection { background: rgba(99, 102, 241, 0.3); }
 </style>
 </head>
 <body>
-<div class="login-card">
-  <div class="logo">
-    <div class="icon">🤖</div>
-    <h1>管理后台</h1>
-    <p>AI 智能客服系统</p>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="login-wrapper">
+  <div class="login-header">
+    <div class="brand-icon">🤖</div>
+    <h1>AI 智能客服</h1>
+    <p>企业智能体 · 管理控制台</p>
   </div>
-  <div id="loginForm">
-    <div class="form-group">
-      <label>用户名</label>
-      <input type="text" id="username" placeholder="请输入用户名" autofocus>
+
+  <div class="login-card">
+    <div id="loginForm">
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="username" placeholder="输入您的用户名" autofocus>
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="输入您的密码" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">登 录</button>
+      <div class="error-msg" id="errorMsg"></div>
     </div>
-    <div class="form-group">
-      <label>密码</label>
-      <input type="password" id="password" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">登 录</button>
-    <div class="error-msg" id="errorMsg"></div>
   </div>
-  <div class="loading" id="loading">登录中...</div>
+
+  <div class="login-footer">
+    AIBISSKEFU Enterprise v1.0
+  </div>
 </div>
 
 <script>
 var token = localStorage.getItem('admin_token');
 if (token) {
-  fetch('/api/auth.php?action=me', { headers: { 'Authorization': 'Bearer ' + token } })
+  var base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+  fetch(base + 'api/auth.php?action=me&token=' + encodeURIComponent(token))
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res.code === 0) { window.location.href = 'dashboard.html'; }
@@ -61,19 +291,22 @@ function doLogin() {
   var password = document.getElementById('password').value;
   if (!username || !password) { showError('请输入用户名和密码'); return; }
 
-  document.getElementById('loginBtn').disabled = true;
-  document.getElementById('loading').style.display = 'block';
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
   document.getElementById('errorMsg').classList.remove('show');
 
-  fetch('/api/auth.php?action=login', {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  fetch(base + 'api/auth.php?action=login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: username, password: password })
   })
   .then(function(r) { return r.json(); })
   .then(function(res) {
-    document.getElementById('loginBtn').disabled = false;
-    document.getElementById('loading').style.display = 'none';
+    btn.disabled = false;
+    btn.classList.remove('loading');
     if (res.code === 0 && res.data.token) {
       localStorage.setItem('admin_token', res.data.token);
       window.location.href = 'dashboard.html';
@@ -82,8 +315,8 @@ function doLogin() {
     }
   })
   .catch(function() {
-    document.getElementById('loginBtn').disabled = false;
-    document.getElementById('loading').style.display = 'none';
+    btn.disabled = false;
+    btn.classList.remove('loading');
     showError('网络错误，请重试');
   });
 }

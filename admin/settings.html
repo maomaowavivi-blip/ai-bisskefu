@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统设置 · AI 智能客服</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+<style>
+.settings-section + .settings-section { margin-top: var(--space-6); }
+.key-display {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 10px 14px;
+  background: var(--neutral-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+/* ── Tab 导航 ── */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-6);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  border: 1px solid var(--glass-border);
+  overflow-x: auto;
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+  font-family: var(--font-family);
+}
+.tab-btn:hover { color: var(--text-primary); background: var(--neutral-50); }
+.tab-btn.active {
+  background: var(--primary-500);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── 温度滑块 ── */
+.temp-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+}
+.temp-slider-wrap input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #6366F1 0%, #22D3EE 50%, #F59E0B 100%);
+  outline: none;
+  cursor: pointer;
+}
+.temp-slider-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary-500);
+  box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+  cursor: pointer;
+  transition: .15s;
+}
+.temp-slider-wrap input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.temp-slider-wrap input[type="range"]::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--primary-500);
+  cursor: pointer;
+}
+.temp-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  min-width: 44px;
+  text-align: center;
+}
+.temp-label-wrap {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.temp-desc {
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-4);
+  background: var(--neutral-50);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-3);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.temp-desc strong { color: var(--text-primary); }
+
+/* ── Modal ── */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal.active { display: flex; }
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+.modal-dialog {
+  position: relative;
+  background: var(--bg, #fff);
+  border-radius: var(--radius-lg, 12px);
+  width: 90%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4, 16px) var(--space-5, 20px);
+  border-bottom: 1px solid var(--border-light, #eee);
+}
+.modal-header h3 { margin: 0; font-size: var(--text-lg, 16px); }
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-muted, #999);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.modal-close:hover { background: var(--neutral-50, #f5f5f5); }
+.modal-body { padding: var(--space-5, 20px); }
+.modal-footer {
+  padding: var(--space-4, 16px) var(--space-5, 20px);
+  border-top: 1px solid var(--border-light, #eee);
+}
+
+/* ── 转人工规则 ── */
+.trigger-group {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  overflow: hidden;
+}
+.trigger-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s;
+}
+.trigger-group-header:hover { background: var(--neutral-50); }
+.trigger-group-header .group-label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.trigger-group-header .group-count {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--neutral-100);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.trigger-group-body {
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--glass-border);
+}
+.trigger-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  background: var(--neutral-50);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  transition: all .15s;
+  cursor: default;
+}
+.trigger-tag:hover { border-color: var(--primary-300); }
+.trigger-tag .tag-text {
+  cursor: pointer;
+  padding: 1px 2px;
+  border-radius: 3px;
+  transition: background .15s;
+}
+.trigger-tag .tag-text:hover { background: var(--neutral-100); }
+.trigger-tag .tag-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+}
+.trigger-tag .tag-edit, .trigger-tag .tag-del {
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.4;
+  transition: all .15s;
+  padding: 0 2px;
+}
+.trigger-tag:hover .tag-edit { opacity: 0.7; }
+.trigger-tag:hover .tag-del { opacity: 0.7; }
+.trigger-tag .tag-edit:hover { opacity: 1; color: var(--primary-500); }
+.trigger-tag .tag-del:hover { opacity: 1; color: var(--danger-500); }
+
+/* ── 编辑模式 ── */
+.trigger-tag.editing {
+  gap: 6px;
+  padding: 3px 6px;
+  border-color: var(--primary-400);
+  background: rgba(102,126,234,0.06);
+  flex-wrap: wrap;
+}
+.tag-edit-input {
+  border: 1px solid var(--primary-300);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  width: 120px;
+  background: #fff;
+  outline: none;
+}
+.tag-edit-input:focus { border-color: var(--primary-500); box-shadow: 0 0 0 2px rgba(102,126,234,0.2); }
+.tag-edit-select {
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: 3px 4px;
+  font-size: 12px;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+}
+.tag-edit-save, .tag-edit-cancel {
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+  transition: all .15s;
+  opacity: 0.7;
+}
+.tag-edit-save { color: var(--success-500); }
+.tag-edit-save:hover { opacity: 1; transform: scale(1.15); }
+.tag-edit-cancel { color: var(--danger-500); }
+.tag-edit-cancel:hover { opacity: 1; transform: scale(1.15); }
+.trigger-add-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.trigger-add-row .form-group { margin-bottom: 0; flex: 1; min-width: 180px; }
+.trigger-add-row .form-group label { margin-bottom: 4px; }
+.empty-trigger-hint {
+  width: 100%;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: 12px 0;
+}
+
+/* ── 响应式 ── */
+@media (max-width: 700px) {
+  .tab-btn { font-size: 12px; padding: 8px 12px; }
+  .temp-slider-wrap { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+  .temp-value { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
+      </div>
+    </a>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html" data-page="dashboard"><span class="nav-icon">📊</span><span class="nav-label">概览</span></a>
+      <a class="nav-item" href="persona.html" data-page="persona"><span class="nav-icon">🎭</span><span class="nav-label">吉祥物人设</span></a>
+      <a class="nav-item" href="knowledge.html" data-page="knowledge"><span class="nav-icon">📚</span><span class="nav-label">知识库管理</span></a>
+      <a class="nav-item" href="chat-logs.html" data-page="chat-logs"><span class="nav-icon">💬</span><span class="nav-label">对话记录</span></a>
+      <a class="nav-item" href="users.html" data-page="users"><span class="nav-icon">👥</span><span class="nav-label">账号管理</span></a>
+      <a class="nav-item active" href="settings.html" data-page="settings"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title">系统设置</div>
+        <div class="page-sub">AI 模型 · 企业集成 · 网站嵌入 · 转人工规则 · AI 行为规则</div>
+      </div>
+    </header>
+    <div class="main-body">
+      <div class="loading" id="loading">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+        <span>加载中...</span>
+      </div>
+
+      <div id="content" style="display:none;">
+
+        <!-- ═══ Tab 导航 ═══ -->
+        <div class="tab-nav" id="tabNav">
+          <button class="tab-btn active" data-tab="ai">🤖 AI 模型</button>
+          <button class="tab-btn" data-tab="enterprise">🏢 企业集成</button>
+          <button class="tab-btn" data-tab="embed">🔗 网站嵌入</button>
+          <button class="tab-btn" data-tab="handoff">🔄 转人工规则</button>
+          <button class="tab-btn" data-tab="agentrules">⚙️ AI 行为规则</button>
+        </div>
+
+        <!-- ════════════════ Tab 1: AI 模型 ════════════════ -->
+        <div class="tab-content active" id="tabAi">
+          <div class="card">
+            <div class="card-header">
+              <h3>🤖 AI 大模型配置</h3>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              配置 AI 客服使用的大模型 API Key，系统通过此密钥调用 AI 接口生成智能回复
+            </p>
+
+            <div class="status-row">
+              <span class="text-sm text-secondary" style="font-weight:500;">API Key 状态</span>
+              <span id="keyStatus"><span class="badge badge-error">未配置</span></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">AI API Key</label>
+              <input type="password" class="form-input" id="apiKey" placeholder="输入你的 AI API Key（DeepSeek / MiniMax 均支持）" autocomplete="off" style="font-family:var(--font-mono);letter-spacing:2px;">
+              <div class="form-hint">默认使用 <a href="https://platform.deepseek.com" target="_blank">DeepSeek V4 Flash</a>（推荐）；也兼容 <a href="https://platform.minimaxi.com" target="_blank">MiniMax</a> 等 OpenAI 兼容协议的供应商</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">确认 API Key</label>
+              <input type="password" class="form-input" id="apiKeyConfirm" placeholder="再次输入 API Key 确认" autocomplete="off" style="font-family:var(--font-mono);letter-spacing:2px;">
+            </div>
+
+            <button class="btn btn-primary" id="saveBtn" onclick="saveSettings()">保存配置</button>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
+              <h3>🌡️ AI 回答温度</h3>
+              <span id="tempSavedBadge" style="display:none;"><span class="badge badge-success">已保存</span></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-3);font-size:var(--text-sm);">
+              控制 AI 回复的随机性和创造性。数值越低回答越稳定准确，越高越有创意但可能偏离主题。
+            </p>
+
+            <div class="temp-slider-wrap">
+              <input type="range" id="temperatureSlider" min="0.01" max="1.0" step="0.05" value="0.5" oninput="updateTempDisplay(this.value)">
+              <span class="temp-value" id="tempValueDisplay">0.50</span>
+            </div>
+            <div class="temp-label-wrap">
+              <span>0.0 · 精确稳定</span>
+              <span>0.5 · 均衡</span>
+              <span>1.0 · 创意丰富</span>
+            </div>
+
+            <div class="temp-desc" id="tempDesc">
+              当前温度 <strong>0.50</strong> — <span id="tempDescText">均衡模式，兼顾准确与自然表达</span>
+            </div>
+
+            <div style="margin-top:var(--space-4);">
+              <button class="btn btn-primary" id="saveTempBtn" onclick="saveTemperature()">保存温度</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════ Tab 2: 企业集成 ════════════════ -->
+        <div class="tab-content" id="tabEnterprise">
+          <div class="card">
+            <div class="card-header">
+              <h3>🌐 统一网关配置</h3>
+              <span id="gatewayStatus" style="font-size:var(--text-sm);"></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              配置企业的统一数据查询网关。支持订单查询和房间查询等多种能力，企业只需提供一个统一的 POST 接口地址，系统通过 <code>action</code> 参数区分查询类型。
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">网关接口地址</label>
+              <input type="url" class="form-input" id="gatewayApiUrl" placeholder="https://企业域名.com/api/gateway" autocomplete="off" style="font-family:var(--font-mono);">
+              <div class="form-hint">企业的统一 POST 网关接口地址</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">网关密钥</label>
+              <input type="password" class="form-input" id="gatewayApiKey" placeholder="输入企业分配的 API 密钥" autocomplete="off" style="font-family:var(--font-mono);letter-spacing:2px;">
+              <div class="form-hint">用于接口鉴权，将以 <code class="text-accent">Authorization: Bearer {密钥}</code> 方式传递</div>
+            </div>
+
+            <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
+              <button class="btn btn-primary" id="saveGatewayBtn" onclick="saveGatewayConfig()">保存网关配置</button>
+              <button class="btn btn-secondary" onclick="clearGatewayConfig()" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.15);color:#F87171;">清除配置</button>
+            </div>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
+              <h3>🏠 房间查询配置</h3>
+              <span id="roomQueryStatus" style="font-size:var(--text-sm);"></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              当客户询问房间设施、入住指引、设备使用等问题时，AI 从本地 <code>sujia_ai_sidecar_dev</code> 查询（不再走远程 query_room 网关）。
+              配置关键词后，命中关键词的消息将触发房间查询流程。
+            </p>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">房间查询触发关键词</label>
+              <textarea class="form-input" id="roomKeywords" rows="6" style="font-family:var(--font-mono);font-size:var(--text-sm);" placeholder="怎么去&#10;路线&#10;导航&#10;空调&#10;电视&#10;洗衣机&#10;热水&#10;wifi&#10;..."></textarea>
+              <div class="form-hint">每行一个关键词，消息中包含任意关键词即触发房间查询。初始值即为推荐列表</div>
+            </div>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
+              <h3>🗄️ Sidecar 房间知识库</h3>
+              <span id="sidecarStatus" style="font-size:var(--text-sm);"></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              数据源：<code>sujia_ai_sidecar_dev</code>。订单查询仍走 PMS 网关；房间怎么去/设备怎么用从此库检索。
+            </p>
+            <div id="sidecarStats" class="text-secondary" style="font-size:var(--text-sm);margin-bottom:var(--space-4);">加载中...</div>
+            <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+              <button class="btn btn-primary" type="button" onclick="rebuildSidecarChunks()">重建知识块</button>
+              <button class="btn btn-secondary" type="button" onclick="vectorizeSidecarPending()">批量向量化</button>
+              <button class="btn btn-secondary" type="button" onclick="loadSidecarStats()">刷新状态</button>
+            </div>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
+              <h3>📋 统一网关对接规范</h3>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              企业需实现一个统一的 POST 接口，通过 <code>action</code> 字段区分不同查询类型。
+            </p>
+
+            <pre style="background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:var(--space-4);font-size:var(--text-sm);font-family:var(--font-mono);line-height:1.8;overflow-x:auto;color:var(--neutral-600);margin:0;">POST {网关地址}
+Content-Type: application/json
+Authorization: Bearer {密钥}
+
+请求体格式：
+{
+  "action": "query_order | query_room",
+  "params": { ... },
+  "timestamp": 当前Unix时间戳
+}
+
+┌── 订单查询 ──────────────────────────┐
+│ action: "query_order"                │
+│ params: { "order_no": "订单号" }      │
+│                                      │
+│ 响应:                                │
+│ {                                    │
+│   "code": 200,                       │
+│   "data": [                          │
+│     {                                │
+│       "order_info": {                │
+│         "room": "房间号/房型",        │
+│         "check_in": "入住日期",       │
+│         "check_out": "离店日期",      │
+│         "order_no": "订单号"          │
+│       },                             │
+│       "yunfangka_url": "链接(可选)",  │
+│       "yunfangka_image": "图片URL"    │
+│     }                                │
+│   ]                                  │
+│ }                                    │
+└──────────────────────────────────────┘
+
+┌── 房间查询 ──────────────────────────┐
+│ action: "query_room"                 │
+│ params: {                            │
+│   "room_id": "朝阳店101",            │
+│   "question": "空调怎么开"            │
+│ }                                    │
+│                                      │
+│ 响应:                                │
+│ {                                    │
+│   "code": 200,                       │
+│   "data": {                          │
+│     "reply": "文字回答...",          │
+│     "images": [                      │
+│       {                              │
+│         "url": "图片地址",            │
+│         "title": "图片说明",          │
+│         "link_url": "点击链接"        │
+│       }                              │
+│     ]                                │
+│   }                                  │
+│ }                                    │
+└──────────────────────────────────────┘
+
+失败响应格式（均适用）：
+{
+  "code": 404,
+  "msg": "错误提示信息"
+}
+
+注意：API 密钥可包含 "Bearer " 前缀或不含，系统会自动适配。</pre>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
+              <h3>🏢 企业微信集成</h3>
+              <span id="wecomStatus" style="font-size:var(--text-sm);"></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              配置企业微信回调服务，企业成员可直接与企业微信中的 AI 客服对话。
+              回调 URL 填写：<code id="wecomCallbackUrl" style="background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;font-size:12px;"></code>
+            </p>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">企业 ID（CorpID）</label>
+                <input type="text" id="wecomCorpId" class="form-input" placeholder="wwc60a8d7238bdf659">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Token</label>
+                <input type="text" id="wecomToken" class="form-input" placeholder="在企业微信后台设置">
+              </div>
+              <div class="form-group">
+                <label class="form-label">EncodingAESKey</label>
+                <input type="text" id="wecomAesKey" class="form-input" placeholder="43 位字符的 AESKey">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
+              <button class="btn btn-primary" id="saveWecomBtn" onclick="saveWecomConfig()">保存配置</button>
+            </div>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
+              <h3>🔑 外部 API 密钥管理</h3>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              管理用于对接企业微信等第三方系统的 API 密钥。每个密钥可独立启用/禁用，支持单独备注用途。
+            </p>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4);">
+              <div>
+                <span class="text-sm text-secondary" style="font-weight:500;">密钥列表</span>
+                <span id="apiKeyCount" class="text-sm text-muted" style="margin-left:8px;"></span>
+              </div>
+              <button class="btn btn-primary" onclick="showAddApiKeyModal()">➕ 生成新密钥</button>
+            </div>
+
+            <table class="table" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:10px 12px;font-size:var(--text-sm);color:var(--text-muted);border-bottom:1px solid var(--border-light);">名称</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:var(--text-sm);color:var(--text-muted);border-bottom:1px solid var(--border-light);">密钥</th>
+                  <th style="text-align:center;padding:10px 12px;font-size:var(--text-sm);color:var(--text-muted);border-bottom:1px solid var(--border-light);">状态</th>
+                  <th style="text-align:center;padding:10px 12px;font-size:var(--text-sm);color:var(--text-muted);border-bottom:1px solid var(--border-light);">最后使用</th>
+                  <th style="text-align:center;padding:10px 12px;font-size:var(--text-sm);color:var(--text-muted);border-bottom:1px solid var(--border-light);">操作</th>
+                </tr>
+              </thead>
+              <tbody id="apiKeyTableBody">
+                <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">加载中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════════════════ Tab 3: 网站嵌入 ════════════════ -->
+        <div class="tab-content" id="tabEmbed">
+          <div class="card">
+            <div class="card-header">
+              <h3>🔗 网站嵌入代码</h3>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              将以下代码嵌入到你的网站 HTML 中，即可显示智能客服聊天窗口
+            </p>
+
+            <div class="form-row" style="margin-bottom:var(--space-4);">
+              <div class="form-group" style="margin-bottom:0;flex:1;">
+                <label class="form-label">主题颜色</label>
+                <div style="display:flex;gap:var(--space-2);align-items:center;">
+                  <input type="color" id="embedColor" value="#667eea" onchange="updateEmbedCode()" style="width:44px;height:38px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;padding:2px;background:none;">
+                  <input type="text" id="embedColorText" value="#667eea" maxlength="7" class="form-input" style="width:90px;font-family:var(--font-mono);" oninput="syncEmbedColor(this.value)">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:0;flex:1;">
+                <label class="form-label">窗口位置</label>
+                <select class="form-select" id="embedPosition" onchange="updateEmbedCode()" style="width:auto;">
+                  <option value="right">右下角</option>
+                  <option value="left">左下角</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">嵌入代码</label>
+              <pre id="embedCodeBlock" style="background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:var(--space-4);font-size:var(--text-sm);font-family:var(--font-mono);line-height:1.7;overflow-x:auto;white-space:pre;margin:0;color:var(--neutral-600);"></pre>
+            </div>
+
+            <button class="btn btn-primary" id="copyEmbedBtn" onclick="copyEmbedCode()">📋 复制代码</button>
+          </div>
+        </div>
+
+        <!-- ════════════════ Tab 4: 转人工规则 ════════════════ -->
+        <div class="tab-content" id="tabHandoff">
+          <div class="card">
+            <div class="card-header">
+              <h3>🔄 转人工触发词管理</h3>
+              <span id="handoffTriggersSavedBadge" style="display:none;"><span class="badge badge-success">已保存</span></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-2);font-size:var(--text-sm);">
+              客户消息命中关键词时转人工。Room 房间问答（地址/停车/WiFi密码/垃圾指引等）优先由 Sidecar 回答，未命中后再走本词库。
+            </p>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              优先级决定人工接管列表的展示顺序。可先「补全系统默认词库」再按需增删，保存后立即生效。
+            </p>
+
+            <div class="trigger-add-row">
+              <div class="form-group">
+                <label class="form-label">新增关键词</label>
+                <input type="text" class="form-input" id="newTriggerKeyword" placeholder="输入新关键词" style="font-family:var(--font-mono);" maxlength="100">
+              </div>
+              <div class="form-group" style="flex:0 0 160px;min-width:120px;">
+                <label class="form-label">优先级</label>
+                <select class="form-select" id="newTriggerPriority">
+                  <option value="0">🔴 P0 紧急</option>
+                  <option value="1">🟠 P1 高优先级</option>
+                  <option value="2" selected>🟡 P2 中优先级</option>
+                  <option value="3">🟢 P3 常规</option>
+                  <option value="4">⚪ 兜底</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="addTriggerKeyword()" style="height:38px;">➕ 添加</button>
+            </div>
+
+            <div id="triggerGroupsContainer"></div>
+
+            <div style="margin-top:var(--space-4);display:flex;gap:var(--space-3);flex-wrap:wrap;">
+              <button class="btn btn-primary" id="saveHandoffTriggersBtn" onclick="saveHandoffTriggers()">💾 保存全部更改</button>
+              <button class="btn btn-secondary" onclick="syncDefaultHandoffTriggers()">📥 补全系统默认词库</button>
+              <button class="btn btn-secondary" onclick="loadHandoffTriggers()">🔄 重新加载</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════ Tab 5: AI 行为规则（Phase 1 只读） ════════════════ -->
+        <div class="tab-content" id="tabAgentrules">
+          <div class="card" style="margin-bottom:var(--space-4);border:1px solid #f0d78c;background:#fffbeb;">
+            <p style="margin:0;font-size:var(--text-sm);color:#92400e;">
+              <strong>Phase 1</strong> — 配置仅展示与存储，当前 AI 行为仍由代码控制。<strong>Phase 2</strong> 起此处修改将实时生效。
+            </p>
+          </div>
+          <div id="agentConfigLoading" class="text-secondary" style="font-size:var(--text-sm);padding:var(--space-4);">加载配置中…</div>
+          <div id="agentConfigPanels" style="display:none;"></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="addApiKeyModal">
+  <div class="modal-overlay" onclick="closeAddApiKeyModal()"></div>
+  <div class="modal-dialog" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>生成 API 密钥</h3>
+      <button class="modal-close" onclick="closeAddApiKeyModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">密钥名称/备注</label>
+        <input type="text" class="form-input" id="newApiKeyName" placeholder="例如：企业微信、工单系统" maxlength="100">
+        <div class="form-hint">用于标识该密钥的用途</div>
+      </div>
+      <div id="apiKeyResult" style="display:none;margin-top:var(--space-3);">
+        <label class="form-label" style="color:var(--green-600);">✅ 密钥已生成，请立即复制保存</label>
+        <div class="key-display" id="apiKeyResultValue" style="margin-top:6px;"></div>
+        <div class="form-hint" style="color:var(--warning-600);">关闭后无法再次查看完整密钥</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeAddApiKeyModal()">关闭</button>
+      <button class="btn btn-primary" id="generateApiKeyBtn" onclick="generateApiKey()">生成密钥</button>
+    </div>
+  </div>
+</div>
+
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var token = localStorage.getItem('admin_token');
+
+function getHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
+
+function apiUrl(path) {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  var sep = path.indexOf('?') > -1 ? '&' : '?';
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+function doLogout() {
+  if (confirm('确定退出登录？')) {
+    localStorage.removeItem('admin_token');
+    window.location.href = 'login.html';
+  }
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('show');
+  document.body.classList.toggle('sidebar-open');
+}
+
+// ═══ Tab 切换 ═══
+document.getElementById('tabNav').addEventListener('click', function(e) {
+  var btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('tab' + btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)).classList.add('active');
+  if (btn.dataset.tab === 'agentrules') {
+    loadAgentConfig();
+  }
+});
+
+// ═══ AI API Key ═══
+function loadSettings() {
+  fetch(apiUrl('/api/verify.php?action=get_ai_api'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      if (res.code === 0) {
+        var statusEl = document.getElementById('keyStatus');
+        if (res.data.has_key) {
+          statusEl.innerHTML = '<span class="badge badge-success">✅ 已配置</span>';
+        } else {
+          statusEl.innerHTML = '<span class="badge badge-error">未配置</span>';
+        }
+        if (res.data.temperature !== undefined) {
+          document.getElementById('temperatureSlider').value = res.data.temperature;
+          updateTempDisplay(res.data.temperature);
+        }
+      }
+    })
+    .catch(function() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    });
+}
+
+function saveSettings() {
+  var apiKey = document.getElementById('apiKey').value.trim();
+  var apiKeyConfirm = document.getElementById('apiKeyConfirm').value.trim();
+
+  if (!apiKey) { showToast('请输入 API Key'); return; }
+  if (apiKey !== apiKeyConfirm) { showToast('两次输入的 API Key 不一致'); return; }
+
+  var btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_ai_api'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ api_key: apiKey })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+    if (res.code === 0) {
+      showToast('AI API Key 保存成功');
+      document.getElementById('apiKey').value = '';
+      document.getElementById('apiKeyConfirm').value = '';
+      loadSettings();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+    showToast('网络错误，请重试');
+  });
+}
+
+// ═══ 温度控制 ═══
+function updateTempDisplay(val) {
+  var v = parseFloat(val).toFixed(2);
+  document.getElementById('tempValueDisplay').textContent = v;
+  document.getElementById('tempSavedBadge').style.display = 'none';
+
+  var descMap = {
+    low: '稳定模式 — 每次回答几乎一致，严格遵循人设，适合订单查询、售后服务等严肃场景',
+    mid: '均衡模式 — 兼顾准确与自然表达，适合通用客服对话',
+    high: '创意模式 — 回答丰富多样，适合闲聊互动，但可能偏离主题'
+  };
+  var label = '均衡模式，兼顾准确与自然表达';
+  var trend = 'mid';
+  if (v <= 0.25) { label = descMap.low; trend = 'low'; }
+  else if (v <= 0.55) { label = descMap.mid; trend = 'mid'; }
+  else { label = descMap.high; trend = 'high'; }
+
+  var descEl = document.getElementById('tempDesc');
+  descEl.innerHTML = '当前温度 <strong>' + v + '</strong> — <span id="tempDescText">' + label + '</span>';
+  descEl.className = 'temp-desc temp-' + trend;
+}
+
+function saveTemperature() {
+  var val = parseFloat(document.getElementById('temperatureSlider').value);
+  var btn = document.getElementById('saveTempBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_temperature'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ temperature: val })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存温度';
+    if (res.code === 0) {
+      document.getElementById('tempSavedBadge').style.display = 'inline';
+      showToast('AI 温度已保存为 ' + val.toFixed(2));
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存温度';
+    showToast('网络错误，请重试');
+  });
+}
+
+// ═══ 统一网关配置 ═══
+function saveGatewayConfig() {
+  var apiUrlVal = document.getElementById('gatewayApiUrl').value.trim();
+  var apiKey = document.getElementById('gatewayApiKey').value.trim();
+  var keywords = document.getElementById('roomKeywords').value.trim();
+
+  if (!apiUrlVal) { showToast('请输入网关接口地址'); return; }
+  if (!apiKey) { showToast('请输入网关密钥'); return; }
+
+  var btn = document.getElementById('saveGatewayBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_gateway_config'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ api_url: apiUrlVal, api_key: apiKey, room_keywords: keywords })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存网关配置';
+    if (res.code === 0) {
+      showToast('网关配置保存成功');
+      document.getElementById('gatewayApiKey').value = '';
+      loadGatewayConfig();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存网关配置';
+    showToast('网络错误，请重试');
+  });
+}
+
+function clearGatewayConfig() {
+  if (!confirm('确定要清除统一网关配置吗？配置清除后订单查询和房间查询功能将不可用。')) return;
+
+  fetch(apiUrl('/api/verify.php?action=save_gateway_config'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ api_url: '', api_key: '', room_keywords: '' })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('网关配置已清除');
+      loadGatewayConfig();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    showToast('网络错误，请重试');
+  });
+}
+
+function loadGatewayConfig() {
+  fetch(apiUrl('/api/verify.php?action=get_gateway_config'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        var gatewayStatus = document.getElementById('gatewayStatus');
+        var urlInput = document.getElementById('gatewayApiUrl');
+        var keywordsInput = document.getElementById('roomKeywords');
+        var roomStatus = document.getElementById('roomQueryStatus');
+
+        if (res.data.api_url) {
+          gatewayStatus.innerHTML = '<span class="badge badge-success">✅ 已配置</span>';
+          urlInput.value = res.data.api_url;
+        } else {
+          gatewayStatus.innerHTML = '<span class="badge badge-error">未配置</span>';
+          urlInput.value = '';
+        }
+
+        if (res.data.room_keywords) {
+          keywordsInput.value = res.data.room_keywords;
+          roomStatus.innerHTML = '<span class="badge badge-success">✅ 已配置 ' + res.data.room_keywords.split('\n').length + ' 个关键词</span>';
+        } else {
+          keywordsInput.value = '怎么去\n如何到\n路线\n导航\n地址\n在哪里\n在哪儿\n怎么用\n怎么开\n如何使用\n使用说明\n操作\n空调\n电视\n洗衣机\n热水\nwifi\nWiFi\n无线网\n热水器\n冰箱\n电磁炉\n微波炉\n吹风机\n门锁\n入住指引\n房间指引\n设施\n设备\n怎么入住\n怎么进去\n房间号\n几号房';
+          roomStatus.innerHTML = '<span class="badge badge-info">使用默认关键词</span>';
+        }
+      }
+    });
+}
+
+// ═══ 网站嵌入 ═══
+function generateEmbedCode() {
+  var color = document.getElementById('embedColor').value;
+  var position = document.getElementById('embedPosition').value;
+  var origin = window.location.origin;
+  return '<script>\n' +
+    'window.ChatWidgetConfig = {\n' +
+    '  serverUrl: \'' + origin + '\',\n' +
+    '  themeColor: \'' + color + '\',\n' +
+    '  position: \'' + position + '\'\n' +
+    '};\n' +
+    '<\/script>\n' +
+    '<script src="' + origin + '/sdk/chat-widget.js"><\/script>';
+}
+
+function updateEmbedCode() {
+  var code = generateEmbedCode();
+  document.getElementById('embedCodeBlock').textContent = code;
+}
+
+function syncEmbedColor(val) {
+  val = val.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    document.getElementById('embedColor').value = val;
+    updateEmbedCode();
+  }
+}
+
+function copyEmbedCode() {
+  var code = generateEmbedCode();
+  navigator.clipboard.writeText(code).then(function() {
+    var btn = document.getElementById('copyEmbedBtn');
+    btn.textContent = '✅ 已复制';
+    setTimeout(function() { btn.textContent = '📋 复制代码'; }, 2000);
+  }).catch(function() {
+    showToast('复制失败，请手动选择复制');
+  });
+}
+
+function loadSidecarStats() {
+  fetch(apiUrl('/api/sidecar.php?action=stats'))
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      var box = document.getElementById('sidecarStats');
+      var status = document.getElementById('sidecarStatus');
+      if (res.code === 0 && res.data) {
+        var d = res.data;
+        box.innerHTML = '房源 ' + d.rooms + ' · 知识块 ' + d.chunks + ' · 已向量化 ' + d.done + ' · 待向量化 ' + d.pending;
+        status.innerHTML = d.chunks > 0
+          ? '<span class="badge badge-success">✅ 已接入</span>'
+          : '<span class="badge badge-error">未建块</span>';
+      } else {
+        box.textContent = res.msg || 'Sidecar 连接失败';
+        status.innerHTML = '<span class="badge badge-error">异常</span>';
+      }
+    })
+    .catch(function() {
+      document.getElementById('sidecarStats').textContent = '无法连接 Sidecar API';
+    });
+}
+
+function rebuildSidecarChunks() {
+  if (!confirm('确认从 sujia_ai_sidecar_dev 重建全部知识块？')) return;
+  fetch(apiUrl('/api/sidecar.php?action=rebuild_chunks'), { method: 'POST', headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      showToast(res.code === 0 ? ('重建完成：' + (res.data.chunks || 0) + ' 块') : res.msg);
+      loadSidecarStats();
+    })
+    .catch(function() { showToast('网络错误'); });
+}
+
+function vectorizeSidecarPending() {
+  fetch(apiUrl('/api/sidecar.php?action=vectorize_pending'), { method: 'POST', headers: getHeaders(), body: '{}' })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      showToast(res.code === 0 ? ('向量化：' + (res.data.count || 0) + ' 条') : res.msg);
+      loadSidecarStats();
+    })
+    .catch(function() { showToast('网络错误'); });
+}
+
+loadSettings();
+loadGatewayConfig();
+loadSidecarStats();
+loadWecomConfig();
+loadApiKeys();
+loadHandoffTriggers();
+updateEmbedCode();
+
+// ═══ API 密钥管理 ═══
+function loadApiKeys() {
+  fetch(apiUrl('/api/verify.php?action=list_api_keys'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      var tbody = document.getElementById('apiKeyTableBody');
+      var countEl = document.getElementById('apiKeyCount');
+      if (res.code === 0 && res.data.list) {
+        var list = res.data.list;
+        countEl.textContent = '共 ' + list.length + ' 个密钥';
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">暂无密钥，请点击"生成新密钥"</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(function(k) {
+          var masked = k.api_key.substring(0, 8) + '****' + k.api_key.substring(k.api_key.length - 4);
+          var statusBadge = k.enabled == 1
+            ? '<span class="badge badge-success">启用</span>'
+            : '<span class="badge badge-error">禁用</span>';
+          var lastUsed = k.last_used_at || '从未使用';
+          return '<tr>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid var(--border-light);font-size:var(--text-sm);">' + escapeHtml(k.name || '未命名') + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid var(--border-light);font-size:var(--text-sm);font-family:var(--font-mono);">' + masked + '</td>' +
+            '<td style="text-align:center;padding:10px 12px;border-bottom:1px solid var(--border-light);"><button class="btn btn-sm ' + (k.enabled == 1 ? 'btn-success' : 'btn-secondary') + '" onclick="toggleApiKey(' + k.id + ', ' + k.enabled + ')">' + statusBadge + '</button></td>' +
+            '<td style="text-align:center;padding:10px 12px;border-bottom:1px solid var(--border-light);font-size:var(--text-sm);color:var(--text-muted);">' + lastUsed + '</td>' +
+            '<td style="text-align:center;padding:10px 12px;border-bottom:1px solid var(--border-light);"><button class="btn btn-sm btn-danger" onclick="deleteApiKey(' + k.id + ')">删除</button></td>' +
+            '</tr>';
+        }).join('');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">加载失败</td></tr>';
+      }
+    })
+    .catch(function() {
+      document.getElementById('apiKeyTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">加载失败</td></tr>';
+    });
+}
+
+function showAddApiKeyModal() {
+  document.getElementById('newApiKeyName').value = '';
+  document.getElementById('apiKeyResult').style.display = 'none';
+  document.getElementById('generateApiKeyBtn').style.display = 'inline-block';
+  document.getElementById('addApiKeyModal').classList.add('active');
+}
+
+function closeAddApiKeyModal() {
+  document.getElementById('addApiKeyModal').classList.remove('active');
+}
+
+function generateApiKey() {
+  var name = document.getElementById('newApiKeyName').value.trim() || '未命名';
+  var btn = document.getElementById('generateApiKeyBtn');
+  btn.disabled = true;
+  btn.textContent = '生成中...';
+
+  fetch(apiUrl('/api/verify.php?action=create_api_key'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ name: name })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '生成密钥';
+    if (res.code === 0 && res.data.api_key) {
+      document.getElementById('generateApiKeyBtn').style.display = 'none';
+      document.getElementById('apiKeyResultValue').textContent = res.data.api_key;
+      document.getElementById('apiKeyResult').style.display = 'block';
+      loadApiKeys();
+    } else {
+      showToast(res.msg || '生成失败');
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '生成密钥';
+    showToast('网络错误，请重试');
+  });
+}
+
+function toggleApiKey(id, currentStatus) {
+  var action = currentStatus == 1 ? 'disable' : 'enable';
+  fetch(apiUrl('/api/verify.php?action=toggle_api_key'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ id: id })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast(currentStatus == 1 ? '已禁用' : '已启用');
+      loadApiKeys();
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+function deleteApiKey(id) {
+  if (!confirm('确定删除此 API 密钥？删除后使用该密钥的集成将立即失效。')) return;
+  fetch(apiUrl('/api/verify.php?action=delete_api_key'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ id: id })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('✅ 已删除');
+      loadApiKeys();
+    } else {
+      showToast(res.msg);
+    }
+  });
+}
+
+// ═══ 企业微信配置 ═══
+function loadWecomConfig() {
+  fetch(apiUrl('/api/verify.php?action=get_wecom_config'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        var statusEl = document.getElementById('wecomStatus');
+        var callbackUrl = document.getElementById('wecomCallbackUrl');
+        callbackUrl.textContent = window.location.origin + '/aibisskefu/api/wecom.php';
+
+        if (res.data.corpid) {
+          document.getElementById('wecomCorpId').value = res.data.corpid;
+          document.getElementById('wecomToken').value = res.data.token;
+          document.getElementById('wecomAesKey').value = res.data.aes_key;
+          statusEl.innerHTML = '<span class="badge badge-success">✅ 已配置</span>';
+        } else {
+          statusEl.innerHTML = '<span class="badge badge-error">未配置</span>';
+        }
+      }
+    });
+}
+
+function saveWecomConfig() {
+  var corpid = document.getElementById('wecomCorpId').value.trim();
+  var token  = document.getElementById('wecomToken').value.trim();
+  var aesKey = document.getElementById('wecomAesKey').value.trim();
+
+  if (!corpid) { showToast('请输入企业 ID（CorpID）'); return; }
+  if (!token) { showToast('请输入 Token'); return; }
+  if (!aesKey) { showToast('请输入 EncodingAESKey'); return; }
+
+  var btn = document.getElementById('saveWecomBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_wecom_config'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ corpid: corpid, token: token, aes_key: aesKey })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+    if (res.code === 0) {
+      showToast('企业微信配置保存成功');
+      loadWecomConfig();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+    showToast('网络错误，请重试');
+  });
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+// ═══ 转人工规则管理（完整增删查改） ═══
+var PRIORITY_CONFIG = {
+  0: { label: 'P0 紧急', icon: '🔴', cls: 'badge-error', desc: '门锁进不去、漏水漏电、火灾燃气、受伤等危及安全' },
+  1: { label: 'P1 高优先级', icon: '🟠', cls: 'badge-warning', desc: '热水/空调故障、网络中断、马桶堵塞、卫生虫害、投诉纠纷' },
+  2: { label: 'P2 中优先级', icon: '🟡', cls: 'badge-info', desc: '续住换房、提前入住/延迟退房、改期取消、退款赔偿、补给加床' },
+  3: { label: 'P3 常规', icon: '🟢', cls: 'badge-success', desc: '发票、押金扣费、物品遗失、带宠物、噪音等' },
+  4: { label: '兜底', icon: '⚪', cls: 'badge-secondary', desc: '转人工、找客服、有人吗等明确要求人工的表述' }
+};
+
+var workingKeywords = []; // [{keyword, priority}]
+
+/* ── 查：从后端加载全部触发词 ── */
+function loadHandoffTriggers() {
+  fetch(apiUrl('/api/handoff.php?action=get_triggers'), {
+    headers: getHeaders(),
+    method: 'POST'
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0 && res.data) {
+      var grouped = res.data.grouped || {};
+      workingKeywords = [];
+      var priorityOrder = [0, 1, 2, 3, 4];
+      for (var i = 0; i < priorityOrder.length; i++) {
+        var p = priorityOrder[i];
+        var items = grouped[p] || [];
+        for (var j = 0; j < items.length; j++) {
+          workingKeywords.push({ keyword: items[j].keyword, priority: p });
+        }
+      }
+      renderTriggerGroups();
+    }
+  })
+  .catch(function() {});
+}
+
+function syncDefaultHandoffTriggers() {
+  if (!confirm('将补全系统默认词库（新增缺失词，并将系统词的优先级对齐到最新）。不会删除您自定义添加的词。继续？')) {
+    return;
+  }
+  fetch(apiUrl('/api/handoff.php?action=sync_defaults'), {
+    method: 'POST',
+    headers: getHeaders()
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0 && res.data) {
+      showToast('✅ 已同步：新增 ' + (res.data.added || 0) + '，更新 ' + (res.data.updated || 0) + '，共 ' + (res.data.total || 0) + ' 个词');
+      loadHandoffTriggers();
+    } else {
+      showToast(res.msg || '同步失败');
+    }
+  })
+  .catch(function() { showToast('同步失败'); });
+}
+
+/* ── 渲染：按优先级分组显示关键词列表 ── */
+function renderTriggerGroups() {
+  var container = document.getElementById('triggerGroupsContainer');
+  var html = '';
+  var priorityOrder = [0, 1, 2, 3, 4];
+
+  for (var i = 0; i < priorityOrder.length; i++) {
+    var p = priorityOrder[i];
+    var cfg = PRIORITY_CONFIG[p];
+    var items = workingKeywords.filter(function(w) { return w.priority === p; });
+    var count = items.length;
+
+    html += '<div class="trigger-group">';
+    html += '<div class="trigger-group-header" onclick="toggleGroup(this)">';
+    html += '<div class="group-label">' + cfg.icon + ' ' + cfg.label;
+    html += '<span class="group-count">' + count + ' 个</span>';
+    html += '</div>';
+    html += '<span style="font-size:12px;color:var(--text-muted);">' + cfg.desc + '</span>';
+    html += '<span style="font-size:12px;color:var(--text-muted);">▼</span>';
+    html += '</div>';
+    html += '<div class="trigger-group-body">';
+
+    if (count === 0) {
+      html += '<div class="empty-trigger-hint">暂无关键词</div>';
+    } else {
+      for (var j = 0; j < items.length; j++) {
+        var kw = escapeHtml(items[j].keyword);
+        html += '<span class="trigger-tag" id="tag_' + p + '_' + j + '">';
+        html += '<span class="tag-text" onclick="editTriggerKeyword(' + p + ',' + j + ')" title="点击编辑">' + kw + '</span>';
+        html += '<span class="tag-actions">';
+        html += '<span class="tag-edit" onclick="editTriggerKeyword(' + p + ',' + j + ')" title="编辑">✎</span>';
+        html += '<span class="tag-del" onclick="removeTriggerKeyword(' + p + ',' + j + ')" title="删除">×</span>';
+        html += '</span>';
+        html += '</span>';
+      }
+    }
+
+    html += '</div></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+/* ── 折叠/展开分组 ── */
+function toggleGroup(header) {
+  var body = header.nextElementSibling;
+  if (body) {
+    body.style.display = body.style.display === 'none' ? 'flex' : 'none';
+    var arrow = header.querySelector('span:last-child');
+    if (arrow) arrow.textContent = body.style.display === 'none' ? '▶' : '▼';
+  }
+}
+
+/* ── 增：新增关键词 ── */
+function addTriggerKeyword() {
+  var input = document.getElementById('newTriggerKeyword');
+  var keyword = input.value.trim();
+  if (!keyword) { showToast('请输入关键词'); return; }
+
+  var priority = parseInt(document.getElementById('newTriggerPriority').value);
+
+  var exists = workingKeywords.some(function(w) { return w.keyword === keyword && w.priority === priority; });
+  if (exists) { showToast('该关键词已存在'); return; }
+
+  workingKeywords.push({ keyword: keyword, priority: priority });
+  input.value = '';
+  renderTriggerGroups();
+  document.getElementById('handoffTriggersSavedBadge').style.display = 'none';
+  showToast('✅ 已添加 "' + keyword + '"（点击保存生效）');
+}
+
+/* ── 删：删除关键词 ── */
+function removeTriggerKeyword(priority, index) {
+  var indices = [];
+  for (var i = 0; i < workingKeywords.length; i++) {
+    if (workingKeywords[i].priority === priority) {
+      indices.push(i);
+    }
+  }
+  if (index >= 0 && index < indices.length) {
+    var realIndex = indices[index];
+    var deleted = workingKeywords[realIndex].keyword;
+    workingKeywords.splice(realIndex, 1);
+    renderTriggerGroups();
+    document.getElementById('handoffTriggersSavedBadge').style.display = 'none';
+    showToast('🗑️ 已删除 "' + deleted + '"（点击保存生效）');
+  }
+}
+
+var _editBackup = {}; // 编辑备份 { realIndex: { keyword, priority } }
+
+/* ── 改：进入编辑模式 ── */
+function editTriggerKeyword(priority, index) {
+  var indices = [];
+  for (var i = 0; i < workingKeywords.length; i++) {
+    if (workingKeywords[i].priority === priority) {
+      indices.push(i);
+    }
+  }
+  if (index < 0 || index >= indices.length) return;
+  var realIndex = indices[index];
+  var item = workingKeywords[realIndex];
+  var tagId = 'tag_' + priority + '_' + index;
+  var tag = document.getElementById(tagId);
+  if (!tag) return;
+
+  _editBackup[realIndex] = { keyword: item.keyword, priority: item.priority };
+
+  tag.innerHTML =
+    '<input type="text" class="tag-edit-input" id="editInput_' + realIndex + '" value="' + escapeHtml(item.keyword) + '" maxlength="100">' +
+    '<select class="tag-edit-select" id="editSelect_' + realIndex + '">' +
+      '<option value="0"' + (item.priority === 0 ? ' selected' : '') + '>🔴 P0 紧急</option>' +
+      '<option value="1"' + (item.priority === 1 ? ' selected' : '') + '>🟠 P1 高</option>' +
+      '<option value="2"' + (item.priority === 2 ? ' selected' : '') + '>🟡 P2 中</option>' +
+      '<option value="3"' + (item.priority === 3 ? ' selected' : '') + '>🟢 P3 常规</option>' +
+      '<option value="4"' + (item.priority === 4 ? ' selected' : '') + '>⚪ 兜底</option>' +
+    '</select>' +
+    '<span class="tag-edit-save" onclick="saveEditTriggerKeyword(' + realIndex + ')" title="保存">✔</span>' +
+    '<span class="tag-edit-cancel" onclick="cancelEditTriggerKeyword(' + realIndex + ')" title="取消">✘</span>';
+
+  tag.classList.add('editing');
+  var inp = document.getElementById('editInput_' + realIndex);
+  inp.focus();
+  inp.select();
+}
+
+/* ── 改：保存编辑 ── */
+function saveEditTriggerKeyword(realIndex) {
+  var inp = document.getElementById('editInput_' + realIndex);
+  var sel = document.getElementById('editSelect_' + realIndex);
+  if (!inp || !sel) return;
+
+  var newKeyword = inp.value.trim();
+  if (!newKeyword) { showToast('关键词不能为空'); return; }
+  var newPriority = parseInt(sel.value);
+
+  workingKeywords[realIndex].keyword = newKeyword;
+  workingKeywords[realIndex].priority = newPriority;
+  renderTriggerGroups();
+  document.getElementById('handoffTriggersSavedBadge').style.display = 'none';
+  showToast('✅ 已修改（点击保存生效）');
+}
+
+/* ── 改：取消编辑 ── */
+function cancelEditTriggerKeyword(realIndex) {
+  var backup = _editBackup[realIndex];
+  if (backup) {
+    workingKeywords[realIndex].keyword = backup.keyword;
+    workingKeywords[realIndex].priority = backup.priority;
+    delete _editBackup[realIndex];
+  }
+  renderTriggerGroups();
+}
+
+/* ── 保存全部到后端 ── */
+function saveHandoffTriggers() {
+  var btn = document.getElementById('saveHandoffTriggersBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  var payload = workingKeywords.map(function(w) {
+    return { keyword: w.keyword, priority: w.priority };
+  });
+
+  fetch(apiUrl('/api/handoff.php?action=save_triggers'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ keywords: payload })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '💾 保存全部更改';
+    if (res.code === 0) {
+      document.getElementById('handoffTriggersSavedBadge').style.display = 'inline';
+      showToast('✅ 触发词保存成功');
+      loadHandoffTriggers();
+    } else {
+      showToast(res.msg || '保存失败');
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '💾 保存全部更改';
+    showToast('网络错误，请重试');
+  });
+}
+
+// Enter 键添加关键词
+document.addEventListener('DOMContentLoaded', function() {
+  var input = document.getElementById('newTriggerKeyword');
+  if (input) {
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTriggerKeyword();
+      }
+    });
+  }
+  // 编辑模式下 Enter 保存
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var active = document.activeElement;
+      if (active && active.id && active.id.indexOf('editInput_') === 0) {
+        e.preventDefault();
+        var idx = parseInt(active.id.replace('editInput_', ''));
+        if (!isNaN(idx)) saveEditTriggerKeyword(idx);
+      }
+    }
+    if (e.key === 'Escape') {
+      var active = document.activeElement;
+      if (active && active.id && active.id.indexOf('editInput_') === 0) {
+        var idx = parseInt(active.id.replace('editInput_', ''));
+        if (!isNaN(idx) && _editBackup[idx]) {
+          cancelEditTriggerKeyword(idx);
+        }
+      }
+    }
+  });
+});
+
+// 页面初始化时加载转人工规则
+var origLoad = loadSettings;
+loadSettings = function() {
+  if (typeof origLoad === 'function') origLoad();
+  loadHandoffTriggers();
+};
+
+// ═══ AI 行为规则（Phase 1 只读） ═══
+var _agentConfigLoaded = false;
+
+function agentEsc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function agentListHtml(items) {
+  if (!items || !items.length) return '<p class="text-secondary text-sm">（空）</p>';
+  return '<ul class="agent-readonly-list">' + items.map(function(x) {
+    return '<li>' + agentEsc(x) + '</li>';
+  }).join('') + '</ul>';
+}
+
+function agentCard(title, inner) {
+  return '<div class="card settings-section"><div class="card-header"><h3>' + title + '</h3></div>' + inner + '</div>';
+}
+
+function agentField(label, value) {
+  return '<div class="form-group"><label class="form-label">' + agentEsc(label) + '</label>'
+    + '<div class="form-input" style="background:var(--neutral-50);min-height:38px;white-space:pre-wrap;">' + agentEsc(value) + '</div></div>';
+}
+
+function loadAgentConfig() {
+  if (_agentConfigLoaded) return;
+  var loading = document.getElementById('agentConfigLoading');
+  var panels = document.getElementById('agentConfigPanels');
+  if (!loading || !panels) return;
+  loading.style.display = 'block';
+  panels.style.display = 'none';
+
+  fetch(apiUrl('/api/agent.php?action=get_config'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      loading.style.display = 'none';
+      if (res.code !== 0 || !res.data || !res.data.config) {
+        loading.style.display = 'block';
+        loading.textContent = res.msg || '加载失败';
+        return;
+      }
+      var c = res.data.config;
+      var p = function(k) { return c[k + '__parsed'] !== undefined ? c[k + '__parsed'] : c[k]; };
+      var html = '';
+
+      html += agentCard('基础设置',
+        agentField('行业 agent.industry', c['agent.industry']) +
+        agentField('拒答句 agent.fallback.reply', c['agent.fallback.reply']) +
+        agentField('联系称呼 agent.fallback.contact_label', c['agent.fallback.contact_label']) +
+        agentField('回复字数 min/max', (c['agent.reply.min_chars'] || '') + ' / ' + (c['agent.reply.max_chars'] || '')) +
+        agentField('LLM max_tokens', c['agent.llm.max_tokens'])
+      );
+
+      html += agentCard('事实禁止 prohibition.examples', agentListHtml(p('agent.prohibition.examples')));
+      html += agentCard('话术禁止 speech_bans', agentListHtml(p('agent.rules.speech_bans')));
+      html += agentCard('预订引导',
+        agentField('booking_platforms', c['agent.rules.booking_platforms']) +
+        agentField('booking_brand_hint', c['agent.rules.booking_brand_hint'])
+      );
+
+      var patterns = p('agent.kb.policy_patterns');
+      var patHtml = '<p class="text-secondary text-sm">（空）</p>';
+      if (patterns && patterns.length) {
+        patHtml = '<table class="data-table" style="width:100%;font-size:var(--text-sm);"><thead><tr><th>pattern</th><th>blob_needle</th></tr></thead><tbody>';
+        patterns.forEach(function(row) {
+          patHtml += '<tr><td style="font-family:var(--font-mono);word-break:break-all;">' + agentEsc(row.pattern || '') + '</td><td>' + agentEsc(row.blob_needle || '') + '</td></tr>';
+        });
+        patHtml += '</tbody></table>';
+      }
+      html += agentCard('KB 直答策略 policy_patterns', patHtml);
+
+      html += agentCard('后处理 filter',
+        '<div class="form-group"><label class="form-label">sales_patterns</label>' + agentListHtml(p('agent.filter.sales_patterns')) + '</div>' +
+        '<div class="form-group"><label class="form-label">bad_endings</label>' + agentListHtml(p('agent.filter.bad_endings')) + '</div>'
+      );
+
+      html += agentCard('凭证路由',
+        agentField('credential_guide', c['agent.routing.credential_guide']) +
+        '<div class="form-group"><label class="form-label">credential_keywords</label>' + agentListHtml(p('agent.routing.credential_keywords')) + '</div>' +
+        agentField('credential_kb_marker', c['agent.routing.credential_kb_marker'])
+      );
+
+      html += agentCard('Sidecar 路由',
+        '<div class="form-group"><label class="form-label">sidecar_route_phrases</label>' + agentListHtml(p('agent.routing.sidecar_route_phrases')) + '</div>' +
+        agentField('sidecar_entry_extra', c['agent.routing.sidecar_entry_extra'])
+      );
+
+      html += agentCard('查单与插件',
+        agentField('order.guide_reply', c['agent.order.guide_reply']) +
+        agentField('plugin.order_query.enabled', c['plugin.order_query.enabled']) +
+        agentField('plugin.sidecar.enabled', c['plugin.sidecar.enabled'])
+      );
+
+      html += agentCard('finalize 保留标记 preserved_markers', agentListHtml(p('agent.fallback.preserved_markers')));
+      html += agentCard('转人工 system hint', agentField('handoff_system_hint', c['agent.rules.handoff_system_hint']));
+
+      var pol = p('agent.safety.political');
+      if (pol && pol.length) {
+        html += agentCard('安全 political 覆盖', agentListHtml(pol));
+      }
+
+      panels.innerHTML = html;
+      panels.style.display = 'block';
+      _agentConfigLoaded = true;
+    })
+    .catch(function() {
+      loading.textContent = '网络错误，请重试';
+    });
+}
+</script>
+<style>
+.agent-readonly-list { margin:0;padding-left:1.25rem;font-size:var(--text-sm);line-height:1.6; }
+.agent-readonly-list li { margin-bottom:4px;word-break:break-word; }
+</style>
+</body>
+</html>

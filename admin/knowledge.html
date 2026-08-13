@@ -3,131 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>知识库管理 - 管理后台</title>
-<script src="auth-guard.js"></script>
+<title>知识库管理 · AI 智能客服</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/design-system.css">
+<link href="https://cdn.jsdelivr.net/npm/wangeditor@4.7.15/dist/css/wangEditor.min.css" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
-.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; }
-.header h1 { font-size: 17px; font-weight: 600; }
-.header .nav-links { display: flex; gap: 16px; }
-.header .nav-links a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; }
-.header .nav-links a:hover { color: #fff; }
-.header .logout-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-.header .logout-btn:hover { background: rgba(255,255,255,0.25); }
-.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
-.toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
-.toolbar input { flex: 1; min-width: 200px; }
-.btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
-.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
-.btn-primary:hover { opacity: 0.9; }
-.btn-sm { padding: 4px 10px; font-size: 12px; }
-.btn-danger { background: #ff4757; color: #fff; }
-.btn-danger:hover { opacity: 0.9; }
-.btn-outline { background: #fff; border: 1px solid #ddd; color: #333; }
-.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; }
-table { width: 100%; border-collapse: collapse; }
-th { background: #f8f9ff; padding: 12px 16px; text-align: left; font-size: 13px; color: #666; border-bottom: 1px solid #e8e8e8; }
-td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
-td .q { font-weight: 500; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-td .a { color: #666; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-td .actions { display: flex; gap: 4px; }
-.status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-.status-badge.active { background: #e8f5e9; color: #2e7d32; }
-.status-badge.inactive { background: #fbe9e7; color: #c62828; }
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
-.modal-overlay.active { display: flex; }
-.modal { background: #fff; border-radius: 16px; padding: 24px; width: 90%; max-width: 560px; max-height: 80vh; overflow-y: auto; }
-.modal h3 { font-size: 18px; margin-bottom: 16px; }
-.modal .form-group { margin-bottom: 12px; }
-.modal .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
-.modal .form-group input, .modal .form-group select, .modal .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
-.modal .form-group textarea { min-height: 80px; resize: vertical; }
-.modal .form-group input:focus, .modal .form-group textarea:focus { border-color: #667eea; }
-.modal .btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-.toast { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 200; }
-.toast.show { display: block; animation: fadeIn 0.3s; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-.loading { text-align: center; color: #999; padding: 40px; }
-.pagination { display: flex; justify-content: center; gap: 4px; padding: 16px; }
-.pagination button { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
-.pagination button.active { background: #667eea; color: #fff; border-color: #667eea; }
-.empty { text-align: center; color: #999; padding: 40px; }
+  :root {
+    --font-heading: 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  body { font-family: var(--font-body); }
+  h1, h2, h3, h4, h5, h6, .page-title, .brand-title { font-family: var(--font-heading); }
+
+  #editorContainer .w-e-text-container {
+    background: #f8f9fc;
+    color: #1a1a2e;
+  }
+  #editorContainer .w-e-text-container p,
+  #editorContainer .w-e-text-container div,
+  #editorContainer .w-e-text-container h1,
+  #editorContainer .w-e-text-container h2,
+  #editorContainer .w-e-text-container h3,
+  #editorContainer .w-e-text-container blockquote,
+  #editorContainer .w-e-text-container li,
+  #editorContainer .w-e-text-container td,
+  #editorContainer .w-e-text-container th {
+    color: #1a1a2e;
+  }
+  #editorContainer .w-e-text-container pre {
+    color: #e2e8f0;
+    background: #1e293b;
+  }
+  #editorContainer .w-e-toolbar {
+    background: #eef0f5;
+    border-bottom: 1px solid #d1d5db;
+  }
+  #editorContainer .w-e-menu {
+    color: #374151;
+  }
 </style>
 </head>
 <body>
-
-<div class="header">
-  <h1>📚 知识库管理</h1>
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div class="nav-links">
-      <a href="dashboard.html">仪表盘</a>
-      <a href="persona.html">人设</a>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-brand">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-text">
+        <span class="brand-title">AI 智能客服</span>
+        <span class="brand-sub">NebulaBot</span>
+      </div>
+    </a>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html" data-page="dashboard"><span class="nav-icon">📊</span><span class="nav-label">概览</span></a>
+      <a class="nav-item" href="persona.html" data-page="persona"><span class="nav-icon">🎭</span><span class="nav-label">吉祥物人设</span></a>
+      <a class="nav-item active" href="knowledge.html" data-page="knowledge"><span class="nav-icon">📚</span><span class="nav-label">知识库管理</span></a>
+      <a class="nav-item" href="chat-logs.html" data-page="chat-logs"><span class="nav-icon">💬</span><span class="nav-label">对话记录</span></a>
+      <a class="nav-item" href="users.html" data-page="users"><span class="nav-icon">👥</span><span class="nav-label">账号管理</span></a>
+      <a class="nav-item" href="settings.html" data-page="settings"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <span class="user-name" id="sidebarUsername">管理员</span>
+        <button class="logout-btn" onclick="doLogout()" title="退出登录">↩</button>
+      </div>
     </div>
-    <button class="logout-btn" onclick="localStorage.removeItem('admin_token');window.location.href='login.html';">退出</button>
-  </div>
-</div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <main class="main-content">
+    <header class="main-header">
+      <div>
+        <div class="page-title">知识库管理</div>
+        <div class="page-sub">通用 FAQ（品牌/政策/路由）；房间地址 WiFi 停车等由 Sidecar 房间库回答</div>
+      </div>
+    </header>
+    <div class="main-body">
+      <div class="toolbar">
+        <select class="form-select" id="categoryFilter" onchange="loadList()" style="width:auto;min-width:120px;">
+          <option value="0">全部分类</option>
+        </select>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="form-input" id="searchInput" placeholder="搜索知识库..." onkeydown="if(event.key==='Enter')loadList()">
+          <button class="btn btn-primary btn-search" onclick="loadList()">搜索</button>
+          <button class="btn btn-ghost btn-clear-search" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">✕</button>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">+ 新增条目</button>
+        <button class="btn btn-secondary" onclick="openCategoryModal()">📁 管理分类</button>
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="importCSV(this)">
+        <button class="btn btn-secondary" id="importBtn" onclick="document.getElementById('csvFileInput').click()">📥 导入CSV</button>
+        <button class="btn btn-ghost" onclick="downloadTemplate()">📋 下载模板</button>
+        <button class="btn btn-secondary" onclick="batchVectorize()" id="batchVecBtn">🧠 批量向量化</button>
+        <button class="btn btn-secondary" onclick="rebuildDefaultKnowledge()" id="rebuildKbBtn">♻️ 重建默认知识库</button>
+      </div>
 
-<div class="container">
-  <div class="toolbar">
-    <select id="categoryFilter" onchange="loadList()">
-      <option value="0">全部分类</option>
-    </select>
-    <input type="text" id="searchInput" placeholder="搜索知识库..." onkeydown="if(event.key==='Enter')loadList()">
-    <button class="btn btn-primary" onclick="openModal()">+ 新增条目</button>
-    <button class="btn btn-outline" onclick="openCategoryModal()">📁 管理分类</button>
-  </div>
-
-  <div class="card">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:40%">问题</th>
-          <th style="width:35%">答案</th>
-          <th style="width:8%">状态</th>
-          <th style="width:8%">命中</th>
-          <th style="width:9%">操作</th>
-        </tr>
-      </thead>
-      <tbody id="kbList"></tbody>
-    </table>
-    <div class="loading" id="loading">加载中...</div>
-    <div class="empty" id="empty" style="display:none;">暂无知识条目</div>
-    <div class="pagination" id="pagination"></div>
-  </div>
+      <div class="card" style="padding:0;">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36%">问题</th>
+                <th style="width:34%">答案</th>
+                <th style="width:8%">状态</th>
+                <th style="width:6%">命中</th>
+                <th style="width:16%">操作</th>
+              </tr>
+            </thead>
+            <tbody id="kbList"></tbody>
+          </table>
+        </div>
+        <div class="loading" id="loading">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+          <span>加载中...</span>
+        </div>
+        <div class="empty-state" id="empty" style="display:none;">
+          <div class="empty-icon">📭</div>
+          <h4>暂无知识条目</h4>
+          <p>点击「新增条目」开始添加问答对</p>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </main>
 </div>
+<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
 <!-- 条目编辑弹窗 -->
 <div class="modal-overlay" id="entryModal">
   <div class="modal">
-    <h3 id="modalTitle">新增知识条目</h3>
+    <div class="modal-header">
+      <h3 id="modalTitle">新增知识条目</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
     <input type="hidden" id="editId">
     <div class="form-group">
-      <label>分类</label>
-      <select id="editCategory"></select>
+      <label class="form-label">分类</label>
+      <select class="form-select" id="editCategory"></select>
     </div>
     <div class="form-group">
-      <label>标准问题</label>
-      <input type="text" id="editQuestion" maxlength="500">
+      <label class="form-label">标准问题</label>
+      <input type="text" class="form-input" id="editQuestion" maxlength="500" placeholder="输入客户可能问的问题">
     </div>
     <div class="form-group">
-      <label>标准答案</label>
-      <textarea id="editAnswer" rows="4"></textarea>
+      <label class="form-label">标准答案 <span style="font-size:12px;color:var(--text-muted);">(支持富文本)</span></label>
+      <div id="editorContainer"></div>
+      <input type="hidden" id="editAnswer" value="">
     </div>
     <div class="form-group">
-      <label>关键词（逗号分隔）</label>
-      <input type="text" id="editKeywords" placeholder="如：价格,费用,多少钱">
+      <label class="form-label">关键词</label>
+      <input type="text" class="form-input" id="editKeywords" placeholder="如：价格,费用,多少钱（逗号分隔）">
+      <div class="form-hint">用于辅助匹配相似问题</div>
     </div>
     <div class="form-group">
-      <label>状态</label>
-      <select id="editStatus">
+      <label class="form-label">状态</label>
+      <select class="form-select" id="editStatus">
         <option value="1">启用</option>
         <option value="0">禁用</option>
       </select>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
       <button class="btn btn-primary" onclick="saveEntry()">保存</button>
     </div>
   </div>
@@ -136,14 +173,17 @@ td .actions { display: flex; gap: 4px; }
 <!-- 分类管理弹窗 -->
 <div class="modal-overlay" id="categoryModal">
   <div class="modal">
-    <h3>📁 分类管理</h3>
+    <div class="modal-header">
+      <h3>📁 分类管理</h3>
+      <button class="modal-close" onclick="document.getElementById('categoryModal').classList.remove('active')">✕</button>
+    </div>
     <div id="categoryList"></div>
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <input type="text" id="newCategoryName" placeholder="新分类名称" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;">
+    <div style="display:flex;gap:var(--space-2);margin-top:var(--space-4);">
+      <input type="text" class="form-input" id="newCategoryName" placeholder="新分类名称" style="flex:1;">
       <button class="btn btn-primary" onclick="saveCategory()">添加</button>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-outline" onclick="document.getElementById('categoryModal').classList.remove('active')">关闭</button>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('categoryModal').classList.remove('active')">关闭</button>
     </div>
   </div>
 </div>
@@ -155,6 +195,18 @@ var token = localStorage.getItem('admin_token');
 
 if (!token) { window.location.href = 'login.html'; }
 
+function toggleSidebar() {
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('active');
+}
+
+function doLogout() {
+  localStorage.removeItem('admin_token');
+  window.location.href = 'login.html';
+}
+
 function showToast(msg) {
   var t = document.getElementById('toast');
   t.textContent = msg;
@@ -163,20 +215,24 @@ function showToast(msg) {
 }
 
 function getHeaders() {
-  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+  return { 'Content-Type': 'application/json' };
+}
+
+function apiUrl(path) {
+  var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+  var base = dir.substring(0, dir.lastIndexOf('/') + 1);
+  var sep = path.indexOf('?') > -1 ? '&' : '?';
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
 }
 
 var currentPage = 1;
+var kbItemsMap = {};
 
 loadCategories();
 loadList();
 
-function getHeaders() {
-  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
-}
-
 function loadCategories() {
-  fetch('/api/knowledge.php?action=categories', { headers: getHeaders() })
+  fetch(apiUrl('/api/knowledge.php?action=categories'), { headers: getHeaders() })
     .then(r => r.json())
     .then(res => {
       if (res.code === 0 && res.data.list) {
@@ -185,39 +241,41 @@ function loadCategories() {
         sel.innerHTML = '<option value="0">全部分类</option>';
         cats.forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
 
-        // 弹窗里的分类下拉
         const editCat = document.getElementById('editCategory');
         editCat.innerHTML = '<option value="0">无分类</option>';
         cats.forEach(c => { editCat.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
 
-        // 分类列表
         const cl = document.getElementById('categoryList');
         cl.innerHTML = cats.map(c => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0;">
-            <span>${c.name}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light);">
+            <span style="font-size:var(--text-base);">${c.name}</span>
             <button class="btn btn-sm btn-danger" onclick="deleteCategory(${c.id})">删除</button>
           </div>
-        `).join('') || '<div style="color:#999;padding:8px 0;">暂无分类</div>';
+        `).join('') || '<div style="color:var(--text-muted);padding:12px 0;text-align:center;">暂无分类</div>';
       }
     });
 }
 
 function loadList() {
-  document.getElementById('loading').style.display = 'block';
+  document.getElementById('loading').style.display = 'flex';
   document.getElementById('empty').style.display = 'none';
   const catId = document.getElementById('categoryFilter').value;
   const q = document.getElementById('searchInput').value.trim();
+
+  var clearBtn = document.getElementById('clearSearchBtn');
+  if (q) { clearBtn.style.display = 'inline-flex'; } else { clearBtn.style.display = 'none'; }
 
   let url = `/api/knowledge.php?action=list&page=${currentPage}`;
   if (catId > 0) url += `&category_id=${catId}`;
 
   if (q) {
-    fetch(`/api/knowledge.php?action=search&q=${encodeURIComponent(q)}&limit=20`, { headers: getHeaders() })
+    fetch(apiUrl(`/api/knowledge.php?action=search&q=${encodeURIComponent(q)}&limit=20`), { headers: getHeaders() })
       .then(r => r.json())
       .then(res => {
         document.getElementById('loading').style.display = 'none';
         const tbody = document.getElementById('kbList');
         if (res.code === 0 && res.data.list && res.data.list.length > 0) {
+          res.data.list.forEach(item => { kbItemsMap[item.id] = item; });
           tbody.innerHTML = res.data.list.map((item, i) => renderRow(item, i + 1)).join('');
           document.getElementById('pagination').innerHTML = '';
         } else {
@@ -228,12 +286,13 @@ function loadList() {
     return;
   }
 
-  fetch(url, { headers: getHeaders() })
+  fetch(apiUrl(url), { headers: getHeaders() })
     .then(r => r.json())
     .then(res => {
       document.getElementById('loading').style.display = 'none';
       const tbody = document.getElementById('kbList');
       if (res.code === 0 && res.data.list && res.data.list.length > 0) {
+        res.data.list.forEach(item => { kbItemsMap[item.id] = item; });
         tbody.innerHTML = res.data.list.map((item, i) => renderRow(item, i + 1)).join('');
         renderPagination(res.data.total, res.data.page);
       } else {
@@ -245,14 +304,14 @@ function loadList() {
 }
 
 function renderRow(item, idx) {
-  const status = item.status == 1 ? '<span class="status-badge active">启用</span>' : '<span class="status-badge inactive">禁用</span>';
+  const status = item.status == 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-error">禁用</span>';
   return `<tr>
-    <td><div class="q">${item.question}</div></td>
-    <td><div class="a">${item.answer || ''}</div></td>
+    <td><div class="cell-clamp">${item.question}</div></td>
+    <td><div class="cell-clamp">${item.answer || ''}</div></td>
     <td>${status}</td>
     <td>${item.hit_count || 0}</td>
     <td>
-      <div class="actions">
+      <div class="cell-actions">
         <button class="btn btn-sm btn-primary" onclick="editEntry(${item.id})">编辑</button>
         <button class="btn btn-sm btn-danger" onclick="deleteEntry(${item.id})">删除</button>
       </div>
@@ -271,6 +330,13 @@ function renderPagination(total, page) {
 
 function gotoPage(p) { currentPage = p; loadList(); }
 
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearSearchBtn').style.display = 'none';
+  currentPage = 1;
+  loadList();
+}
+
 function openModal() {
   document.getElementById('modalTitle').textContent = '新增知识条目';
   document.getElementById('editId').value = '';
@@ -285,37 +351,34 @@ function openModal() {
 function closeModal() { document.getElementById('entryModal').classList.remove('active'); }
 
 function editEntry(id) {
-  fetch(`/api/knowledge.php?action=list&page=1&size=50`, { headers: getHeaders() })
-    .then(r => r.json())
-    .then(res => {
-      if (res.code === 0 && res.data.list) {
-        const item = res.data.list.find(x => x.id == id);
-        if (item) {
-          document.getElementById('modalTitle').textContent = '编辑知识条目';
-          document.getElementById('editId').value = item.id;
-          document.getElementById('editCategory').value = item.category_id || 0;
-          document.getElementById('editQuestion').value = item.question;
-          document.getElementById('editAnswer').value = item.answer;
-          document.getElementById('editKeywords').value = item.keywords || '';
-          document.getElementById('editStatus').value = item.status;
-          document.getElementById('entryModal').classList.add('active');
-        }
-      }
-    });
+  const item = kbItemsMap[id];
+  if (!item) { showToast('找不到该条目，请刷新后重试'); return; }
+  document.getElementById('modalTitle').textContent = '编辑知识条目';
+  document.getElementById('editId').value = item.id;
+  document.getElementById('editCategory').value = item.category_id || 0;
+  document.getElementById('editQuestion').value = item.question;
+  document.getElementById('editAnswer').value = item.answer;
+  document.getElementById('editKeywords').value = item.keywords || '';
+  document.getElementById('editStatus').value = item.status;
+  document.getElementById('entryModal').classList.add('active');
 }
 
 function saveEntry() {
+  const idRaw = document.getElementById('editId').value;
+  const id    = idRaw ? parseInt(idRaw) : 0;
+  if (idRaw && !id) { showToast('条目ID异常，请刷新后重试'); return; }
+
   const data = {
-    id: parseInt(document.getElementById('editId').value) || 0,
+    id,
     category_id: parseInt(document.getElementById('editCategory').value) || 0,
     question: document.getElementById('editQuestion').value.trim(),
-    answer: document.getElementById('editAnswer').value.trim(),
+    answer:   document.getElementById('editAnswer').value.trim(),
     keywords: document.getElementById('editKeywords').value.trim(),
-    status: parseInt(document.getElementById('editStatus').value) || 1,
+    status:   document.getElementById('editStatus').value === '0' ? 0 : 1,
   };
-  if (!data.question || !data.answer) { showToast('❌ 问题和答案不能为空'); return; }
+  if (!data.question || !data.answer) { showToast('问题和答案不能为空'); return; }
 
-  fetch('/api/knowledge.php?action=save', {
+  fetch(apiUrl('/api/knowledge.php?action=save'), {
     method: 'POST', headers: getHeaders(), body: JSON.stringify(data)
   })
   .then(r => r.json())
@@ -325,20 +388,20 @@ function saveEntry() {
       closeModal();
       loadList();
     } else {
-      showToast('❌ ' + res.msg);
+      showToast(res.msg);
     }
   });
 }
 
 function deleteEntry(id) {
   if (!confirm('确定删除该条目？')) return;
-  fetch('/api/knowledge.php?action=delete', {
+  fetch(apiUrl('/api/knowledge.php?action=delete'), {
     method: 'POST', headers: getHeaders(), body: JSON.stringify({ id })
   })
   .then(r => r.json())
   .then(res => {
     if (res.code === 0) { showToast('✅ 已删除'); loadList(); }
-    else { showToast('❌ ' + res.msg); }
+    else { showToast(res.msg); }
   });
 }
 
@@ -350,37 +413,158 @@ function openCategoryModal() {
 
 function saveCategory() {
   const name = document.getElementById('newCategoryName').value.trim();
-  if (!name) { showToast('❌ 请输入分类名称'); return; }
-  fetch('/api/knowledge.php?action=save_category', {
+  if (!name) { showToast('请输入分类名称'); return; }
+  fetch(apiUrl('/api/knowledge.php?action=save_category'), {
     method: 'POST', headers: getHeaders(), body: JSON.stringify({ name })
   })
   .then(r => r.json())
   .then(res => {
     if (res.code === 0) { showToast('✅ 添加成功'); loadCategories(); loadList(); }
-    else { showToast('❌ ' + res.msg); }
+    else { showToast(res.msg); }
   });
 }
 
 function deleteCategory(id) {
   if (!confirm('确定删除该分类？（分类下的条目会变为无分类）')) return;
-  fetch('/api/knowledge.php?action=delete_category', {
+  fetch(apiUrl('/api/knowledge.php?action=delete_category'), {
     method: 'POST', headers: getHeaders(), body: JSON.stringify({ id })
   })
   .then(r => r.json())
   .then(res => {
     if (res.code === 0) { showToast('✅ 已删除'); loadCategories(); loadList(); }
-    else { showToast('❌ ' + res.msg); }
+    else { showToast(res.msg); }
   });
 }
 
-// 5秒后如果还在加载，显示空状态
+function importCSV(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var formData = new FormData();
+  formData.append('file', file);
+  var btn = document.getElementById('importBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '导入中...'; }
+  fetch(apiUrl('/api/knowledge.php?action=import'), {
+    method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: formData
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    input.value = '';
+    if (res.code === 0) {
+      showToast('✅ 导入成功 ' + res.data.success + ' 条，跳过 ' + res.data.skip + ' 条');
+      loadList();
+      loadCategories();
+    } else {
+      showToast(res.msg);
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '📥 导入CSV'; }
+  })
+  .catch(function() {
+    input.value = '';
+    showToast('导入失败，请重试');
+    if (btn) { btn.disabled = false; btn.textContent = '📥 导入CSV'; }
+  });
+}
+
+function downloadTemplate() {
+  var bom = "\uFEFF";
+  var csv = bom + '问题,答案,关键词,分类名称\n' +
+    '你们酒店有早餐吗？,有的，我们每天早晨7:00-10:00提供自助早餐，位于二楼餐厅。,早餐,餐饮服务\n' +
+    '可以提前入住吗？,如果房间干净且无人入住，最早可在中午12点办理入住。,提前入住,入住政策\n' +
+    '有停车场吗？,我们提供免费地下停车场，车位充足，无需预约。,停车场,酒店设施\n';
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '知识库导入模板.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+  showToast('📋 模板已下载');
+}
+
 setTimeout(() => {
-  const loading = document.getElementById('loading');
-  if (loading.style.display !== 'none') {
-    loading.style.display = 'none';
-    document.getElementById('empty').style.display = 'block';
+    const loading = document.getElementById('loading');
+    if (loading.style.display !== 'none') {
+      loading.style.display = 'none';
+      document.getElementById('empty').style.display = 'block';
+    }
+  }, 5000);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/wangeditor@4.7.15/dist/wangEditor.min.js"></script>
+  <script>
+  var E = window.wangEditor;
+  var kbEditor = new E('#editorContainer');
+  kbEditor.config.height = 300;
+  kbEditor.config.placeholder = '输入对应的回答内容...';
+  kbEditor.config.menus = [
+    'head', 'bold', 'italic', 'underline', 'strikeThrough',
+    'fontSize', 'list', 'justify', 'quote', 'table',
+    'link', 'image', 'code', 'undo', 'redo'
+  ];
+  kbEditor.create();
+
+  var origOpenModal = openModal;
+  openModal = function() {
+    origOpenModal();
+    kbEditor.txt.clear();
+  };
+
+  var origEditEntry = editEntry;
+  editEntry = function(id) {
+    origEditEntry(id);
+    var item = kbItemsMap[id];
+    if (item && item.answer) {
+      kbEditor.txt.html(item.answer);
+    }
+  };
+
+  var origSaveEntry = saveEntry;
+  saveEntry = function() {
+    document.getElementById('editAnswer').value = kbEditor.txt.html();
+    origSaveEntry();
+  };
+
+  function batchVectorize() {
+    var btn = document.getElementById('batchVecBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 向量化中...';
+    fetch(apiUrl('/api/knowledge.php?action=batch_vectorize'), {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0) {
+        showToast('✅ 向量化完成，共 ' + res.data.count + ' 条');
+        loadList();
+      } else {
+        showToast(res.msg);
+      }
+    })
+    .catch(function() { showToast('批量向量化请求失败'); })
+    .finally(function() { btn.disabled = false; btn.textContent = '🧠 批量向量化'; });
   }
-}, 5000);
-</script>
+
+  function rebuildDefaultKnowledge() {
+    if (!confirm('将清空现有知识库并写入系统默认模板（南宁宿家民宿通用 FAQ）。此操作不可撤销，确定继续？')) return;
+    var btn = document.getElementById('rebuildKbBtn');
+    btn.disabled = true;
+    btn.textContent = '重建中...';
+    fetch(apiUrl('/api/knowledge.php?action=rebuild_defaults'), {
+      method: 'POST', headers: getHeaders()
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        showToast('✅ 已重建 ' + res.data.entries + ' 条（' + res.data.categories + ' 个分类）');
+        loadCategories();
+        loadList();
+      } else {
+        showToast(res.msg || '重建失败');
+      }
+    })
+    .catch(function() { showToast('重建请求失败'); })
+    .finally(function() { btn.disabled = false; btn.textContent = '♻️ 重建默认知识库'; });
+  }
+  </script>
 </body>
 </html>
