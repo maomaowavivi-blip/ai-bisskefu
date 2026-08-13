@@ -1,4 +1,12 @@
-# 商用AI客服智能体 - 产品需求文档 v1.1
+# 商用AI客服智能体 - 产品需求文档 v1.2
+
+> **v1.2 更新摘要（2026-08）**
+> - 新增 §九 v3.1 演进模块：企微回调、开放 API、AI Agent 配置、行业模板、用户管理、CSV 批量导入
+> - 更新 §三 知识库：CSV 批量导入已实现（PRD v1.1 标的"未做"）
+> - 更新 §五 技术方案：新增 5 个 PHP 模块 + 用户管理 UI
+> - 更新 §四 Phase 3：iframe 嵌入已生成（chat.html 嵌入式嵌入待补）
+> - 更新 §七 验收清单：补 11 个 v3.1 新验收项
+> - 更新附录 A 差异表：v1.2 同步实际代码状态
 
 > **基于 ZORAVA/Soulmix OC 智能体平台改造**
 > 保留现有 OC 创作者平台作为第二产品线，新增商用 AI 客服模块
@@ -207,7 +215,8 @@ CREATE TABLE enterprise_api_config (
 | 语义向量检索 | `api/embedding.php` → `kbSemanticSearch()` | MiniMax `embo-01`；chat **进程内调用**（非 HTTP 自调） |
 | **KB 直答（跳过 LLM）** | `PromptEngine::directReplyFromKb` | 政策/预订/云房卡类固定答复 |
 | 批量向量化 | `embedding.php?action=batch_vectorize` | 后台「批量向量化」按钮 |
-| Excel 批量导入 | — | **未实现**（Phase 2） |
+| **CSV 批量导入** | `api/knowledge.php?action=import` | v3.1 新增；≤1000 行 UTF-8 |
+| Excel 批量导入 | — | **未实现**（CSV 已覆盖 80% 场景） |
 | `kb_documents` 文档库 | — | **表结构在 PRD，未接入 RAG** |
 
 #### 宿家通用知识库结构（`KnowledgeBaseSeed`，8 类 44 条）
@@ -492,9 +501,20 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 | 步骤 | 内容 | 状态 |
 |------|------|------|
 | 14 | SaaS 套餐管理体系 | ❌ |
-| 15 | 多渠道接入（微信公众号/企微/网页嵌入） | ❌ iframe 封装待做 |
+| 15 | 多渠道接入（微信公众号/企微/网页嵌入） | 🟡 企微 + 嵌入代码已生成（v3.1 §9.1, §9.7）；iframe 嵌入测试待补 |
 | 16 | 转人工机制 | ✅ |
 | 17 | AI 自动学习知识库（从对话中提取 FAQ） | ❌ |
+
+### Phase 4：v3.1 演进（2026-08 · 已落地）
+
+| 模块 | 状态 | 详见 |
+|------|------|------|
+| 18 | 企微回调 | ✅ §9.1 |
+| 19 | 开放 API（外部集成） | ✅ §9.2 |
+| 20 | AI Agent 可配置（Phase 1：仅展示） | ✅ §9.3 |
+| 21 | 行业模板（民宿/餐厅/通用） | ✅ §9.4 |
+| 22 | 用户管理（新增/重置密码） | ✅ §9.5 |
+| 23 | CSV 批量导入 KB | ✅ §9.6 |
 
 ---
 
@@ -530,6 +550,14 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 | `scripts/benchmark_chat_latency.php` | **新增** | 回复耗时基准测试 |
 | `scripts/copy_yongkai_parking_from_1013.php` | **新增** | 运维：永凯停车批量复制 |
 | `scripts/sync_handoff_triggers.php` | **新增** | CLI 同步转人工词库 |
+| `api/wecom.php` | **新增（v3.1）** | 企业微信回调（GET 验证 + POST text 消息） |
+| `api/openapi.php` | **新增（v3.1）** | 外部 API 集成（X-API-Key 鉴权） |
+| `api/agent.php` | **新增（v3.1）** | AI Agent 可配置读写（Phase 1） |
+| `api/AgentConfig.php` | **新增（v3.1）** | AgentConfig 类（platform_config 读写） |
+| `api/IndustryTemplate.php` | **新增（v3.1）** | 行业模板应用（KB/转人工/Agent 三件套） |
+| `admin/users.html` | **新增（v3.1）** | 用户管理（新增/重置密码） |
+| `templates/{homestay,restaurant,generic}/*` | **新增（v3.1）** | 行业模板种子（KB + handoff + agent_defaults） |
+| `scripts/apply_industry_template.php` | **新增（v3.1）** | CLI 应用行业模板 |
 
 ### 5.2 前端文件（实际）
 
@@ -597,7 +625,7 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 - [x] 默认知识库一键重建（`KnowledgeBaseSeed` / 44 条）
 - [x] 客服聊天窗回复（`chat.html` + `chat.php`）
 - [x] KB 命中时直答，不编造
-- [ ] iframe 嵌入文档 / 独立 customer-chat 组件（待封装）
+- [x] iframe 嵌入代码生成（`admin/settings.html` Tab 3）— **chat.html 作 iframe 内页面嵌入测试待补**
 
 ### 7.1.1 Sidecar 房间知识验收
 
@@ -643,8 +671,9 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 - [ ] 南宁吃喝玩乐长篇攻略 KB
 - [ ] 掌柜统一联系方式写入 KB
 - [ ] PMS 绑单结果会话缓存（RoomQueryFlow step=1 **仍每次要订单号**；`order_context_cache` 已用于查单展示、云房卡追问、`queryRoomLocal` 验证，**不**用于房间流 step=1 跳过）
-- [ ] Excel 批量导入 FAQ
+- [x] ~~Excel 批量导入 FAQ~~ → **已用 CSV 替代**（`api/knowledge.php?action=import`，§9.6）
 - [ ] `kb_documents` 文档 RAG
+- [ ] `chat.html` 作 iframe 内页面嵌入测试（嵌入代码已生成，待补测试）
 
 ### 7.2 人格化验收
 - [ ] 同一问题，不同人设的客服回复风格明显不同
@@ -656,11 +685,27 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 - [x] KB 内容准确直答（政策/品牌/云房卡/平台退改）
 - [x] KB + Sidecar 分工清晰，未覆盖问题拒答或转人工
 - [x] 默认种子重建 + 批量向量化可用
+- [x] CSV 批量导入（`api/knowledge.php?action=import`，§9.6）
 - [ ] 批量导入 1000+ 条（未实现）
+
+### 7.4 v3.1 模块验收（2026-08 新增）
+
+完整清单见 §9.7。摘要：
+
+| 编号 | 模块 | 状态 |
+|------|------|------|
+| §9.1 | 企业微信回调（GET 验证 + POST text 消息） | ✅ |
+| §9.2 | 开放 API（X-API-Key 鉴权 + AI 回复） | ✅ |
+| §9.3 | AI Agent 可配置（Phase 1：存储+展示） | 🟡 Phase 1 已落地；Phase 2（生效到 PromptEngine）待做 |
+| §9.4 | 行业模板（民宿/餐厅/通用） | ✅ |
+| §9.5 | 用户管理（新增/重置密码） | 🟡 权限矩阵暂缓 |
+| §9.6 | CSV 批量导入 KB | ✅ |
 
 ---
 
 ## 附录 A：代码与 PRD 差异说明
+
+### A.1 v1.0 → v1.1 差异（已收敛）
 
 | PRD 原规划 | 实际实现 |
 |-----------|----------|
@@ -673,6 +718,30 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 | HTTP 自调 embedding.php | **`kbSemanticSearch` 进程内** + 按需调用 |
 | IP 速率限制 20/min | **`rate_limits` 表，60 秒窗口 20 次** |
 | `order_context_cache` 加速房间绑单 | **查单成功写入（24h）**；用于云房卡卡片追问 + `queryRoomLocal` 验证；**房间流 step=1 仍每次要订单号** |
+| Excel 批量导入 FAQ | **CSV 批量导入已实现**（`api/knowledge.php?action=import`） |
+
+### A.2 v1.1 → v1.2 演进（v3.1 新增模块）
+
+**PRD v1.1 未规划但代码已落地的 6 个模块：**
+
+| 模块 | 文件 | PRD v1.1 状态 | PRD v1.2 状态 |
+|------|------|---------------|---------------|
+| 企业微信回调 | `api/wecom.php` | 未规划 | ✅ §九 正式纳入 |
+| 开放 API（外部集成） | `api/openapi.php` + `api_keys` 表 | 未规划 | ✅ §九 正式纳入 |
+| AI Agent 可配置 | `api/agent.php` + `api/AgentConfig.php` | 未规划 | ✅ §九 正式纳入（Phase 1：仅存储/展示，PromptEngine 仍读 PHP 硬编码） |
+| 行业模板 | `api/IndustryTemplate.php` + `templates/{homestay,restaurant,generic}/` | 未规划 | ✅ §九 正式纳入 |
+| 用户管理 | `admin/users.html` | 未规划 | ✅ §九 正式纳入 |
+| 网站嵌入代码生成 | `admin/settings.html` 「🔗 网站嵌入」Tab | "可选，若需再做" | ✅ §九 正式纳入（嵌入代码已生成，chat.html 作 iframe 内页面待补） |
+
+### A.3 仍欠账项（v1.2 仍暂缓）
+
+| 项 | 状态 | 影响 |
+|----|------|------|
+| 掌柜统一联系方式 KB 条目 | ❌ 未做 | 客人问"怎么联系掌柜"会被引导到 KB 内的"联系掌柜"叙述但无具体微信/电话 |
+| `kb_documents` 文档 RAG | ❌ 未做 | 长篇攻略 KB 无法落地（§7.1.5 暂缓） |
+| AI 自动学习 KB（对话提取 FAQ） | ❌ 未做 | Phase 3 |
+| SaaS 套餐管理体系 | ❌ 未做 | Phase 3 |
+| `chat.html` 作 iframe 内嵌入式嵌入 | ⚠️ 部分（代码生成已支持，待测试嵌入） | Phase 3 |
 
 ---
 
@@ -688,7 +757,217 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 
 ---
 
-*文档版本：v1.1*
-*更新日期：2026 年 5 月 26 日*
-*状态：宿家 MVP 客服已落地 · PRD 与代码同步*
+## 九、v3.1 演进模块（2026-08 · PRD v1.2 新增）
+
+> v3.1 是 v3.0（宿家 MVP 落地）之后的演进迭代，重点从"一个企业能用"扩展到"多企业、多渠道、多行业"。本节纳入 PRD v1.1 未规划但代码已实现的 6 个模块。
+
+### 9.1 企业微信回调（`api/wecom.php`）
+
+#### 设计目标
+让已部署企微的企业，客服能力无缝接入员工/客户微信对话，不强制客户切换到 H5 聊天窗。
+
+#### 接入流程
+1. 企业微信后台 → 应用 → 接收消息 → 设置 API 接收 → 填入 `https://your-host/aibisskefu/api/wecom.php`
+2. 后台「系统设置 → AI 模型」配置 `wecom.corpid` / `wecom.token` / `wecom.aes_key`
+3. 企业微信后台保存回调地址 → 触发 GET 验证 → `sha1Sort` 签名校验 → 解密 echostr → 回写明文
+
+#### 接口协议
+| 方法 | 用途 | 校验 |
+|------|------|------|
+| GET | URL 验证（保存回调地址时触发）| msg_signature + sha1 + AES 解密 echostr |
+| POST | 接收加密消息（text 类型） | msg_signature + AES 解密 → 提取 Content → 调 PromptEngine 回复 → AES 加密回包 |
+
+#### 当前实现范围
+- ✅ text 消息类型处理
+- ✅ 安全拦截（`checkInputSafety`）
+- ✅ 与 `chat.php` 共用 PromptEngine + KB + Sidecar + 转人工
+- ⚠️ 图片/语音/事件类型未处理（仅 text）
+- ⚠️ `wecom.log` 写文件未做轮转
+
+#### 错误响应
+- 500 配置缺失 → `WeCom not configured`
+- 400 参数缺失
+- 403 签名校验失败 / CorpID 不匹配
+- 500 AES 解密失败
+
+---
+
+### 9.2 开放 API（`api/openapi.php` + `api_keys` 表）
+
+#### 设计目标
+让第三方系统（CRM、工单、客服中台）通过 API Key 直接调用 AI 客服能力，无需嵌入 H5 聊天窗。
+
+#### 请求协议
+```
+POST /api/openapi.php
+Headers:
+  X-API-Key: ak_xxx                # 或 Authorization: Bearer ak_xxx
+  Content-Type: application/json
+
+Body:
+{
+  "session_id": "可选，不传则自动生成",
+  "message": "用户消息内容",
+  "history": []                     # 可选，历史消息数组
+}
+```
+
+#### 响应
+```json
+{
+  "code": 0,
+  "data": {
+    "session_id": "sess_xxx",
+    "reply": "AI 回复内容"
+  }
+}
+```
+
+#### 鉴权
+- 数据库表 `api_keys`（`api_key` + `enabled` + `last_used_at`）
+- 每次请求更新 `last_used_at`，便于审计/吊销
+- 无 Key → 401；Key 无效/禁用 → 403
+
+#### 业务约束
+- session_id 在 SMS 验证（30 分钟）通过前 → 跟 H5 聊天窗走相同的安全拦截
+- 复用 `chat.php` 的 KB / Sidecar / 转人工 / LLM 兜底链路
+
+---
+
+### 9.3 AI Agent 可配置（`api/agent.php` + `api/AgentConfig.php`）
+
+#### 设计目标
+让"哪些问题走哪个分支"、"凭证类关键词"、"插件参数"这些 PromptEngine 硬编码逻辑可被后台配置，降低改代码频率。
+
+#### Phase 1 状态（v3.1 当前）
+- ✅ 配置存储：`platform_config` 表 `agent.*` / `plugin.*` keys
+- ✅ UI 展示：`api/agent.php?action=get_config` 返回 JSON 配置树
+- ✅ UI 保存：`api/agent.php?action=save_config` 批量 upsert
+- ⚠️ **PromptEngine 仍读 PHP 硬编码** —— 配置只展示不生效（避免误改线上行为）
+
+#### 配置 key 清单
+| Key | 类型 | 用途 |
+|-----|------|------|
+| `agent.routing.credential_keywords` | JSON 数组 | 凭证类关键词（WiFi/门锁/押金/刷脸 → 云房卡引导）|
+| `agent.routing.sidecar_route_phrases` | JSON 数组 | 进 Sidecar 房间流的触发短语 |
+| `agent.kb.policy_patterns` | JSON 数组 | 政策类 KB 直答关键词 |
+| `agent.safety.political` | JSON 数组 | 政治安全拦截词 |
+| `plugin.*` | JSON | 插件参数（预留）|
+
+#### 后续 Phase 2 规划
+- PromptEngine 读取 `agent.*` 配置替代硬编码
+- 配置改动自动 reload（无需重启 PHP）
+- 配置变更审计日志
+
+---
+
+### 9.4 行业模板（`api/IndustryTemplate.php` + `templates/`）
+
+#### 设计目标
+一套代码服务多行业客户：新签约客户选择"民宿/餐厅/通用"，自动套用对应的 KB 种子、转人工词库、AI Agent 默认值。
+
+#### 模板清单
+| Industry | 目录 | 适用 |
+|----------|------|------|
+| `homestay` | `templates/homestay/` | **宿家民宿（默认）** |
+| `restaurant` | `templates/restaurant/` | 餐饮门店 |
+| `generic` | `templates/generic/` | 通用 FAQ |
+
+#### 每个模板包含
+- `kb_seed.json` —— 行业 FAQ 种子（问题/答案/关键词/相似问）
+- `handoff_seed.json` —— 转人工触发词库
+- `agent_defaults.json` —— Agent 默认配置（凭证关键词、Sidecar 路由短语等）
+
+#### 应用方式
+```bash
+php scripts/apply_industry_template.php [industry]
+# 或 API: api/industry_template.php?action=apply&industry=homestay
+```
+
+返回：`{ industry, agent_keys, kb_imported, handoff_imported }`
+
+#### 设计边界
+- 行业模板是 **起步配置**，签约后客户仍可在后台自由增删 KB 条目
+- 切换行业模板 → 不会清空已有 KB（合并而非替换）
+
+---
+
+### 9.5 用户管理（`admin/users.html`）
+
+#### 设计目标
+多管理员协作：管理员可新增/重置其他管理员账号密码，无需直接操作数据库。
+
+#### 当前实现
+- ✅ 「新增管理员」表单（用户名 + 角色 + 初始密码）
+- ✅ 「重置密码」操作
+- ⚠️ 删除/停用/角色权限矩阵未做（仍以 `users.role` 单一字段区分）
+- ⚠️ 操作审计日志未做
+
+#### 数据表
+沿用原 `users` 表（role: 1=普通 / 2=企业 / 3=超管）。
+
+---
+
+### 9.6 CSV 批量导入（`api/knowledge.php?action=import`）
+
+#### 设计目标
+PRD v1.1 标的"Excel 批量导入未实现"——v3.1 先以 CSV 落地，覆盖 80% 批量导入需求（Excel 可另存为 CSV）。
+
+#### 请求
+```
+POST /api/knowledge.php?action=import
+Content-Type: multipart/form-data
+
+file: kb.csv        # CSV 文件，UTF-8 编码
+columns: question,answer,keywords,category
+```
+
+#### CSV 格式
+```csv
+question,answer,keywords,category
+WiFi密码多少,WiFi密码请查看云房卡,WiFi;密码;网络,入住
+押金多少,在线交押金请查看云房卡,押金;支付,费用
+```
+
+#### 返回
+```json
+{
+  "code": 0,
+  "data": {
+    "imported": 23,
+    "skipped": 2,
+    "errors": ["第 5 行：question 不能为空"]
+  }
+}
+```
+
+#### 限制
+- 单次 ≤ 1000 行
+- UTF-8 only
+- 重复 question 跳过（不覆盖已有）
+
+---
+
+### 9.7 v3.1 模块验收（新增 11 项）
+
+| 编号 | 验收项 | 状态 |
+|------|--------|------|
+| 9.1.1 | 企微 GET URL 验证签名 + AES 解密 | ✅ |
+| 9.1.2 | 企微 POST 加密消息解密 + AI 回复 + 回包加密 | ✅（text 类型） |
+| 9.2.1 | 开放 API X-API-Key 鉴权 | ✅ |
+| 9.2.2 | 开放 API 安全拦截 + SMS 验证态读取 | ✅ |
+| 9.3.1 | Agent 配置存储与 UI 展示 | ✅（Phase 1） |
+| 9.3.2 | Agent 配置生效到 PromptEngine | ⚠️ Phase 2 |
+| 9.4.1 | 三个行业模板（民宿/餐厅/通用）KB/转人工/Agent 配置 | ✅ |
+| 9.4.2 | 应用行业模板脚本 + API | ✅ |
+| 9.5.1 | 用户管理新增/重置密码 | ✅ |
+| 9.5.2 | 用户管理删除/角色权限矩阵 | ⚠️ 暂缓 |
+| 9.6.1 | CSV 批量导入 KB | ✅ |
+
+---
+
+*文档版本：v1.2*
+*更新日期：2026 年 8 月 13 日*
+*状态：宿家 MVP 客服已落地 + v3.1 演进模块已上线 · PRD 与代码同步*
 *关联蓝图：`.trae/documents/room-query-flow-blueprint.md`*
+*关联代码：见 §九 v3.1 演进模块*
