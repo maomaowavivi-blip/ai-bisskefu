@@ -1,0 +1,1621 @@
+{
+    "meta": {
+        "captured_at": "2026-08-13T05:59:33+00:00",
+        "php_version": "8.3.30",
+        "total_cases": 50,
+        "failed_cases": 1,
+        "source": "chat.php (v3.3 PR0 baseline)",
+        "schema_version": "1.0"
+    },
+    "cases": [
+        {
+            "id": 1,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-001",
+                "message": "WiFi密码多少"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [
+                    "云房卡"
+                ],
+                "match_not_contains": [
+                    "密码是",
+                    "WIFI123"
+                ],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 25,
+                "elapsed_ms_curl": 36,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 2,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-002",
+                "message": "地址在哪"
+            },
+            "expected": {
+                "expected_intent": "ROOM_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 61,
+                "elapsed_ms_curl": 83,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 3,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-003",
+                "message": "order_query:1094913365180824016"
+            },
+            "expected": {
+                "expected_intent": "ORDER_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 111,
+                "elapsed_ms_curl": 139,
+                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 4,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-004",
+                "message": "续住一晚多少钱"
+            },
+            "expected": {
+                "expected_intent": "HUMAN",
+                "match_contains": [
+                    "转接",
+                    "人工"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 59,
+                "elapsed_ms_curl": 86,
+                "reply": "正在为您转接人工客服，请稍候。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 5,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-005",
+                "message": "今天南宁天气怎么样"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 33,
+                "elapsed_ms_curl": 63,
+                "reply": "南宁属亚热带气候，夏季炎热多雨，秋冬较温和；建议出行前查看当日天气预报，备雨具和防晒。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 6,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-006",
+                "message": "你们有停车位吗"
+            },
+            "expected": {
+                "expected_intent": "ROOM_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 64,
+                "elapsed_ms_curl": 90,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 7,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-007",
+                "message": "刚才卡片是什么"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1525,
+                "elapsed_ms_curl": 1547,
+                "reply": "刚才的卡片是宿家民宿的品牌介绍信息。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 8,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-008",
+                "message": "退订怎么操作"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "携程",
+                    "美团"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 77,
+                "elapsed_ms_curl": 103,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 9,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-009",
+                "message": "附近有什么好吃的"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1360,
+                "elapsed_ms_curl": 1385,
+                "reply": "各套公寓周边餐饮不同，建议打开地图搜索您入住地址附近的餐厅。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 10,
+            "category": "核心",
+            "input": {
+                "session_id": "pr0-010",
+                "message": "asdfghjkl"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 2941,
+                "elapsed_ms_curl": 2966,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 11,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-011",
+                "message": "非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作非常长的消息内容测试是否正常工作"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 3623,
+                "elapsed_ms_curl": 3650,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 12,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-012",
+                "message": "   "
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 0,
+                "elapsed_ms_curl": 26,
+                "reply": "",
+                "intent": "",
+                "ok": false,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 13,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-013",
+                "message": "😀😁😂🤣😃😄😅😆"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1371,
+                "elapsed_ms_curl": 1397,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 14,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-014",
+                "message": "123456789012345"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 495,
+                "elapsed_ms_curl": 519,
+                "reply": "如需查询订单，请点击下方「订单查询」按钮，或直接发送 order_query:订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 15,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-015",
+                "message": "!@#$%^&*()_+-={}[]|\\:;'\"<>,.?/~`"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1229,
+                "elapsed_ms_curl": 1258,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 16,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-016",
+                "message": "我不要WiFi"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 58,
+                "elapsed_ms_curl": 82,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 17,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-017",
+                "message": "WiFi和地址在哪"
+            },
+            "expected": {
+                "expected_intent": "ROOM_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 37,
+                "elapsed_ms_curl": 63,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 18,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-018",
+                "message": "Hello, 你们酒店在哪里?"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 59,
+                "elapsed_ms_curl": 85,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 19,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-019",
+                "message": "冇系屋企可以接我嘅"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1164,
+                "elapsed_ms_curl": 1188,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 20,
+            "category": "边界",
+            "input": {
+                "session_id": "pr0-020",
+                "message": "wift密码是多少"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [
+                    "WIFI",
+                    "密码"
+                ],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1328,
+                "elapsed_ms_curl": 1356,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 21,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-021",
+                "message": "WiFi"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [
+                    "云房卡"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 34,
+                "elapsed_ms_curl": 58,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 22,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-022",
+                "message": "怎么去"
+            },
+            "expected": {
+                "expected_intent": "ROOM_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 38,
+                "elapsed_ms_curl": 61,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 23,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-023",
+                "message": "可以带宠物吗"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "不接受",
+                    "禁"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 38,
+                "elapsed_ms_curl": 60,
+                "reply": "南宁宿家民宿统一不接受宠物入住（导盲犬等特殊需求请提前联系掌柜确认）。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 24,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-024",
+                "message": "能接送机吗"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1446,
+                "elapsed_ms_curl": 1470,
+                "reply": "宿家民宿不提供接送机服务。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 25,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-025",
+                "message": "要发票"
+            },
+            "expected": {
+                "expected_intent": "HUMAN",
+                "match_contains": [
+                    "转接",
+                    "人工"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 82,
+                "elapsed_ms_curl": 110,
+                "reply": "正在为您转接人工客服，请稍候。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 26,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-026",
+                "message": "要换房"
+            },
+            "expected": {
+                "expected_intent": "HUMAN",
+                "match_contains": [
+                    "转接",
+                    "人工"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 34,
+                "elapsed_ms_curl": 60,
+                "reply": "正在为您转接人工客服，请稍候。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 27,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-027",
+                "message": "我要投诉"
+            },
+            "expected": {
+                "expected_intent": "HUMAN",
+                "match_contains": [
+                    "转接",
+                    "人工"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 38,
+                "elapsed_ms_curl": 62,
+                "reply": "正在为您转接人工客服，请稍候。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 28,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-028",
+                "message": "空调坏了"
+            },
+            "expected": {
+                "expected_intent": "HUMAN",
+                "match_contains": [
+                    "转接",
+                    "人工"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 38,
+                "elapsed_ms_curl": 61,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 29,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-029",
+                "message": "可以寄存行李吗"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1894,
+                "elapsed_ms_curl": 1919,
+                "reply": "宿家民宿不提供行李寄存服务。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 30,
+            "category": "常见",
+            "input": {
+                "session_id": "pr0-030",
+                "message": "提供早餐吗"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 2006,
+                "elapsed_ms_curl": 2032,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 31,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-031",
+                "message": "WiFi"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 37,
+                "elapsed_ms_curl": 62,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 32,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-032",
+                "message": "WiFi"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 37,
+                "elapsed_ms_curl": 60,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 33,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-033",
+                "message": "WiFi"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 33,
+                "elapsed_ms_curl": 66,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 34,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-034",
+                "message": "WiFi密码"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 67,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 35,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-035",
+                "message": "你们WiFi密码"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 36,
+                "elapsed_ms_curl": 61,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 36,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-036",
+                "message": "order_query:1094913365180824016"
+            },
+            "expected": {
+                "expected_intent": "ORDER_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 130,
+                "elapsed_ms_curl": 154,
+                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 37,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-037",
+                "message": "order_query:9999999999999999999"
+            },
+            "expected": {
+                "expected_intent": "ORDER_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 161,
+                "elapsed_ms_curl": 186,
+                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 38,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-038",
+                "message": "order_query:"
+            },
+            "expected": {
+                "expected_intent": "ORDER_QUERY",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1094,
+                "elapsed_ms_curl": 1123,
+                "reply": "点击聊天窗口「订单查询」，或发送 order_query:您的订单号，即可查看订单信息与云房卡。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 39,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-039",
+                "message": "看 https://example.com 怎么去"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 36,
+                "elapsed_ms_curl": 62,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 40,
+            "category": "压力",
+            "input": {
+                "session_id": "pr0-040",
+                "message": "我手机号 13800000000 怎么联系"
+            },
+            "expected": {
+                "expected_intent": "UNKNOWN",
+                "match_contains": [],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 2071,
+                "elapsed_ms_curl": 2092,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 41,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-041",
+                "message": "几点入住"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "14:00",
+                    "14点"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 35,
+                "elapsed_ms_curl": 64,
+                "reply": "宿家民宿统一标准入住时间为当日14:00；如需提前入住，请联系掌柜，视房态协调。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 42,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-042",
+                "message": "几点退房"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "12:00",
+                    "12点"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 34,
+                "elapsed_ms_curl": 61,
+                "reply": "宿家民宿统一标准退房时间为当日12:00；如需延迟退房，请联系掌柜，视房态安排。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 43,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-043",
+                "message": "可以吸烟吗"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "禁烟",
+                    "室内禁"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 63,
+                "reply": "南宁宿家民宿室内统一禁止吸烟（含电子烟）；请在室外允许区域吸烟，违规可能产生清洁费用。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 44,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-044",
+                "message": "怎么取消订单"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "携程",
+                    "美团"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 1286,
+                "elapsed_ms_curl": 1311,
+                "reply": "取消订单请在您下单的携程、美团或去哪儿平台内按规则操作，宿家民宿线上客服不办理取消。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 45,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-045",
+                "message": "门锁密码多少"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [
+                    "云房卡"
+                ],
+                "match_not_contains": [
+                    "密码是"
+                ],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 37,
+                "elapsed_ms_curl": 60,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 46,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-046",
+                "message": "押金怎么交"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [
+                    "云房卡"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 34,
+                "elapsed_ms_curl": 59,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 47,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-047",
+                "message": "要刷脸吗"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [
+                    "云房卡"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 36,
+                "elapsed_ms_curl": 65,
+                "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 48,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-048",
+                "message": "我要订房"
+            },
+            "expected": {
+                "expected_intent": "KNOWLEDGE",
+                "match_contains": [
+                    "携程",
+                    "美团"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 66,
+                "reply": "请前往携程、美团、去哪儿搜索「宿家民宿」并下单；本客服不支持在线预订，也不接受通过 AI 或聊天窗口订房。下单后请保留平台订单号，便于查询与入住。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 49,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-049",
+                "message": "能开发票吗"
+            },
+            "expected": {
+                "expected_intent": "HUMAN",
+                "match_contains": [
+                    "转接",
+                    "人工"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 78,
+                "elapsed_ms_curl": 102,
+                "reply": "正在为您转接人工客服，请稍候。",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        },
+        {
+            "id": 50,
+            "category": "回归",
+            "input": {
+                "session_id": "pr0-050",
+                "message": "房间里有WiFi吗"
+            },
+            "expected": {
+                "expected_intent": "ROOM_PASSWORD_QUERY",
+                "match_contains": [
+                    "云房卡"
+                ],
+                "match_not_contains": [],
+                "ignore_fields": [
+                    "session_id",
+                    "created_at",
+                    "elapsed_ms",
+                    "visitor_hash",
+                    "source_ip",
+                    "elapsed_ms_curl"
+                ],
+                "expected_elapsed_ms_max": 5000
+            },
+            "actual": {
+                "http_code": 200,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 64,
+                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
+                "intent": "",
+                "ok": true,
+                "curl_error": ""
+            }
+        }
+    ]
+}
