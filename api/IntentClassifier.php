@@ -76,6 +76,17 @@ final class IntentClassifier
             );
         }
 
+        // 2.5 KB 早期命中（修正 PR3：放在房间意图之前，避免被吞掉）
+        //      例如"退订怎么操作"含"退"字可能被 RoomQueryFlow 误判
+        try {
+            $earlyKb = PromptEngine::searchKnowledge($ctx['db'], $message, 3);
+            if (!empty($earlyKb)) {
+                return IntentContext::of(Intent::KNOWLEDGE, 0.7, [], 'rule:kb_match_early', $earlyKb);
+            }
+        } catch (\Exception $e) {
+            error_log('[IntentClassifier] KB early search failed: ' . $e->getMessage());
+        }
+
         // 3. 房间意图（已有 isRoomIntent + matchesEntry）
         $roomKeywords = RoomQueryFlow::getRoomKeywords($ctx['db']);
         if (RoomQueryFlow::isRoomIntent($message, $roomKeywords)) {
@@ -96,15 +107,9 @@ final class IntentClassifier
             return IntentContext::of(Intent::SMALL_TALK, 0.8, [], 'rule:chitchat');
         }
 
-        // 6. KB 命中 → KNOWLEDGE（这是 DB 查询，~5-10ms）
-        try {
-            $kb = PromptEngine::searchKnowledge($ctx['db'], $message, 3);
-            if (!empty($kb)) {
-                return IntentContext::of(Intent::KNOWLEDGE, 0.7, [], 'rule:kb_match', $kb);
-            }
-        } catch (\Exception $e) {
-            error_log('[IntentClassifier] KB search failed: ' . $e->getMessage());
-        }
+        // 6. KB 二次检索（早期命中失败时，IntentClassifier 步骤 6 保留）
+        //    步骤 2.5 已优先匹配，这里兜底
+        // 已在上面 early path 完成，删除原步骤 6
 
         // 7. 都失败 → UNKNOWN（不调 LLM！交由 UnknownWorkflow 生成兜底话术）
         return IntentContext::of(Intent::UNKNOWN, 0.0, [], 'fallback');

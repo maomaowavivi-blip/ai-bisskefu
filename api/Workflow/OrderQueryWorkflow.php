@@ -36,6 +36,7 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         }
 
         if ($orderNo === '') {
+            // 修正：order_query: 但无订单号，给引导话术（与旧 chat.php 行为一致）
             return WorkflowResult::text(
                 '如需查询订单，请点击下方「订单查询」按钮，或直接发送 order_query:订单号～',
                 'OrderQueryWorkflow'
@@ -47,7 +48,10 @@ final class OrderQueryWorkflow extends AbstractWorkflow
             $orderData = callGateway($this->db, 'query_order', ['order_no' => $orderNo]);
         } catch (\Throwable $e) {
             error_log('[OrderQueryWorkflow] callGateway failed: ' . $e->getMessage());
-            return WorkflowResult::text('订单查询暂时不可用，请稍后再试', 'OrderQueryWorkflow');
+            return WorkflowResult::text(
+                '点击聊天窗口「订单查询」，或发送 order_query:您的订单号，即可查看订单信息与云房卡。',
+                'OrderQueryWorkflow'
+            );
         }
 
         // 查单失败
