@@ -48,6 +48,16 @@ final class IntentClassifier
             throw new \InvalidArgumentException('IntentClassifier requires AgentConfig in ctx');
         }
 
+        // 0. 闲聊优先（修复：晚上好/谢谢/再见 应该走 SMALL_TALK，不能被 KB 抢答）
+        if (self::isSmallTalk($message)) {
+            return IntentContext::of(
+                Intent::SMALL_TALK,
+                0.95,
+                [],
+                'rule:small_talk'
+            );
+        }
+
         // 1. 转人工（含 priority，修正 18）
         $match = HandoffTriggers::matchKeyword($ctx['db'], $message);
         if ($match !== null) {
@@ -76,18 +86,7 @@ final class IntentClassifier
             );
         }
 
-        // 2.5 KB 早期命中（修正 PR3：放在房间意图之前，避免被吞掉）
-        //      例如"退订怎么操作"含"退"字可能被 RoomQueryFlow 误判
-        try {
-            $earlyKb = PromptEngine::searchKnowledge($ctx['db'], $message, 3);
-            if (!empty($earlyKb)) {
-                return IntentContext::of(Intent::KNOWLEDGE, 0.7, [], 'rule:kb_match_early', $earlyKb);
-            }
-        } catch (\Exception $e) {
-            error_log('[IntentClassifier] KB early search failed: ' . $e->getMessage());
-        }
-
-        // 3. 房间意图（已有 isRoomIntent + matchesEntry）
+        // 3. 房间意图（业务意图优先于 KB，避免"order_query:xxx" 被 KB 误判）
         $roomKeywords = RoomQueryFlow::getRoomKeywords($ctx['db']);
         if (RoomQueryFlow::isRoomIntent($message, $roomKeywords)) {
             $slots = [];
@@ -97,19 +96,33 @@ final class IntentClassifier
             return IntentContext::of(Intent::ROOM_QUERY, 0.9, $slots, 'rule:sidecar_keyword');
         }
 
-        // 4. 查订单（冻结块，修正 2）
-        if (preg_match('/^order_query:|订单|查单/u', $message)) {
+        // 4. 查订单（业务意图优先于 KB）
+        if (preg_match('/^order_query:|订单|查单/u', $message)
+            || SidecarIntent::looksLikeOrderNo($message)) {
             return IntentContext::of(Intent::ORDER_QUERY, 0.85, [], 'rule:order_keyword');
         }
 
-        // 5. 闲聊（已有 isChitchat）
+        // 5. 闲聊二次（isChitchat）
         if (SidecarIntent::isChitchat($message)) {
             return IntentContext::of(Intent::SMALL_TALK, 0.8, [], 'rule:chitchat');
         }
 
-        // 6. KB 二次检索（早期命中失败时，IntentClassifier 步骤 6 保留）
-        //    步骤 2.5 已优先匹配，这里兜底
-        // 已在上面 early path 完成，删除原步骤 6
+        // 6. KB 早期命中（v2.0 修正：放在业务意图之后，避免"order_query:xxx"被 KB 误判）
+        //      例如"退订怎么操作"含"退"字可能被 RoomQueryFlow 误判 → 仍走 KB
+        try {
+            $earlyKb = PromptEngine::searchKnowledge($ctx['db'], $message, 3);
+            if (!empty($earlyKb)) {
+                return IntentContext::of(Intent::KNOWLEDGE, 0.7, [], 'rule:kb_match_early', $earlyKb);
+            }
+        } catch (\Exception $e) {
+            error_log('[IntentClassifier] KB early search failed: ' . $e->getMessage());
+        }
+
+        // 6.5 售前判定（v2.0：KB 没命中 + 售前关键词 → 引导到 OTA 平台）
+        //      业务规则：AI 不接单，订房/价格/空房类问题统一回 OTA
+        if (self::isPreSalesQuery($message)) {
+            return IntentContext::of(Intent::PRE_SALES, 0.9, [], 'rule:pre_sales');
+        }
 
         // 7. 都失败 → UNKNOWN（不调 LLM！交由 UnknownWorkflow 生成兜底话术）
         return IntentContext::of(Intent::UNKNOWN, 0.0, [], 'fallback');
@@ -121,6 +134,67 @@ final class IntentClassifier
      * @param array $history 多轮历史
      * @return string|null 16位以上订单号
      */
+    /**
+     * 闲聊强匹配（修复：避免"晚上好"被 KB 误判为 KNOWLEDGE/凭证/订单类）
+     * 优先级最高，先于转人工、凭证、KB 检索
+     */
+    private static function isSmallTalk(string $message): bool
+    {
+        $msg = trim($message);
+        if ($msg === '') return false;
+
+        // 强匹配模式
+        $patterns = [
+            '/^(晚上好|早上好|中午好|下午好|早安|晚安|你好|您好|hi|hello|hey|嗨|哈喽)\b/iu',
+            '/^(谢谢|感谢|thank\s*you|多谢|thx|3q)/iu',
+            '/^(拜拜|再见|bye\s*[~～]?|886|溜了|走了)/iu',
+            '/^(在吗|在么|有人吗|在不)/iu',
+            '/^(好的|收到|明白了|ok|OK|好)/iu',
+        ];
+
+        foreach ($patterns as $p) {
+            if (preg_match($p, $msg)) return true;
+        }
+
+        // 长度 < 4 且全中文语气词
+        if (mb_strlen($msg) <= 4) {
+            $small = ['嗯', '哦', '啊', '哈', '呵', '嘿', '唉', '嘻'];
+            if (in_array($msg, $small, true)) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 售前问题判定（v2.0 PRD 2.3.4）
+     * KB 没命中 + 售前关键词 → 引导到 OTA 平台
+     *
+     * 售前 = 没订单号 + 问"怎么订/价格/空房/房型"
+     * 售后 = 有订单号 + 问 WiFi/门锁/地址/退订
+     */
+    private static function isPreSalesQuery(string $message): bool
+    {
+        $msg = trim($message);
+        if ($msg === '') return false;
+
+        $patterns = [
+            // 怎么订
+            '/怎么订|如何订|在哪订|怎么预/u',
+            // 价格
+            '/多少钱|什么价|价位|房费|价格/u',
+            // 空房
+            '/有空房|有房吗|还有房|空房吗|房型/u',
+            // 现场订
+            '/可以现场|现场订|到店订|当天订/u',
+        ];
+
+        foreach ($patterns as $p) {
+            if (preg_match($p, $msg)) return true;
+        }
+
+        return false;
+    }
+
     private static function detectRecentOrderNo(array $history): ?string
     {
         if (!is_array($history) || empty($history)) {

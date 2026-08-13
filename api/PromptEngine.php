@@ -46,6 +46,7 @@ class PromptEngine {
         $speakStyle   = trim($persona['speak_style']  ?? '');
         $serviceRules = trim($persona['service_rules'] ?? '');
         $principles   = trim($persona['principles']    ?? '');
+        $emotionStrategy = trim($persona['emotion_strategy'] ?? '');
 
         $platforms = ($config && ($v = $config->get('agent.rules.booking_platforms'))) ? $v : '携程、美团、去哪儿';
         $brand     = ($config && ($v = $config->get('agent.rules.booking_brand_hint'))) ? $v : '宿家民宿';
@@ -71,7 +72,7 @@ class PromptEngine {
         } else {
             $parts[] = '1. 推荐房源、换房、升级、预订、下单等任何引导消费的话术';
             $parts[] = '2. 追问房源、小区、房型、订单平台等信息';
-            $parts[] = '3. 以"您"开头的问句或建议';
+            $parts[] = '3. 反问式追问(如"您是想了解什么吗""需要我帮您吗")';
             $parts[] = $bookingLine;
             $parts[] = '5. 任何万能结尾，如"有任何问题随时找我"、"有我在"等';
             $parts[] = '6. 回答后追加任何第二句、第三句';
@@ -101,19 +102,28 @@ class PromptEngine {
 
         // ── 服务规范（行为边界，非业务事实）───────────────────────────────
         if ($serviceRules) {
-            $lines = explode("\n", $serviceRules);
-            $simpleRules = implode('。', array_map('trim', array_filter($lines, function ($l) {
-                return mb_strlen(trim($l)) > 0 && mb_strpos(trim($l), '掌柜') === false;
-            })));
-            if ($simpleRules) {
+            // 修复 2：按句号切分，只过滤含"掌柜"的转接话术句，其余规则保留
+            $sentences = preg_split('/[。]/u', $serviceRules, -1, PREG_SPLIT_NO_EMPTY);
+            $filtered = array_filter($sentences, function ($s) {
+                return mb_strpos(trim($s), '掌柜') === false;
+            });
+            $simpleRules = implode('。', array_map('trim', $filtered)) . '。';
+            if ($simpleRules !== '。') {
                 $parts[] = '';
-                $parts[] = '【服务边界】' . $simpleRules . '。遇到上述问题回复"正在为您转接人工客服，请稍候。"';
+                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"正在为您转接人工客服，请稍候。"';
             }
         }
 
         if ($principles) {
             $parts[] = '';
-            $parts[] = '【处事原则】' . trim(preg_replace('/[^\n]{50,}/', '', $principles));
+            // 修复 3：不再用 50 字符正则截断（会把整段中文原则删空）
+            $parts[] = '【处事原则】' . trim($principles);
+        }
+
+        // 修复 1：情绪应对策略进入 prompt（行为层，无业务事实风险）
+        if ($emotionStrategy) {
+            $parts[] = '';
+            $parts[] = '【情绪应对】' . $emotionStrategy;
         }
 
         return implode("\n", $parts);
@@ -442,6 +452,12 @@ class PromptEngine {
             return $keywordHits;
         }
 
+        // v3.4：n-gram LIKE 消歧义（解决口语变体 FULLTEXT 匹配不到的问题）
+        $ngramHits = self::_searchByNgram($db, $q, $maxCount);
+        if (!empty($ngramHits)) {
+            return $ngramHits;
+        }
+
         return self::_searchFallback($db, $q, $maxCount);
     }
 
@@ -462,6 +478,49 @@ class PromptEngine {
             }
         }
         return array_slice($matches, 0, $maxCount);
+    }
+
+    /**
+     * v3.4：n-gram LIKE 消歧义
+     * 解决：FULLTEXT 对口语变体（"几点可以入住呀"→"几点入住"）敏感，
+     *       keywords 字段常为空，导致用户口语提问落入 UNKNOWN。
+     * 策略：把查询按 2/3/4 字窗口切 n-gram，任一 n-gram 命中 KB 问题的 LIKE，
+     *       返回该条（按命中长度降序，命中越长越可信）。
+     */
+    private static function _searchByNgram(PDO $db, string $query, int $maxCount): array {
+        $clean = preg_replace('/[啊呀哦呢吧呗嘛哈喽嗯呃]+/u', '', trim($query)); // 去语气词
+        $clean = preg_replace('/[\s\W_]+/u', '', $clean); // 去空白和符号
+        $len = mb_strlen($clean);
+        if ($len < 2) return [];
+
+        // 生成候选 n-gram（优先长 n-gram）
+        $grams = [];
+        for ($n = min(6, $len); $n >= 2; $n--) {
+            for ($i = 0; $i + $n <= $len; $i++) {
+                $grams[] = mb_substr($clean, $i, $n);
+            }
+        }
+        // 去重保序
+        $grams = array_values(array_unique($grams));
+        if (empty($grams)) return [];
+
+        // 单次查询拉取所有问题（数量通常几百条，可控）
+        $stmt = $db->query('SELECT id, question, answer FROM kb_entries WHERE status = 1');
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($rows)) return [];
+
+        $best = []; // gram_len => row
+        foreach ($grams as $g) {
+            if (isset($best[mb_strlen($g)])) continue; // 同长度已有命中
+            foreach ($rows as $row) {
+                if (mb_strpos($row['question'], $g) !== false || mb_strpos($row['keywords'] ?? '', $g) !== false) {
+                    $best[mb_strlen($g)] = ['question' => $row['question'], 'answer' => $row['answer'], 'gram' => $g];
+                    break;
+                }
+            }
+        }
+        krsort($best); // 命中 n 越大越优先
+        return array_slice(array_values($best), 0, $maxCount);
     }
 
     /**

@@ -34,6 +34,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/wecom_crypto.php'; // v3.4：crypto 函数抽出共用
+require_once __DIR__ . '/wecom_kf_dedup.php'; // 去重工具（修复 95001）
 require_once __DIR__ . '/chat_helpers.php';
 require_once __DIR__ . '/Intent.php';
 require_once __DIR__ . '/IntentClassifier.php';
@@ -233,12 +234,17 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 {
     global $db;
 
-    // 1. 拉消息
-    $messages = syncMsg($useOpenKfId, $eventToken);
+    // 1. 拉消息（用持久化的 cursor 增量拉，避免一次拉回历史未消费消息）
+    $cursorFile = __DIR__ . '/../logs/wecom_kf_cursor_' . substr(sha1($useOpenKfId), 0, 8) . '.txt';
+    $savedCursor = file_exists($cursorFile) ? trim(file_get_contents($cursorFile)) : '';
+    wecom_kf_log('sync_msg cursor=' . substr($savedCursor, 0, 30));
+
+    $messages = syncMsg($useOpenKfId, $eventToken, $savedCursor);
     if ($messages === null) {
         wecom_kf_log('sync_msg failed');
         return;
     }
+    wecom_kf_log('sync_msg returned ' . count($messages) . ' messages');
 
     foreach ($messages as $msg) {
         // 只处理客户发来的文本消息（external_userid 开头 + msgtype=text）
@@ -250,6 +256,14 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             wecom_kf_log("Skip msg: type=$msgType from=$from content=" . substr($content, 0, 20));
             continue;
         }
+
+        // 去重：同 msgid 5 分钟内只处理一次（修复 95001 限流）
+        $msgId = $msg['msgid'] ?? '';
+        if ($msgId !== '' && isMsgProcessed($msgId)) {
+            wecom_kf_log("Skip dup msgid=$msgId from=$from");
+            continue;
+        }
+        if ($msgId !== '') markMsgProcessed($msgId);
 
         // 2. ChatPipeline 处理
         $sessionId = 'wecom_kf_' . substr(sha1($from), 0, 16);
@@ -274,8 +288,14 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         // 截断（微信客服单条 600 字限制）
         $replyText = mb_substr($replyText, 0, 600);
 
-        // 3. 发送
-        $sent = sendKfMessage($from, $replyText);
+        // 3. 发送前：把会话状态转为「由智能助手接待」(1)
+        //    修复 95018：客服账号绑定了接待人员(自建应用自动成为接待者)，会话状态=3(已接待)，
+        //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
+        transKfServiceState($useOpenKfId, $from, 1);
+
+        // 4. 发送（必须用会话对应的 open_kfid，不能用配置里的固定值——
+        //    用户扫码进的是事件里的 OpenKfId，跟 platform_config 配置的可能是不同账号）
+        $sent = sendKfMessage($from, $replyText, $useOpenKfId);
         if ($sent) {
             wecom_kf_log("Replied to $from: " . mb_substr($replyText, 0, 40));
         } else {
@@ -285,10 +305,39 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 }
 
 // ──────────────────────────────────────────
+// service_state/trans — 变更会话状态
+// ──────────────────────────────────────────
+
+function transKfServiceState(string $openKfId, string $externalUserId, int $serviceState): bool
+{
+    $accessToken = getAccessToken();
+    if ($accessToken === null) return false;
+
+    $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/service_state/trans?access_token=" . urlencode($accessToken);
+
+    $resp = httpPostJson($url, [
+        'open_kfid' => $openKfId,
+        'external_userid' => $externalUserId,
+        'service_state' => $serviceState,
+    ]);
+
+    if (!$resp || !isset($resp['errcode'])) {
+        wecom_kf_log('service_state/trans: no response');
+        return false;
+    }
+    if ($resp['errcode'] !== 0) {
+        wecom_kf_log('service_state/trans error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        return false;
+    }
+    wecom_kf_log("service_state/trans OK: $openKfId $externalUserId -> state=$serviceState");
+    return true;
+}
+
+// ──────────────────────────────────────────
 // sync_msg —拉取具体消息
 // ──────────────────────────────────────────
 
-function syncMsg(string $openKfId, string $token): ?array
+function syncMsg(string $openKfId, string $token, string $cursor = ''): ?array
 {
     $accessToken = getAccessToken();
     if ($accessToken === null) return null;
@@ -296,7 +345,7 @@ function syncMsg(string $openKfId, string $token): ?array
     $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/sync_msg?access_token=" . urlencode($accessToken);
 
     $resp = httpPostJson($url, [
-        'cursor' => '',
+        'cursor' => $cursor,
         'token' => $token,
         'limit' => 100,
         'open_kfid' => $openKfId,
@@ -312,6 +361,13 @@ function syncMsg(string $openKfId, string $token): ?array
         return null;
     }
 
+    // 持久化 next_cursor（按 open_kfid 分文件，避免不同客服账号串扰）
+    if (isset($resp['next_cursor']) && $resp['next_cursor'] !== '') {
+        $cursorFile = __DIR__ . '/../logs/wecom_kf_cursor_' . substr(sha1($openKfId), 0, 8) . '.txt';
+        @file_put_contents($cursorFile, $resp['next_cursor']);
+        wecom_kf_log('sync_msg next_cursor saved: ' . substr($resp['next_cursor'], 0, 30));
+    }
+
     return $resp['msg_list'] ?? [];
 }
 
@@ -319,16 +375,20 @@ function syncMsg(string $openKfId, string $token): ?array
 // messages/send —发送消息
 // ──────────────────────────────────────────
 
-function sendKfMessage(string $externalUserId, string $content): bool
+function sendKfMessage(string $externalUserId, string $content, string $useOpenKfId = ''): bool
 {
     $accessToken = getAccessToken();
     if ($accessToken === null) return false;
+
+    // 优先用调用方传进来的 open_kfid（来自事件，最准确），
+    // 传空才回退到配置（防止配置写错或失效）
+    $openKfId = $useOpenKfId !== '' ? $useOpenKfId : getConfiguredOpenKfId();
 
     $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token=" . urlencode($accessToken);
 
     $resp = httpPostJson($url, [
         'touser' => $externalUserId,
-        'open_kfid' => getConfiguredOpenKfId(),
+        'open_kfid' => $openKfId,
         'msgtype' => 'text',
         'text' => ['content' => $content],
     ]);

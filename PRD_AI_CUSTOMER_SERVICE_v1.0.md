@@ -38,40 +38,34 @@
 ### 2.1 总体架构
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    用户访问层                         │
-│    H5 聊天窗 (chat.html)   →   企业官网嵌入 / 公众号   │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                    API 层                            │
-│  chat.php / knowledge.php / handoff.php / sidecar.php │
-│  embedding.php / verify.php / persona.php              │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│              chat.php 路由层（已实现）                 │
-│  安全拦截 → KB直答 → 订单/房间流 → 转人工 → LLM兜底   │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                   PromptEngine 3.0                   │
-│  【铁律】→【话术禁止】→【吉祥物语气】→【RAG用户轮】   │
-│  directReplyFromKb / finalizeReply / filterReply     │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                    AI 模型层（已实现）                 │
-│  主聊天：DeepSeek v4-flash（默认，thinking 关闭）      │
-│  Embedding：MiniMax embo-01（KB + Sidecar 向量）      │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                    数据层（双库）                       │
-│  aibisskefu_com: 企业配置 / FAQ / 对话记录            │
-│  sujia_ai_sidecar_dev: 房间地址/WiFi/设备/指引（Sidecar）│
-└─────────────────────────────────────────────────────┘
+用户(微信)
+  ↓
+企业微信消息网关(wecom_kf.php)
+  ↓
+消息去重(msgid + 5min 缓存)+ 会话状态(service_state/trans,带 cursor 推进)
+  ↓
+LLM 意图/参数识别(IntentClassifier · 规则优先,LLM 兜底)
+  ↓
+确定性 Router(IntentRouter)
+  ├─ 查询(订单/房间/停车场) → 业务 API/只读适配器 → 固定查询卡片
+  ├─ 凭证类(WiFi/门锁/押金) → YunfangkaCredentialWorkflow → 云房卡 rich_content
+  ├─ 知识问答 → 检索资料 → LLM 回复(KnowledgeWorkflow)
+  ├─ 闲聊 → 固定模板(SmallTalkWorkflow,不走 LLM)
+  └─ 不确定/敏感 → 转 400-155-9959(HandoffWorkflow)
+  ↓
+消息 Outbox(待加 · 暂用同步 send_msg + dedup)
+  ↓
+企业微信(kf/send_msg)
 ```
+
+**架构说明(v2.0 · 2026-08-13)**:
+
+- 消息网关:`api/wecom_kf.php`,接收 `kf_msg_or_event` POST
+- 消息去重 + cursor 推进:`logs/wecom_kf_msgid_cache.json`(msgid 5min 缓存)+ `logs/wecom_kf_cursor_<kfhash>.txt`(sync_msg 增量)
+- LLM 意图识别:`IntentClassifier` 规则优先 + KB 弱匹配,LLM 仅在 UNKNOWN 兜底时介入(避免 30ms → 1.5s 拖慢)
+- 确定性 Router:`IntentRouter` 按 Intent 类型分发到对应 Workflow,**无歧义才走 LLM**
+- 业务兜底:任何 API 失败 → 统一回 `400-155-9959`
+- 转人工:任何转人工触发 → 统一回 `400-155-9959`
 
 **查询分流（已实现，按优先级）**：
 
@@ -122,6 +116,72 @@
 | **数据库** | `kb_*`、`handoff_*`、`room_query_sessions`、`rate_limits` 等 | ✅ 运行时迁移 |
 | **AI 模型** | **DeepSeek v4-flash** 主聊天 + MiniMax `embo-01` Embedding | ✅ 已切换 |
 | **部署** | MAMP 本地 + `scripts/sync-to-mamp.sh` | ✅ 开发环境可用 |
+
+---
+
+### 2.3 v2.0 业务规则（2026-08-13 确认）
+
+#### 2.3.1 业务范围(只查询)
+
+| 业务类型 | 走哪条路 | 数据源 | 兜底 |
+|---|---|---|---|
+| 订单查询 | OrderQueryWorkflow | 未来 API(明日接入) | `400-155-9959` |
+| 房间信息查询 | RoomQueryWorkflow | 未来 API(暂未接) | `400-155-9959` |
+| 停车场查询 | UnknownWorkflow(临时)→ 未来 ParkingQueryWorkflow | 未来 API(暂未接) | `400-155-9959` |
+| 房间设备查询 | RoomQueryWorkflow | 未来 API(暂未接) | `400-155-9959` |
+| WiFi/门锁/押金 | YunfangkaCredentialWorkflow | KB + Sidecar | 云房卡卡片 |
+| 入住时间/退订流程 | KnowledgeWorkflow | kb_entries(44 条) | KB 直答 |
+| 闲聊(晚上好/谢谢) | SmallTalkWorkflow | 固定模板 | 固定回复 |
+| 续住/换房/发票/投诉 | HandoffWorkflow | human_handoffs 表 | **`400-155-9959`** |
+
+**铁律**:AI **不处理任何新增业务**(续住、换房、改期、取消订单、申请发票等),**统一回 400-155-9959**。
+
+#### 2.3.2 兜底话术统一规则
+
+任何未实现的功能、API 失败、知识盲区,**统一回复**:
+
+> "[功能名]查询功能暂未上线,请拨打 400-155-9959 联系我们。"
+
+- 订单查询未接 API → "订单查询功能暂未上线,请拨打 400-155-9959 联系我们。"
+- 房间查询未接 API → "房间信息查询功能暂未上线,请拨打 400-155-9959 联系我们。"
+- 停车场查询未接 API → "停车场查询功能暂未上线,请拨打 400-155-9959 联系我们。"
+
+#### 2.3.3 转人工统一规则
+
+所有 HandoffWorkflow 触发(包括关键词"续住""换房""投诉""发票"等)、用户主动要求"转人工"、"找真人":
+
+> "已为您转接人工客服,请拨打 400-155-9959 联系我们。"
+
+**实现位置**:`api/Workflow/HandoffWorkflow.php:38`
+
+#### 2.3.4 Intent 分类优先级(2026-08-13 修正)
+
+```
+优先级从高到低:
+1. 输入安全拦截(checkInputSafety)
+2. 转人工关键词(HandoffTriggers) → HUMAN
+3. 凭证类(WiFi/门锁/押金) → ROOM_PASSWORD_QUERY
+4. 订单查询(order_query: 前缀) → ORDER_QUERY
+5. 房间查询(房型/地址/设备关键词) → ROOM_QUERY
+6. KB 早期命中(品牌/退订/入住时间 FAQ) → KNOWLEDGE
+7. 闲聊(晚上好/谢谢/在吗) → SMALL_TALK
+8. UNKNOWN → UnknownWorkflow(LLM 兜底)
+```
+
+**修正要点(v2.0)**:
+- ✅ 业务意图(订单/房间)在 KB 早期匹配**之前**,避免"order_query:xxx"被 KB 误判
+- ✅ 闲聊在 KB 之前,避免"晚上好"被 KB 抢答
+- ✅ 凭证类在所有之前,确保"WiFi 密码"永远走 YunfangkaCredentialWorkflow
+- ❌ LLM 不参与 Intent 分类(避免 30ms fast path 拖慢到 1.5s)
+
+#### 2.3.5 消息可靠性(v2.0 已实现,v3.0 规划)
+
+| 机制 | 实现位置 | 状态 |
+|---|---|---|
+| msgid 去重(5min) | `logs/wecom_kf_msgid_cache.json` | ✅ v2.0 |
+| sync_msg cursor 推进 | `logs/wecom_kf_cursor_<hash>.txt` | ✅ v2.0 |
+| service_state/trans(95018 修复) | `api/wecom_kf.php` | ✅ v2.0 |
+| 消息 Outbox(重试+死信) | — | ❌ v3.0 规划 |
 
 ---
 

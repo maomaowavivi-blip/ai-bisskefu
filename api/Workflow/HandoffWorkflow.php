@@ -36,7 +36,7 @@ final class HandoffWorkflow extends AbstractWorkflow
         }
 
         return WorkflowResult::text(
-            '正在为您转接人工客服，请稍候。',
+            '已为您转接人工客服，请拨打 400-155-9959 联系我们。',
             'HandoffWorkflow'
         )->withHandoffStatus(0)->withExtra(['handoff_id' => $handoffId]);
     }

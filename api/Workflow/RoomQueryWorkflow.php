@@ -31,7 +31,7 @@ final class RoomQueryWorkflow extends AbstractWorkflow
 
         // RoomQueryFlow::handle 返回 ?array {reply, is_verified, handoff_status, handled, room_pick, ...}
         if ($flowResult === null || empty($flowResult['handled'])) {
-            return WorkflowResult::text('暂未找到该房间的相关资料，请联系前台确认～', 'RoomQueryWorkflow');
+            return WorkflowResult::text('房间信息查询功能暂未上线，请拨打 400-155-9959 联系我们。', 'RoomQueryWorkflow');
         }
 
         $reply = (string)($flowResult['reply'] ?? '');

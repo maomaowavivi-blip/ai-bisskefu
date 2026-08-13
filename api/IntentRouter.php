@@ -18,6 +18,7 @@ require_once __DIR__ . '/Workflow/KnowledgeWorkflow.php';
 require_once __DIR__ . '/Workflow/SmallTalkWorkflow.php';
 require_once __DIR__ . '/Workflow/UnknownWorkflow.php';
 require_once __DIR__ . '/Workflow/HandoffWorkflow.php';
+require_once __DIR__ . '/Workflow/PreSalesWorkflow.php';
 
 final class IntentRouter
 {
@@ -32,6 +33,7 @@ final class IntentRouter
         Intent::KNOWLEDGE           => 'KnowledgeWorkflow',
         Intent::SMALL_TALK          => 'SmallTalkWorkflow',
         Intent::HUMAN               => 'HandoffWorkflow',
+        Intent::PRE_SALES           => 'PreSalesWorkflow',  // v2.0：售前引导到 OTA
         Intent::UNKNOWN             => 'UnknownWorkflow',
     ];
 

@@ -45,6 +45,9 @@ final class Intent
     /** 转人工（含 P0-P4 优先级） */
     const HUMAN = 'HUMAN';
 
+    /** 售前问题（订房/价格/空房等）→ 引导到 OTA 平台 */
+    const PRE_SALES = 'PRE_SALES';
+
     /** 所有 Intent 值（用于校验） */
     const ALL = [
         self::ROOM_QUERY,
@@ -55,6 +58,7 @@ final class Intent
         self::SMALL_TALK,
         self::UNKNOWN,
         self::HUMAN,
+        self::PRE_SALES,
     ];
 
     /**
