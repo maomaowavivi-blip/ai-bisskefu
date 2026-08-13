@@ -30,20 +30,29 @@ final class SmallTalkWorkflow extends AbstractWorkflow
             $stmt = $this->db->query('SELECT * FROM persona_config ORDER BY id DESC LIMIT 1');
             $persona = $stmt->fetch() ?: [];
 
-            // 不喂 KB（闲聊不需要）
-            $messages = PromptEngine::buildMessages(
-                $persona,
-                $this->intentCtx->sessionState['history'] ?? [],
-                $message,
-                [],
-                $this->sessionId,
-                $message,
-                $this->config
-            );
+            // v3.5 修复：不再用 buildMessages（它带"无资料只回 fallback"约束，会锁死闲聊）
+            // 改用轻量闲聊 prompt，让 LLM 自然回应
+            $name        = trim($persona['name']        ?? '客服');
+            $personality = trim($persona['personality'] ?? '友好、亲切');
+            $speakStyle  = trim($persona['speak_style'] ?? '');
+
+            $system = "你是{$name}，柚光民宿的 AI 客服。客人正在和你闲聊（打招呼/寒暄/表达情绪），请用自然、简短、友好的中文回应。\n"
+                . "性格：{$personality}\n"
+                . "说话风格：{$speakStyle}\n"
+                . "规则：\n"
+                . "1. 只回应闲聊内容，不要编造任何民宿业务事实（入住时间、房价、设施等一律不谈，除非客人明确问）\n"
+                . "2. 回复 20-60 字，一句话即可\n"
+                . "3. 可以自然引导：如果客人有具体问题，可以提示\"有什么入住或订单问题都可以问我~\"\n"
+                . "4. 不要使用\"这边暂时没有查到准确信息\"等客服兜底话术";
+
+            $messages = [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user', 'content' => $message],
+            ];
 
             $result = callAI($messages, [
                 'max_tokens' => 80,  // 闲聊更短
-                'temperature' => 0.5,  // 闲聊可以稍活跃
+                'temperature' => 0.7,  // 闲聊可以更活跃
                 'thinking' => ['type' => 'disabled'],
             ]);
 
