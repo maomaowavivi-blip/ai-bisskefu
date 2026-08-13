@@ -172,6 +172,25 @@ function pcGetInt(PDO $db, $key, $default = 0) {
     return is_numeric($v) ? intval($v) : $default;
 }
 
+/**
+ * v3.4：写入 platform_config 配置项（upsert）
+ * 用于 wecom_kf.php 等需要缓存 access_token 等场景
+ */
+function pcSet(PDO $db, $key, $value): bool
+{
+    try {
+        $stmt = $db->prepare(
+            "INSERT INTO platform_config (`key`, `value`) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)"
+        );
+        $stmt->execute([$key, (string)$value]);
+        return true;
+    } catch (Exception $e) {
+        error_log('[pcSet] failed for key=' . $key . ': ' . $e->getMessage());
+        return false;
+    }
+}
+
 // ══════════════════════════════════════════
 // AI 调用
 // ══════════════════════════════════════════

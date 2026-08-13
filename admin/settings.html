@@ -592,6 +592,32 @@ Authorization: Bearer {密钥}
 
           <div class="card settings-section">
             <div class="card-header">
+              <h3>💬 微信客服 API（用户扫客服二维码）</h3>
+              <span id="wecomKfStatus" style="font-size:var(--text-sm);"></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              对接企业微信「微信客服」，用户扫描客服二维码即可发起对话（无需加好友）。
+              回调 URL 填写：<code id="wecomKfCallbackUrl" style="background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;font-size:12px;"></code>
+            </p>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">企业 Secret（corp_secret）</label>
+                <input type="password" id="wecomKfCorpSecret" class="form-input" placeholder="企业微信后台 → 我的企业 → 微信插件 → Secret">
+              </div>
+              <div class="form-group">
+                <label class="form-label">客服账号 ID（open_kfid）</label>
+                <input type="text" id="wecomKfOpenKfId" class="form-input" placeholder="wkAbCdEf123...">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
+              <button class="btn btn-primary" id="saveWecomKfBtn" onclick="saveWecomKfConfig()">保存配置</button>
+            </div>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
               <h3>🔑 外部 API 密钥管理</h3>
             </div>
             <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
@@ -1081,6 +1107,7 @@ loadSettings();
 loadGatewayConfig();
 loadSidecarStats();
 loadWecomConfig();
+loadWecomKfConfig(); // v3.4：微信客服 API 配置
 loadApiKeys();
 loadHandoffTriggers();
 updateEmbedCode();
@@ -1262,6 +1289,62 @@ function escapeHtml(str) {
   var div = document.createElement('div');
   div.appendChild(document.createTextNode(str));
   return div.innerHTML;
+}
+
+// ═══ 微信客服 API 配置（v3.4） ═══
+function loadWecomKfConfig() {
+  fetch(apiUrl('/api/verify.php?action=get_wecom_kf_config'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        var statusEl = document.getElementById('wecomKfStatus');
+        var callbackUrl = document.getElementById('wecomKfCallbackUrl');
+        callbackUrl.textContent = window.location.origin + '/aibisskefu/api/wecom_kf.php';
+
+        if (res.data.configured) {
+          document.getElementById('wecomKfOpenKfId').value = res.data.open_kfid;
+          document.getElementById('wecomKfCorpSecret').value = res.data.corp_secret;
+          statusEl.innerHTML = '<span class="badge badge-success">✅ 已配置</span>';
+        } else {
+          statusEl.innerHTML = '<span class="badge badge-error">未配置</span>';
+        }
+      }
+    })
+    .catch(function() { /* 静默 */ });
+}
+
+function saveWecomKfConfig() {
+  var corpSecret = document.getElementById('wecomKfCorpSecret').value.trim();
+  var openKfId   = document.getElementById('wecomKfOpenKfId').value.trim();
+
+  if (!corpSecret) { showToast('请输入企业 Secret'); return; }
+  if (!openKfId) { showToast('请输入客服账号 ID'); return; }
+
+  var btn = document.getElementById('saveWecomKfBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_wecom_kf_config'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ corp_secret: corpSecret, open_kfid: openKfId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+    if (res.code === 0) {
+      showToast('微信客服配置保存成功');
+      loadWecomKfConfig();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存配置';
+    showToast('网络错误，请重试');
+  });
 }
 
 // ═══ 转人工规则管理（完整增删查改） ═══

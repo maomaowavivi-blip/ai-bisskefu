@@ -275,6 +275,33 @@ if ($action === 'get_wecom_config') {
 }
 
 // ══════════════════════════════════════════
+// 微信客服 API 配置（v3.4，用户扫客服二维码）
+// ══════════════════════════════════════════
+if ($action === 'save_wecom_kf_config') {
+    adminGuard();
+
+    $corpSecret = trim($body['corp_secret'] ?? '');
+    $openKfId   = trim($body['open_kfid'] ?? '');
+
+    if (!$corpSecret || !$openKfId) fail('参数不完整');
+
+    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $stmt->execute(['wecom.corp_secret', $corpSecret]);
+    $stmt->execute(['wecom.kf_open_kfid', $openKfId]);
+
+    ok([], '微信客服配置保存成功');
+}
+
+if ($action === 'get_wecom_kf_config') {
+    adminGuard();
+    ok([
+        'corp_secret' => pcGet($db, 'wecom.corp_secret', ''),
+        'open_kfid'   => pcGet($db, 'wecom.kf_open_kfid', ''),
+        'configured'  => !empty(pcGet($db, 'wecom.corp_secret', '')) && !empty(pcGet($db, 'wecom.kf_open_kfid', '')),
+    ]);
+}
+
+// ══════════════════════════════════════════
 // API 密钥管理（管理后台用）
 // ══════════════════════════════════════════
 if ($action === 'create_api_key') {

@@ -33,7 +33,8 @@ final class ReplyRenderer
         ];
 
         // 修正 16：企微渠道不带 rich_content（企微渲染跟 H5 不同）
-        $wechatChannels = ['wechat_mp', 'wechat_msg'];
+        // v3.4：wechat_kf（微信客服）同样不带，纯文本回复
+        $wechatChannels = ['wechat_mp', 'wechat_msg', 'wechat_kf'];
         if (!empty($result->richContent) && !in_array($channel, $wechatChannels, true)) {
             $data['rich_content'] = $result->richContent;
         }
