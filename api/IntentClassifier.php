@@ -1,0 +1,161 @@
+<?php
+/**
+ * api/IntentClassifier.php
+ *
+ * v3.3 PR1 — 规则 fast path 分类器
+ *
+ * 设计原则：
+ * - LLM 不参与 Intent 判定（蓝图 §六 修正 3）
+ * - 规则失败 → 直接 UNKNOWN → UnknownWorkflow 用 LLM 生成兜底话术
+ * - Intent 永远由规则判定，避免 fast path 被 LLM 拖慢（30ms → 1.5s）
+ *
+ * 修正 11：凭证识别用 AgentConfig 实例方法（与现有 chat.php 一致）
+ * 修正 12：history 中有近期订单号 → 增强凭证识别
+ *
+ * 调用入口：IntentClassifier::classify($message, $ctx)
+ *   - $ctx 必须包含: db, config, history(可选), session(可选)
+ *   - 返回 IntentContext
+ */
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/Intent.php';
+require_once __DIR__ . '/HandoffTriggers.php';
+require_once __DIR__ . '/sidecar/SidecarIntent.php';
+require_once __DIR__ . '/RoomQueryFlow.php';
+require_once __DIR__ . '/PromptEngine.php';
+
+final class IntentClassifier
+{
+    /**
+     * 主入口：分类一条用户消息
+     *
+     * @param string $message 用户消息（已 trim）
+     * @param array $ctx 必须包含:
+     *   - 'db': PDO
+     *   - 'config': AgentConfig 实例
+     *   - 'history': array 历史消息（可选）
+     *   - 'session': array 会话状态（可选）
+     * @return IntentContext
+     */
+    public static function classify(string $message, array $ctx): IntentContext
+    {
+        $config = $ctx['config'] ?? null;
+        $history = $ctx['history'] ?? [];
+        $session = $ctx['session'] ?? [];
+
+        if (!($config instanceof \AgentConfig)) {
+            throw new \InvalidArgumentException('IntentClassifier requires AgentConfig in ctx');
+        }
+
+        // 1. 转人工（含 priority，修正 18）
+        $match = HandoffTriggers::matchKeyword($ctx['db'], $message);
+        if ($match !== null) {
+            $priority = is_array($match) && isset($match['priority']) ? (int)$match['priority'] : 99;
+            return IntentContext::of(
+                Intent::HUMAN,
+                1.0,
+                [],
+                'rule:handoff_keyword',
+                [],
+                $priority
+            );
+        }
+
+        // 2. 凭证类 → 云房卡引导（独立 Workflow，修正 1）
+        //    修正 11：优先用 AgentConfig 实例方法（与 chat.php:319 一致）
+        //    修正 12：history 增强判定
+        $isCredential = $config->isCredentialQuery($message);
+        $hasRecentOrderNo = self::detectRecentOrderNo($history);
+        if ($isCredential || ($hasRecentOrderNo && self::isPotentialCredential($message))) {
+            return IntentContext::of(
+                Intent::ROOM_PASSWORD_QUERY,
+                $isCredential ? 0.95 : 0.75,
+                $hasRecentOrderNo ? ['order_no' => $hasRecentOrderNo] : [],
+                $isCredential ? 'rule:credential' : 'rule:credential_with_history'
+            );
+        }
+
+        // 3. 房间意图（已有 isRoomIntent + matchesEntry）
+        $roomKeywords = RoomQueryFlow::getRoomKeywords($ctx['db']);
+        if (RoomQueryFlow::isRoomIntent($message, $roomKeywords)) {
+            $slots = [];
+            if (SidecarIntent::looksLikeOrderNo($message)) {
+                $slots['order_no'] = $message;
+            }
+            return IntentContext::of(Intent::ROOM_QUERY, 0.9, $slots, 'rule:sidecar_keyword');
+        }
+
+        // 4. 查订单（冻结块，修正 2）
+        if (preg_match('/^order_query:|订单|查单/u', $message)) {
+            return IntentContext::of(Intent::ORDER_QUERY, 0.85, [], 'rule:order_keyword');
+        }
+
+        // 5. 闲聊（已有 isChitchat）
+        if (SidecarIntent::isChitchat($message)) {
+            return IntentContext::of(Intent::SMALL_TALK, 0.8, [], 'rule:chitchat');
+        }
+
+        // 6. KB 命中 → KNOWLEDGE（这是 DB 查询，~5-10ms）
+        try {
+            $kb = PromptEngine::searchKnowledge($ctx['db'], $message, 3);
+            if (!empty($kb)) {
+                return IntentContext::of(Intent::KNOWLEDGE, 0.7, [], 'rule:kb_match', $kb);
+            }
+        } catch (\Exception $e) {
+            error_log('[IntentClassifier] KB search failed: ' . $e->getMessage());
+        }
+
+        // 7. 都失败 → UNKNOWN（不调 LLM！交由 UnknownWorkflow 生成兜底话术）
+        return IntentContext::of(Intent::UNKNOWN, 0.0, [], 'fallback');
+    }
+
+    /**
+     * 修正 12 辅助方法：从 history 中提取最近一条订单号
+     *
+     * @param array $history 多轮历史
+     * @return string|null 16位以上订单号
+     */
+    private static function detectRecentOrderNo(array $history): ?string
+    {
+        if (!is_array($history) || empty($history)) {
+            return null;
+        }
+        // 只看最近 5 条
+        $start = max(0, count($history) - 5);
+        for ($i = count($history) - 1; $i >= $start; $i--) {
+            $msg = $history[$i] ?? null;
+            if (!is_array($msg)) continue;
+            // 兼容 'content' 和 'text' 字段
+            $content = $msg['content'] ?? ($msg['text'] ?? '');
+            if (!is_string($content)) continue;
+            // 16位以上数字 = 携程/美团订单号
+            if (preg_match('/\d{16,}/', $content, $m)) {
+                return $m[0];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 修正 12 辅助方法：消息可能涉及凭证但未直接命中关键词
+     * （如「密码」「WiFi」「门锁」「刷脸」「押金」等弱信号）
+     *
+     * @param string $message
+     * @return bool
+     */
+    private static function isPotentialCredential(string $message): bool
+    {
+        $weakSignals = [
+            '密码', 'wifi', 'wi-fi', '门锁', '门禁', '刷脸', '押金',
+            '开锁', '进不去', '连不上', '上不了网',
+        ];
+        $msg = mb_strtolower($message, 'UTF-8');
+        foreach ($weakSignals as $sig) {
+            if (mb_strpos($msg, $sig) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
