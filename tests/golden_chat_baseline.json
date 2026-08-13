@@ -1,6 +1,6 @@
 {
     "meta": {
-        "captured_at": "2026-08-13T07:26:21+00:00",
+        "captured_at": "2026-08-13T07:50:55+00:00",
         "php_version": "8.3.30",
         "total_cases": 50,
         "failed_cases": 1,
@@ -37,7 +37,7 @@
             "actual": {
                 "http_code": 200,
                 "elapsed_ms": 29,
-                "elapsed_ms_curl": 43,
+                "elapsed_ms_curl": 44,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -67,10 +67,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 63,
-                "elapsed_ms_curl": 94,
-                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
-                "intent": "ROOM_QUERY",
+                "elapsed_ms": 1708,
+                "elapsed_ms_curl": 1736,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -98,10 +98,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 95,
-                "elapsed_ms_curl": 125,
-                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理～",
-                "intent": "ORDER_QUERY",
+                "elapsed_ms": 1185,
+                "elapsed_ms_curl": 1214,
+                "reply": "您的订单已查询到，云房卡中可查看WiFi密码、门锁密码、在线交押金及公安刷脸核验信息。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -132,8 +132,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 68,
+                "elapsed_ms": 41,
+                "elapsed_ms_curl": 71,
                 "reply": "正在为您转接人工客服，请稍候。",
                 "intent": "HUMAN",
                 "ok": true,
@@ -163,8 +163,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 72,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 71,
                 "reply": "南宁属亚热带气候，夏季炎热多雨，秋冬较温和；建议出行前查看当日天气预报，备雨具和防晒。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -194,10 +194,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 68,
-                "elapsed_ms_curl": 89,
-                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
-                "intent": "ROOM_QUERY",
+                "elapsed_ms": 954,
+                "elapsed_ms_curl": 982,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -225,9 +225,9 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1197,
-                "elapsed_ms_curl": 1223,
-                "reply": "刚才卡片是宿家民宿的品牌介绍，说明我们是南宁城市民宿品牌，为商旅客和短住客提供入住咨询与订单服务。",
+                "elapsed_ms": 1068,
+                "elapsed_ms_curl": 1097,
+                "reply": "刚才的卡片是宿家民宿的品牌介绍，说明我们是面向客人的南宁城市民宿品牌。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -259,10 +259,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 62,
-                "elapsed_ms_curl": 91,
-                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
-                "intent": "ROOM_QUERY",
+                "elapsed_ms": 6380,
+                "elapsed_ms_curl": 6407,
+                "reply": "取消与改期请在您下单的携程、美团、去哪儿订单内按平台规则操作，宿家民宿线上客服不办理取消或退款。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -290,8 +290,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1035,
-                "elapsed_ms_curl": 1066,
+                "elapsed_ms": 2097,
+                "elapsed_ms_curl": 2125,
                 "reply": "各套公寓周边餐饮不同，建议打开地图搜索您入住地址附近的餐厅。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -321,8 +321,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1154,
-                "elapsed_ms_curl": 1185,
+                "elapsed_ms": 1788,
+                "elapsed_ms_curl": 1817,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -352,8 +352,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1128,
-                "elapsed_ms_curl": 1161,
+                "elapsed_ms": 4646,
+                "elapsed_ms_curl": 4677,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -384,7 +384,7 @@
             "actual": {
                 "http_code": 200,
                 "elapsed_ms": 0,
-                "elapsed_ms_curl": 27,
+                "elapsed_ms_curl": 30,
                 "reply": "",
                 "intent": "",
                 "ok": false,
@@ -414,8 +414,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1916,
-                "elapsed_ms_curl": 1944,
+                "elapsed_ms": 3944,
+                "elapsed_ms_curl": 3974,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -445,8 +445,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 769,
-                "elapsed_ms_curl": 799,
+                "elapsed_ms": 3227,
+                "elapsed_ms_curl": 3257,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -476,8 +476,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 877,
-                "elapsed_ms_curl": 910,
+                "elapsed_ms": 1933,
+                "elapsed_ms_curl": 1962,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -507,8 +507,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 42,
-                "elapsed_ms_curl": 63,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 69,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -538,8 +538,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 41,
-                "elapsed_ms_curl": 71,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 69,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -569,10 +569,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 63,
-                "elapsed_ms_curl": 94,
-                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
-                "intent": "ROOM_QUERY",
+                "elapsed_ms": 1304,
+                "elapsed_ms_curl": 1332,
+                "reply": "您好，宿家民宿在南宁的房源分布在青秀区、西乡塘区、江南区、良庆区等多个板块，具体地址需提供订单号查询。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -600,8 +600,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 858,
-                "elapsed_ms_curl": 886,
+                "elapsed_ms": 1191,
+                "elapsed_ms_curl": 1209,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -634,8 +634,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 980,
-                "elapsed_ms_curl": 1008,
+                "elapsed_ms": 2382,
+                "elapsed_ms_curl": 2410,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -667,8 +667,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 40,
-                "elapsed_ms_curl": 69,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 66,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -698,10 +698,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 65,
-                "elapsed_ms_curl": 96,
-                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
-                "intent": "ROOM_QUERY",
+                "elapsed_ms": 755,
+                "elapsed_ms_curl": 786,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -732,8 +732,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 70,
+                "elapsed_ms": 42,
+                "elapsed_ms_curl": 73,
                 "reply": "南宁宿家民宿统一不接受宠物入住（导盲犬等特殊需求请提前联系掌柜确认）。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -763,8 +763,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1047,
-                "elapsed_ms_curl": 1079,
+                "elapsed_ms": 670,
+                "elapsed_ms_curl": 699,
                 "reply": "宿家民宿不提供接送机服务。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -797,8 +797,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 40,
-                "elapsed_ms_curl": 67,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 62,
                 "reply": "正在为您转接人工客服，请稍候。",
                 "intent": "HUMAN",
                 "ok": true,
@@ -831,8 +831,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 72,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 68,
                 "reply": "正在为您转接人工客服，请稍候。",
                 "intent": "HUMAN",
                 "ok": true,
@@ -899,8 +899,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 34,
-                "elapsed_ms_curl": 72,
+                "elapsed_ms": 42,
+                "elapsed_ms_curl": 71,
                 "reply": "正在为您转接人工客服，请稍候。",
                 "intent": "HUMAN",
                 "ok": true,
@@ -930,8 +930,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 880,
-                "elapsed_ms_curl": 910,
+                "elapsed_ms": 1195,
+                "elapsed_ms_curl": 1224,
                 "reply": "宿家民宿不提供行李寄存服务。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -961,8 +961,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1667,
-                "elapsed_ms_curl": 1696,
+                "elapsed_ms": 821,
+                "elapsed_ms_curl": 854,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -992,8 +992,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 46,
-                "elapsed_ms_curl": 78,
+                "elapsed_ms": 41,
+                "elapsed_ms_curl": 69,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1023,8 +1023,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 38,
-                "elapsed_ms_curl": 68,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 67,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1054,8 +1054,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 72,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 70,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1085,8 +1085,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 74,
+                "elapsed_ms": 41,
+                "elapsed_ms_curl": 71,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1116,8 +1116,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
-                "elapsed_ms_curl": 70,
+                "elapsed_ms": 37,
+                "elapsed_ms_curl": 67,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1147,10 +1147,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 116,
-                "elapsed_ms_curl": 138,
-                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理～",
-                "intent": "ORDER_QUERY",
+                "elapsed_ms": 1234,
+                "elapsed_ms_curl": 1262,
+                "reply": "您的订单已查询到，云房卡中包含WiFi密码、门锁密码、在线交押金及公安刷脸核验信息，请点击云房卡查看。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -1178,10 +1178,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 182,
-                "elapsed_ms_curl": 208,
-                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理～",
-                "intent": "ORDER_QUERY",
+                "elapsed_ms": 1695,
+                "elapsed_ms_curl": 1723,
+                "reply": "您的订单查询成功，云房卡中可查看WiFi密码、门锁密码、在线交押金及公安刷脸核验信息。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -1209,10 +1209,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 156,
-                "elapsed_ms_curl": 183,
-                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理～",
-                "intent": "ORDER_QUERY",
+                "elapsed_ms": 1646,
+                "elapsed_ms_curl": 1675,
+                "reply": "点击聊天窗口「订单查询」，或发送 order_query:您的订单号，即可查看订单信息与云房卡。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -1240,10 +1240,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 70,
-                "elapsed_ms_curl": 97,
-                "reply": "查询房间地址/设施需要订单号，请发送要咨询的那笔订单号～",
-                "intent": "ROOM_QUERY",
+                "elapsed_ms": 2076,
+                "elapsed_ms_curl": 2107,
+                "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -1271,8 +1271,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 1861,
-                "elapsed_ms_curl": 1886,
+                "elapsed_ms": 2212,
+                "elapsed_ms_curl": 2240,
                 "reply": "这边暂时没有查到准确信息，建议您联系前台确认。",
                 "intent": "UNKNOWN",
                 "ok": true,
@@ -1305,8 +1305,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 41,
-                "elapsed_ms_curl": 70,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 75,
                 "reply": "宿家民宿统一标准入住时间为当日14:00；如需提前入住，请联系掌柜，视房态协调。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -1339,8 +1339,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 33,
-                "elapsed_ms_curl": 66,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 71,
                 "reply": "宿家民宿统一标准退房时间为当日12:00；如需延迟退房，请联系掌柜，视房态安排。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -1373,8 +1373,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 39,
-                "elapsed_ms_curl": 65,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 69,
                 "reply": "南宁宿家民宿室内统一禁止吸烟（含电子烟）；请在室外允许区域吸烟，违规可能产生清洁费用。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -1407,10 +1407,10 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 239,
-                "elapsed_ms_curl": 264,
-                "reply": "❌ 未查询到订单信息，请检查订单号是否正确，或联系客服处理～",
-                "intent": "ORDER_QUERY",
+                "elapsed_ms": 1354,
+                "elapsed_ms_curl": 1383,
+                "reply": "取消订单请在您下单的携程、美团或去哪儿平台内按规则操作，宿家民宿线上客服不办理取消。",
+                "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
             }
@@ -1442,8 +1442,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 32,
-                "elapsed_ms_curl": 58,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 67,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1475,8 +1475,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 37,
-                "elapsed_ms_curl": 66,
+                "elapsed_ms": 39,
+                "elapsed_ms_curl": 70,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1508,8 +1508,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 28,
-                "elapsed_ms_curl": 54,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 70,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",
                 "ok": true,
@@ -1542,8 +1542,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 36,
-                "elapsed_ms_curl": 59,
+                "elapsed_ms": 41,
+                "elapsed_ms_curl": 70,
                 "reply": "请前往携程、美团、去哪儿搜索「宿家民宿」并下单；本客服不支持在线预订，也不接受通过 AI 或聊天窗口订房。下单后请保留平台订单号，便于查询与入住。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
@@ -1576,8 +1576,8 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 36,
-                "elapsed_ms_curl": 62,
+                "elapsed_ms": 40,
+                "elapsed_ms_curl": 68,
                 "reply": "正在为您转接人工客服，请稍候。",
                 "intent": "HUMAN",
                 "ok": true,
@@ -1609,7 +1609,7 @@
             },
             "actual": {
                 "http_code": 200,
-                "elapsed_ms": 43,
+                "elapsed_ms": 40,
                 "elapsed_ms_curl": 71,
                 "reply": "WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。",
                 "intent": "ROOM_PASSWORD_QUERY",

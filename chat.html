@@ -793,6 +793,18 @@ async function sendMessage(text) {
     if (data.code === 0 && data.data) {
       const reply = data.data.reply || '';
       appendMessage(reply, 'bot');
+
+      // v3.3 PR4：前端 console 打点（决策点 3）
+      if (data.data.intent) {
+        console.log('[AI]', {
+          intent: data.data.intent,
+          confidence: data.data.confidence,
+          workflow: data.data.workflow,
+          reasoning: data.data.reasoning,
+          elapsed_ms: data.data.elapsed_ms,
+        });
+      }
+
       var historyReply = reply;
       if (data.data.rich_content && data.data.rich_content.length > 0) {
         for (var ri = 0; ri < data.data.rich_content.length; ri++) {

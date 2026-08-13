@@ -128,10 +128,35 @@ class AgentConfig {
             }
         }
 
-        if (preg_match('/(WiFi|wifi|无线).{0,4}密码/u', $msg) || preg_match('/密码.{0,4}(WiFi|wifi|无线|门锁|门禁)/u', $msg)) {
+        if (preg_match('/(WiFi|wifi|无线).{0,4}密码/u', $message) || preg_match('/密码.{0,4}(WiFi|wifi|无线|门锁|门禁)/u', $message)) {
             return true;
         }
 
         return false;
     }
-}
+
+    /**
+     * v3.3 PR4：Intent 架构相关配置默认值
+     * 决策 2：AgentConfig Phase 2（暂不实施到 PromptEngine，仅提供配置位）
+     */
+    public static function defaultIntentConfig(): array
+        {
+            return [
+                // Intent 分类
+                'agent.intent.llm_enabled' => 'false',  // 蓝图 §六 修正 3：LLM 不参与 Intent 分类
+                'agent.intent.confidence_min' => '0.5',
+                'agent.intent.unknown_threshold' => '0.3',
+
+                // Workflow 行为
+                'agent.workflow.unknown.try_semantic' => 'true',  // UnknownWorkflow 先试 KB 弱匹配
+                'agent.workflow.unknown.llm_timeout_ms' => '1200',
+                'agent.workflow.unknown.llm_max_tokens' => '80',
+                'agent.workflow.unknown.llm_temperature' => '0.2',
+
+                // Reply 渲染
+                'agent.reply.min_chars' => '20',
+                'agent.reply.max_chars' => '80',
+                'agent.reply.temperature' => '0.2',  // 决策点 5：低温度防飘逸
+            ];
+        }
+    }

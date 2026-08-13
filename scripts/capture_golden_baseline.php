@@ -289,8 +289,8 @@ foreach ($CASES as $i => $case) {
     } else {
         echo "  ✅ #{$case['id']} ({$case['category']}): " . mb_substr($r['actual']['reply'], 0, 40) . "...\n";
     }
-    // 间隔 3500ms 防限流（20 req/min = 1 req/3s，留 0.5s 余量）
-    usleep(3500000);
+    // 间隔 3100ms 防限流（20 req/min = 1 req/3s，留 0.1s 余量）
+    usleep(3100000);
 }
 
 echo "\n3. 写入 $outputFile ...\n";
