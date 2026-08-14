@@ -297,7 +297,8 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         $linkSent = false;
         $trimmedMsg = trim($content);
         // v3.7.1：阈值从 10 位降到 8 位，覆盖美团 19 位 + 其他渠道 8-10 位订单号
-        if (preg_match('/^\d{8,30}$/', $trimmedMsg) && is_dir(__DIR__ . '/wecom_kf_roomcard_v37.php')) {
+        // v3.7.2：is_dir 改成 is_file（is_dir 对文件路径返 false，永远不触发）
+        if (preg_match('/^\d{8,30}$/', $trimmedMsg) && is_file(__DIR__ . '/wecom_kf_roomcard_v37.php')) {
             require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
             $linkParams = buildRoomCardLink($db, $trimmedMsg);
             if ($linkParams && !empty($linkParams['url'])) {
