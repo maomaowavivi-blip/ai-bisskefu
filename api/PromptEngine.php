@@ -88,7 +88,7 @@ class PromptEngine {
                 }
             }
         } else {
-            $parts[] = '【必须直接转人工】以下问题只回复"正在为您转接人工客服，请稍候。"不做任何其他回答';
+            $parts[] = '【涉及需联系管家】以下问题只回复"请拨打 400-155-9959 联系管家"，不再转接人工，不做其他回答';
             $parts[] = '涉及：发票、续住、换房、退款、投诉、赔偿、押金纠纷等；具体以系统「转人工规则」词库为准';
         }
 
@@ -102,15 +102,15 @@ class PromptEngine {
 
         // ── 服务规范（行为边界，非业务事实）───────────────────────────────
         if ($serviceRules) {
-            // 修复 2：按句号切分，只过滤含"掌柜"的转接话术句，其余规则保留
+            // v3.7：按句号切分，只过滤含"管家"的转接话术句，其余规则保留
             $sentences = preg_split('/[。]/u', $serviceRules, -1, PREG_SPLIT_NO_EMPTY);
             $filtered = array_filter($sentences, function ($s) {
-                return mb_strpos(trim($s), '掌柜') === false;
+                return mb_strpos(trim($s), '管家') === false;
             });
             $simpleRules = implode('。', array_map('trim', $filtered)) . '。';
             if ($simpleRules !== '。') {
                 $parts[] = '';
-                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"正在为您转接人工客服，请稍候。"';
+                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"请拨打 400-155-9959 联系管家"';
             }
         }
 
@@ -219,7 +219,7 @@ class PromptEngine {
     private static function isPreservedReplyWithoutKb(string $reply, ?AgentConfig $config = null): bool {
         $markers = ($config) ? $config->getJson('agent.fallback.preserved_markers', []) : [];
         if (empty($markers)) {
-            $markers = ['转接人工', '不太方便讨论', '没法聊', '无法回应'];
+            $markers = ['400-155-9959', '不太方便讨论', '没法聊', '无法回应'];
         }
         foreach ($markers as $mark) {
             if ($mark !== '' && mb_strpos($reply, $mark) !== false) {
@@ -298,9 +298,9 @@ class PromptEngine {
         $reply = trim($reply);
         if ($reply === '') return $reply;
 
-        // ── 规则1：命中后台维护的转人工触发词 ─────────────────
+        // v3.7：转人工改为 400 电话话术
         if (HandoffTriggers::matchesMessage($db, $message)) {
-            return '正在为您转接人工客服，请稍候。';
+            return '请拨打 400-155-9959 联系管家';
         }
 
         // ── 规则2：去掉推销话术（推荐房源、换房、升级等）────────

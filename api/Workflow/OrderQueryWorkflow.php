@@ -49,7 +49,7 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         } catch (\Throwable $e) {
             error_log('[OrderQueryWorkflow] callGateway failed: ' . $e->getMessage());
             return WorkflowResult::text(
-                '订单查询功能暂未上线，请拨打 400-155-9959 联系我们。',
+                '订单查询功能暂未上线，请拨打 400-155-9959 联系管家',
                 'OrderQueryWorkflow'
             );
         }
@@ -57,7 +57,7 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         // 查单失败
         if (!$orderData || (isset($orderData['code']) && $orderData['code'] !== 0)) {
             return WorkflowResult::text(
-                '订单查询功能暂未上线，请拨打 400-155-9959 联系我们。',
+                '订单查询功能暂未上线，请拨打 400-155-9959 联系管家',
                 'OrderQueryWorkflow'
             );
         }
