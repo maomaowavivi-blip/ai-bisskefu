@@ -296,7 +296,8 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         // v3.7 — 检测长串数字订单号 → 生成云房卡 link 卡片（替换普通文本回复）
         $linkSent = false;
         $trimmedMsg = trim($content);
-        if (preg_match('/^\d{10,30}$/', $trimmedMsg) && is_dir(__DIR__ . '/wecom_kf_roomcard_v37.php')) {
+        // v3.7.1：阈值从 10 位降到 8 位，覆盖美团 19 位 + 其他渠道 8-10 位订单号
+        if (preg_match('/^\d{8,30}$/', $trimmedMsg) && is_dir(__DIR__ . '/wecom_kf_roomcard_v37.php')) {
             require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
             $linkParams = buildRoomCardLink($db, $trimmedMsg);
             if ($linkParams && !empty($linkParams['url'])) {
