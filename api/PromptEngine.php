@@ -428,6 +428,11 @@ class PromptEngine {
         $q = mb_substr(trim($query), 0, 100);
         if (mb_strlen($q) < 2) return [];
 
+        // v3.10:售前类查询不进 KB(有空房/有房吗 → 售前分流,避免"空房→空调"误匹配)
+        if (preg_match('/有空房|有房吗|还有房|空房吗|有没有房|有房没|订房|预订|多少钱|价格|便宜|优惠/u', $q)) {
+            return [];
+        }
+
         try {
             $stmt = $db->prepare("
                 SELECT question, answer,
@@ -510,12 +515,28 @@ class PromptEngine {
         if (empty($rows)) return [];
 
         $best = []; // gram_len => row
+        // v3.10:先只匹配 ≥3 字 gram(2 字 gram 太泛,易误匹配"空房→空调"类)
+        $matched2 = false;
         foreach ($grams as $g) {
+            if (mb_strlen($g) < 3) continue; // 第一轮跳过 2 字
             if (isset($best[mb_strlen($g)])) continue; // 同长度已有命中
             foreach ($rows as $row) {
                 if (mb_strpos($row['question'], $g) !== false || mb_strpos($row['keywords'] ?? '', $g) !== false) {
                     $best[mb_strlen($g)] = ['question' => $row['question'], 'answer' => $row['answer'], 'gram' => $g];
                     break;
+                }
+            }
+        }
+        // 无任何 ≥3 字命中时,才允许 2 字 gram 兜底(如"停车""垃圾"这类 2 字核心查询)
+        if (empty($best)) {
+            foreach ($grams as $g) {
+                if (mb_strlen($g) !== 2) continue;
+                foreach ($rows as $row) {
+                    if (mb_strpos($row['question'], $g) !== false || mb_strpos($row['keywords'] ?? '', $g) !== false) {
+                        $best[2] = ['question' => $row['question'], 'answer' => $row['answer'], 'gram' => $g];
+                        $matched2 = true;
+                        break 2;
+                    }
                 }
             }
         }
