@@ -192,7 +192,7 @@ class SidecarIntent {
 
     /** 云房卡内办理：WiFi/门锁密码、在线交押金、公安刷脸核验（客服不直报密码） */
     public static function yunfangkaCredentialReply(): string {
-        return 'WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请点击聊天窗口「订单查询」，或发送 order_query:您的订单号，查询成功后点击云房卡即可。';
+        return 'WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。请直接发送您的订单号，我会为您推送云房卡～';
     }
 
     /**

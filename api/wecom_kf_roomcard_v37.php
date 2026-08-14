@@ -105,7 +105,7 @@ function parseRoomCardForLink(array $card): ?array
             $url  = $mini['urlLink'] ?? '';
             if ($url !== '') {
                 return [
-                    'title' => $mini['name'] ?? '宿家云房卡',
+                    'title' => $mini['name'] ?? '柚光云房卡',
                     'desc'  => $bundle['shareText'] ?? '点击查看您的云房卡',
                     'url'   => $url,
                 ];
@@ -116,7 +116,7 @@ function parseRoomCardForLink(array $card): ?array
     // share_bundle 为空时降级:用 card.urlLink(老 API 可能直接返这个)
     if (!empty($card['urlLink'])) {
         return [
-            'title' => '宿家云房卡',
+            'title' => '柚光云房卡',
             'desc'  => '点击查看您的云房卡',
             'url'   => $card['urlLink'],
         ];

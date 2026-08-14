@@ -73,6 +73,9 @@ final class IntentRouter
             case 'HandoffWorkflow':
                 $workflow = new HandoffWorkflow($db, $config, $intentCtx, $sessionState, $sessionId, $visitorHash, $ip);
                 break;
+            case 'PreSalesWorkflow':
+                $workflow = new PreSalesWorkflow($db, $config, $intentCtx, $sessionState, $sessionId, $visitorHash, $ip);
+                break;
             case 'UnknownWorkflow':
             default:
                 $workflow = new UnknownWorkflow($db, $config, $intentCtx, $sessionState, $sessionId, $visitorHash, $ip);

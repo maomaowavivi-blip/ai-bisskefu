@@ -107,7 +107,13 @@ final class IntentClassifier
             return IntentContext::of(Intent::SMALL_TALK, 0.8, [], 'rule:chitchat');
         }
 
-        // 6. KB 早期命中（v2.0 修正：放在业务意图之后，避免"order_query:xxx"被 KB 误判）
+        // 6. 售前判定（v3.8 修正：提到 KB 之前，避免"怎么订房"被 KB 抢答）
+        //      业务规则：AI 不接单，订房/价格/空房类问题统一回 OTA
+        if (self::isPreSalesQuery($message)) {
+            return IntentContext::of(Intent::PRE_SALES, 0.9, [], 'rule:pre_sales');
+        }
+
+        // 7. KB 早期命中（v2.0 修正：放在业务意图之后，避免"order_query:xxx"被 KB 误判）
         //      例如"退订怎么操作"含"退"字可能被 RoomQueryFlow 误判 → 仍走 KB
         try {
             $earlyKb = PromptEngine::searchKnowledge($ctx['db'], $message, 3);
@@ -118,13 +124,7 @@ final class IntentClassifier
             error_log('[IntentClassifier] KB early search failed: ' . $e->getMessage());
         }
 
-        // 6.5 售前判定（v2.0：KB 没命中 + 售前关键词 → 引导到 OTA 平台）
-        //      业务规则：AI 不接单，订房/价格/空房类问题统一回 OTA
-        if (self::isPreSalesQuery($message)) {
-            return IntentContext::of(Intent::PRE_SALES, 0.9, [], 'rule:pre_sales');
-        }
-
-        // 7. 都失败 → UNKNOWN（不调 LLM！交由 UnknownWorkflow 生成兜底话术）
+        // 8. 都失败 → UNKNOWN（不调 LLM！交由 UnknownWorkflow 生成兜底话术）
         return IntentContext::of(Intent::UNKNOWN, 0.0, [], 'fallback');
     }
 

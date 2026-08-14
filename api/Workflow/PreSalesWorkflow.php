@@ -18,7 +18,7 @@ final class PreSalesWorkflow extends AbstractWorkflow
 {
     public function handle(): WorkflowResult
     {
-        $reply = '请到美团、携程、飞猪等 OTA 平台搜索"宿家民宿"订房，期待与您相见~';
+        $reply = '请到美团、携程、飞猪等 OTA 平台搜索"柚光民宿"订房，期待与您相见~';
 
         return WorkflowResult::text($reply, 'PreSalesWorkflow');
     }

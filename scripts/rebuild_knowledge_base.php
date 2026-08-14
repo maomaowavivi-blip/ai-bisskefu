@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * 重建南宁宿家民宿通用知识库（清空后写入系统默认条目）
+ * 重建南宁柚光民宿通用知识库（清空后写入系统默认条目）
  * 用法：php scripts/rebuild_knowledge_base.php
  */
 $root = dirname(__DIR__);

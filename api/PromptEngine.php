@@ -49,7 +49,7 @@ class PromptEngine {
         $emotionStrategy = trim($persona['emotion_strategy'] ?? '');
 
         $platforms = ($config && ($v = $config->get('agent.rules.booking_platforms'))) ? $v : '携程、美团、去哪儿';
-        $brand     = ($config && ($v = $config->get('agent.rules.booking_brand_hint'))) ? $v : '宿家民宿';
+        $brand     = ($config && ($v = $config->get('agent.rules.booking_brand_hint'))) ? $v : '柚光民宿';
         $bookingLine = '4. 引导客人在本客服或 AI 对话中预订、下单；若被问如何订房，只指引至' . $platforms . '搜索' . $brand;
 
         $parts = [];

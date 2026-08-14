@@ -227,7 +227,7 @@
                 "http_code": 200,
                 "elapsed_ms": 1068,
                 "elapsed_ms_curl": 1097,
-                "reply": "刚才的卡片是宿家民宿的品牌介绍，说明我们是面向客人的南宁城市民宿品牌。",
+                "reply": "刚才的卡片是柚光民宿的品牌介绍，说明我们是面向客人的南宁城市民宿品牌。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -261,7 +261,7 @@
                 "http_code": 200,
                 "elapsed_ms": 6380,
                 "elapsed_ms_curl": 6407,
-                "reply": "取消与改期请在您下单的携程、美团、去哪儿订单内按平台规则操作，宿家民宿线上客服不办理取消或退款。",
+                "reply": "取消与改期请在您下单的携程、美团、去哪儿订单内按平台规则操作，柚光民宿线上客服不办理取消或退款。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -571,7 +571,7 @@
                 "http_code": 200,
                 "elapsed_ms": 1304,
                 "elapsed_ms_curl": 1332,
-                "reply": "您好，宿家民宿在南宁的房源分布在青秀区、西乡塘区、江南区、良庆区等多个板块，具体地址需提供订单号查询。",
+                "reply": "您好，柚光民宿在南宁的房源分布在青秀区、西乡塘区、江南区、良庆区等多个板块，具体地址需提供订单号查询。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -734,7 +734,7 @@
                 "http_code": 200,
                 "elapsed_ms": 42,
                 "elapsed_ms_curl": 73,
-                "reply": "南宁宿家民宿统一不接受宠物入住（导盲犬等特殊需求请提前联系掌柜确认）。",
+                "reply": "南宁柚光民宿统一不接受宠物入住（导盲犬等特殊需求请提前联系掌柜确认）。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -765,7 +765,7 @@
                 "http_code": 200,
                 "elapsed_ms": 670,
                 "elapsed_ms_curl": 699,
-                "reply": "宿家民宿不提供接送机服务。",
+                "reply": "柚光民宿不提供接送机服务。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -932,7 +932,7 @@
                 "http_code": 200,
                 "elapsed_ms": 1195,
                 "elapsed_ms_curl": 1224,
-                "reply": "宿家民宿不提供行李寄存服务。",
+                "reply": "柚光民宿不提供行李寄存服务。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -1307,7 +1307,7 @@
                 "http_code": 200,
                 "elapsed_ms": 39,
                 "elapsed_ms_curl": 75,
-                "reply": "宿家民宿统一标准入住时间为当日14:00；如需提前入住，请联系掌柜，视房态协调。",
+                "reply": "柚光民宿统一标准入住时间为当日14:00；如需提前入住，请联系掌柜，视房态协调。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -1341,7 +1341,7 @@
                 "http_code": 200,
                 "elapsed_ms": 40,
                 "elapsed_ms_curl": 71,
-                "reply": "宿家民宿统一标准退房时间为当日12:00；如需延迟退房，请联系掌柜，视房态安排。",
+                "reply": "柚光民宿统一标准退房时间为当日12:00；如需延迟退房，请联系掌柜，视房态安排。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -1375,7 +1375,7 @@
                 "http_code": 200,
                 "elapsed_ms": 40,
                 "elapsed_ms_curl": 69,
-                "reply": "南宁宿家民宿室内统一禁止吸烟（含电子烟）；请在室外允许区域吸烟，违规可能产生清洁费用。",
+                "reply": "南宁柚光民宿室内统一禁止吸烟（含电子烟）；请在室外允许区域吸烟，违规可能产生清洁费用。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -1409,7 +1409,7 @@
                 "http_code": 200,
                 "elapsed_ms": 1354,
                 "elapsed_ms_curl": 1383,
-                "reply": "取消订单请在您下单的携程、美团或去哪儿平台内按规则操作，宿家民宿线上客服不办理取消。",
+                "reply": "取消订单请在您下单的携程、美团或去哪儿平台内按规则操作，柚光民宿线上客服不办理取消。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
@@ -1544,7 +1544,7 @@
                 "http_code": 200,
                 "elapsed_ms": 41,
                 "elapsed_ms_curl": 70,
-                "reply": "请前往携程、美团、去哪儿搜索「宿家民宿」并下单；本客服不支持在线预订，也不接受通过 AI 或聊天窗口订房。下单后请保留平台订单号，便于查询与入住。",
+                "reply": "请前往携程、美团、去哪儿搜索「柚光民宿」并下单；本客服不支持在线预订，也不接受通过 AI 或聊天窗口订房。下单后请保留平台订单号，便于查询与入住。",
                 "intent": "KNOWLEDGE",
                 "ok": true,
                 "curl_error": ""
