@@ -107,7 +107,7 @@ LLM 意图/参数识别(IntentClassifier · 规则优先,LLM 兜底)
 | 订单验证网关 | `api/verify.php` | SMS 验证码 + `query_order`（弹窗查单可走 `order_query:` 直连 PMS） |
 | 对话审计字段 | `chat_logs` | `visitor_hash`、`source_ip` 随每条消息写入 |
 
-### 2.2 改造策略（宿家 MVP 落地状态）
+### 2.2 改造策略（柚光 MVP 落地状态）
 
 | 层次 | 改造方式 | 状态 |
 |------|---------|------|
@@ -265,12 +265,12 @@ CREATE TABLE enterprise_api_config (
 );
 ```
 
-#### 功能特性（已实现 · 宿家 MVP）
+#### 功能特性（已实现 · 柚光 MVP）
 
 | 功能 | 实现 | 说明 |
 |------|------|------|
 | 手动录入 CRUD | `api/knowledge.php` + `admin/knowledge.html` | 分类 + 问答对 |
-| **默认种子重建** | `KnowledgeBaseSeed.php` + `rebuild_defaults` | 一键恢复 44 条宿家标准 FAQ |
+| **默认种子重建** | `KnowledgeBaseSeed.php` + `rebuild_defaults` | 一键恢复 44 条柚光标准 FAQ |
 | 关键词匹配 | `PromptEngine::searchKnowledge` + `_searchByKeywords` | FULLTEXT 降级 LIKE |
 | 语义向量检索 | `api/embedding.php` → `kbSemanticSearch()` | MiniMax `embo-01`；chat **进程内调用**（非 HTTP 自调） |
 | **KB 直答（跳过 LLM）** | `PromptEngine::directReplyFromKb` | 政策/预订/云房卡类固定答复 |
@@ -279,11 +279,11 @@ CREATE TABLE enterprise_api_config (
 | Excel 批量导入 | — | **未实现**（CSV 已覆盖 80% 场景） |
 | `kb_documents` 文档库 | — | **表结构在 PRD，未接入 RAG** |
 
-#### 宿家通用知识库结构（`KnowledgeBaseSeed`，8 类 44 条）
+#### 柚光通用知识库结构（`KnowledgeBaseSeed`，8 类 44 条）
 
 | 分类 | 条目数 | 内容边界 |
 |------|--------|----------|
-| 品牌介绍 | 4 | 对外品牌 **宿家民宿**；小橙能力范围 |
+| 品牌介绍 | 4 | 对外品牌 **柚光民宿**；小橙能力范围 |
 | 预订与订单 | 7 | 仅携程/美团/去哪儿；**AI 不代订**；云房卡说明 |
 | 入住与退房 | 7 | **14:00 入住 / 12:00 退房**；公安刷脸 KB 条目 |
 | 房规与禁忌 | 5 | **禁宠物、室内禁烟** |
@@ -298,11 +298,11 @@ CREATE TABLE enterprise_api_config (
 2. **有【参考资料】且走 LLM** → RAG 注入 `buildUserTurn`；`finalizeReply` 无 KB 时强制拒答。
 3. **无 KB** → 固定：`这边暂时没有查到准确信息，建议您联系前台确认。`
 
-示例（宿家政策，非旧版虚构产品价）：
+示例（柚光政策，非旧版虚构产品价）：
 
 ```
 【参考资料】
-· 宿家民宿统一标准入住时间为当日14:00，退房时间为当日12:00。
+· 柚光民宿统一标准入住时间为当日14:00，退房时间为当日12:00。
 · 取消与改期请在携程、美团、去哪儿订单内按平台规则操作。
 · WiFi密码、门锁密码、在线交押金及公安刷脸核验，请在云房卡中查看。
 ```
@@ -367,7 +367,7 @@ CREATE TABLE enterprise_api_config (
 | `queryRoomLocal` 已验证 shortcut | ✅ 有 cache 视为已验证 |
 | RoomQueryFlow step=1 免重复要订单号 | ❌ **仍每次索要**（见 §7.1.5 暂缓项） |
 
-### 3.3.1 Sidecar 房间知识库（宿家场景 · 已实现）
+### 3.3.1 Sidecar 房间知识库（柚光场景 · 已实现）
 
 #### 设计思路
 
@@ -437,11 +437,11 @@ MINIMAX_API_KEY=          # 可选；Embedding 优先读 platform_config.ai.api_
 PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 ```
 
-### 3.3.2 宿家民宿业务政策（已确认 · 写入 KB）
+### 3.3.2 柚光民宿业务政策（已确认 · 写入 KB）
 
 | 主题 | 客人侧政策 |
 |------|-----------|
-| 对外品牌 | **宿家民宿**（橙途为系统/运营侧，不对客强调） |
+| 对外品牌 | **柚光民宿**（橙途为系统/运营侧，不对客强调） |
 | 入住/退房 | **14:00 入住，12:00 退房** |
 | 云房卡 | 住客电子入住凭证；含刷脸、交押金、WiFi/门锁；**无 299 元/年业主端描述** |
 | 取消/退款 | **全部在携程/美团/去哪儿平台处理** |
@@ -517,13 +517,13 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 | 模块 | 页面 | 功能 | 状态 |
 |------|------|------|------|
 | **仪表盘** | `admin/dashboard.html` | 概览 + 待接管数量 | ✅ |
-| **人设管理** | `admin/persona.html` | 吉祥物名称/性格/服务规范；对外 **宿家民宿** | ✅ |
+| **人设管理** | `admin/persona.html` | 吉祥物名称/性格/服务规范；对外 **柚光民宿** | ✅ |
 | **知识库管理** | `admin/knowledge.html` | CRUD、批量向量化、**重建默认知识库** | ✅ |
 | **系统设置** | `admin/settings.html` | AI Key、订单/PMS 网关、Sidecar 运维、**转人工规则**、房间进流词扩展 | ✅ |
 | **对话记录** | `admin/chat-logs.html` | 历史会话查看 | ✅ |
 | **转人工** | `admin/handoff.html` | 待处理/接管中/已结束；人工发消息 | ✅ |
 | **客户画像** | `memory.php` | OC 遗留，客服场景 **未作为主路径** | 保留 |
-| **七步 OC 向导** | `oc-advanced.html` | OC 产品线 | 与宿家客服并行 |
+| **七步 OC 向导** | `oc-advanced.html` | OC 产品线 | 与柚光客服并行 |
 
 **访客聊天窗**：`chat.html`（订单查询弹窗、`order_query:`、云房卡 `rich_content` 卡片、卡片摘要进 `history`、`room_pick` 卡片、handoff 轮询）。
 
@@ -531,7 +531,7 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 
 ## 四、实施路径
 
-> **宿家 MVP（Phase 1 + Sidecar + 转人工 + 防幻觉）已于 2026-05 落地**；下表保留原规划对照，✅ 表示已实现或等价实现。
+> **柚光 MVP（Phase 1 + Sidecar + 转人工 + 防幻觉）已于 2026-05 落地**；下表保留原规划对照，✅ 表示已实现或等价实现。
 
 ### Phase 1：MVP（预计 1-2 周）
 
@@ -540,7 +540,7 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 | 1 | 数据库表创建（knowledge_base 系列表） | ✅ |
 | 2 | `PromptEngine.php` 改造 → 企业人设 + 知识库分层 | ✅ |
 | 3 | `api/knowledge.php` → 知识库 CRUD + 重建默认种子 | ✅ |
-| 4 | `chat.php` → 宿家客服路由（非独立 `enterprise_chat` action） | ✅ |
+| 4 | `chat.php` → 柚光客服路由（非独立 `enterprise_chat` action） | ✅ |
 | 5 | 管理后台 → **`admin/*.html`**（非 `enterprise-admin.html`） | ✅ |
 | 6 | 访客聊天窗 → **`chat.html`**（非 `customer-chat.html`） | ✅ |
 | 7 | MAMP 测试环境 + `sync-to-mamp.sh` | ✅ |
@@ -580,14 +580,14 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 
 ## 五、技术方案
 
-### 5.1 后端改造文件清单（宿家 MVP · 与代码同步）
+### 5.1 后端改造文件清单（柚光 MVP · 与代码同步）
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
 | `api/chat.php` | **修改** | 路由层：early KB、RoomQueryFlow、Handoff、LLM；`order_query:` **冻结**；`elapsed_ms` |
 | `api/PromptEngine.php` | **修改** | 禁止层、RAG、`directReplyFromKb`、`rewriteQuery`、`finalizeReply` |
 | `api/embedding.php` | **修改** | 向量化 + `kbSemanticSearch()` 进程内检索 |
-| `api/KnowledgeBaseSeed.php` | **新增** | 宿家 44 条默认 FAQ 种子 |
+| `api/KnowledgeBaseSeed.php` | **新增** | 柚光 44 条默认 FAQ 种子 |
 | `api/knowledge.php` | **修改** | CRUD + `rebuild_defaults` + 向量化代理 |
 | `api/HandoffTriggers.php` | **新增** | 转人工词库（DB + 默认种子 + 退役词清理） |
 | `api/handoff.php` | **已有** | 人工接管 API |
@@ -623,7 +623,7 @@ PROMPT_ENGINE_REWRITE_MODEL=deepseek-v4-flash
 
 | 文件 | 状态 | 说明 |
 |------|------|------|
-| `chat.html` | ✅ 已实现 | 宿家访客聊天窗（非 customer-chat.html） |
+| `chat.html` | ✅ 已实现 | 柚光访客聊天窗（非 customer-chat.html） |
 | `admin/*.html` | ✅ 已实现 | 管理后台 |
 | `customer-admin.html` | ❌ 未建 | 功能已分散在 admin/ |
 | `customer-chat.html` | ❌ 未建 | 由 chat.html 承担 |
@@ -672,13 +672,13 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 | 聊天接口 `chat.php` | 原 chat/preview_chat | 新增 enterprise_chat | 共用文件 |
 | 记忆系统 `memory.php` | ✅ 正常使用 | ✅ 客户画像 | 共用 |
 | 订阅系统 | OC 订阅 | 企业 SaaS 套餐 | 可共用逻辑 |
-| 管理后台 | admin.html / OC 后台 | **admin/**（persona/knowledge/settings/handoff） | 宿家用 admin/ |
+| 管理后台 | admin.html / OC 后台 | **admin/**（persona/knowledge/settings/handoff） | 柚光用 admin/ |
 
 ---
 
 ## 七、验收标准
 
-### 7.1 MVP 验收（宿家客服）
+### 7.1 MVP 验收（柚光客服）
 
 - [x] 吉祥物人设可配置（`admin/persona.html`）
 - [x] 知识库录入与管理（`admin/knowledge.html`）
@@ -708,7 +708,7 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 - [x] 【第一层·事实禁止】无 KB 时固定拒答
 - [x] `brand_story` 不进入 system prompt
 - [x] `finalizeReply` / `directReplyFromKb` 硬兜底
-- [x] 对外品牌 **宿家民宿**；14:00/12:00；禁宠物禁烟
+- [x] 对外品牌 **柚光民宿**；14:00/12:00；禁宠物禁烟
 - [x] 取消退款平台处理；AI 不代订
 - [x] 无免费停车等 Sidecar 真值不被 LLM 覆盖（如永凯春晖）
 - [x] 15 条精简回归测试通过（2026-05）
@@ -774,7 +774,7 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 | WiFi/门禁 Sidecar 直答 | **云房卡引导** |
 | `enterprise-admin.html` | **`admin/*.html`** |
 | 299 元/年云房卡示例 | **已删除**；云房卡=住客电子凭证 |
-| 橙途对外品牌 | 对外 **宿家民宿** |
+| 橙途对外品牌 | 对外 **柚光民宿** |
 | HTTP 自调 embedding.php | **`kbSemanticSearch` 进程内** + 按需调用 |
 | IP 速率限制 20/min | **`rate_limits` 表，60 秒窗口 20 次** |
 | `order_context_cache` 加速房间绑单 | **查单成功写入（24h）**；用于云房卡卡片追问 + `queryRoomLocal` 验证；**房间流 step=1 仍每次要订单号** |
@@ -819,7 +819,7 @@ private static function _buildOrderAbilityLayer(array $apiConfig): string {
 
 ## 九、v3.1 演进模块（2026-08 · PRD v1.2 新增）
 
-> v3.1 是 v3.0（宿家 MVP 落地）之后的演进迭代，重点从"一个企业能用"扩展到"多企业、多渠道、多行业"。本节纳入 PRD v1.1 未规划但代码已实现的 6 个模块。
+> v3.1 是 v3.0（柚光 MVP 落地）之后的演进迭代，重点从"一个企业能用"扩展到"多企业、多渠道、多行业"。本节纳入 PRD v1.1 未规划但代码已实现的 6 个模块。
 
 ### 9.1 企业微信回调（`api/wecom.php`）
 
@@ -929,7 +929,7 @@ Body:
 #### 模板清单
 | Industry | 目录 | 适用 |
 |----------|------|------|
-| `homestay` | `templates/homestay/` | **宿家民宿（默认）** |
+| `homestay` | `templates/homestay/` | **柚光民宿（默认）** |
 | `restaurant` | `templates/restaurant/` | 餐饮门店 |
 | `generic` | `templates/generic/` | 通用 FAQ |
 
@@ -1026,8 +1026,34 @@ WiFi密码多少,WiFi密码请查看云房卡,WiFi;密码;网络,入住
 
 ---
 
-*文档版本：v1.2*
-*更新日期：2026 年 8 月 13 日*
-*状态：宿家 MVP 客服已落地 + v3.1 演进模块已上线 · PRD 与代码同步*
-*关联蓝图：`.trae/documents/room-query-flow-blueprint.md`*
-*关联代码：见 §九 v3.1 演进模块*
+### 9.8 v3.4–v3.10 演进模块（2026-08-14 上线）
+
+| 编号 | 验收项 | 状态 |
+|------|--------|------|
+| 9.8.1 | persona prompt 四修复（emotion_strategy 进 prompt / service_rules 掌柜句过滤修正 / principles 不再截断 / 「您」字冲突） | ✅ v3.4 |
+| 9.8.2 | SmallTalk 修复：闲聊不再被「无 KB 强制 fallback」锁死（改轻量 prompt） | ✅ v3.5 |
+| 9.8.3 | isSmallTalk 中文后缀正则修复（「你好呀/晚上好呀」正确识别，避免误伤「你好烦」） | ✅ v3.6 |
+| 9.8.4 | 云房卡 link 卡片自动发送：长串数字订单号 → 直调 channelOrder/byChannelOrder → 企微 link 卡片 | ✅ v3.7 |
+| 9.8.5 | 订单号正则阈值 10→8 位（覆盖 9 位订单号）+ is_dir→is_file bug | ✅ v3.7.1/2 |
+| 9.8.6 | KB top200 批量导入（44→148 条，含 62 分类） | ✅ v3.7 KB |
+| 9.8.7 | IntentRouter 补 PreSalesWorkflow case（售前引导失效）+ 售前判定提到 KB 之前 | ✅ v3.8 |
+| 9.8.8 | 品牌统一：宿家/橙途/小橙 → 柚光/小柚（全项目 17 文件 + DB 11 条） | ✅ v3.8 |
+| 9.8.9 | UnknownWorkflow 轻量 prompt（LLM 兜底不再被锁死） | ✅ v3.8 |
+| 9.8.10 | web 端订单查询接 channelOrder（替代坏网关，返回订单文本信息） | ✅ v3.9 |
+| 9.8.11 | 拒绝话术：私下交易拒绝 / AI 身份识别 / 隐私查询拒绝（查手机号/他人订单） | ✅ v3.9 |
+| 9.8.12 | 搜索误匹配修复：售前类查询不进 KB + n-gram 2 字 gram 降权（「空房→空调」修复） | ✅ v3.10 |
+
+**安全审计结论（2026-08-14 模拟客户 33 用例）**：
+- 注入攻击 8/8 守住（prompt injection / SQL 注入 / XSS / 危险指令 / emoji 轰炸）
+- 隐私套话拒绝（系统提示词不泄漏 / 他人订单不可查 / 手机号匹配不到订单）
+- 售前引导 OTA / 售后合理 / 闲聊自然
+
+**规则确认**：手机号不能查订单，唯一查询键 = 完整订单号（API 层匹配不到，无需额外拦截）
+
+---
+
+*文档版本：v1.3*
+*更新日期：2026 年 8 月 14 日*
+*状态：柚光 MVP 客服已落地 + v3.4–v3.10 演进模块全部上线 · PRD 与代码同步*
+*关联蓝图：`.trae/documents/v3.4-persona-prompt-fix-blueprint.md` 至 `.trae/documents/v3.10-ngram-fix-blueprint.md`*
+*关联代码：见 §九 v3.4–v3.10 演进模块*
