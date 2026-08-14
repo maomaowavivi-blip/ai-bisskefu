@@ -293,6 +293,24 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
+        // v3.7 — 检测长串数字订单号 → 生成云房卡 link 卡片（替换普通文本回复）
+        $linkSent = false;
+        $trimmedMsg = trim($content);
+        if (preg_match('/^\d{10,30}$/', $trimmedMsg) && is_dir(__DIR__ . '/wecom_kf_roomcard_v37.php')) {
+            require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
+            $linkParams = buildRoomCardLink($db, $trimmedMsg);
+            if ($linkParams && !empty($linkParams['url'])) {
+                if (sendKfLinkMessage($from, $linkParams, $useOpenKfId)) {
+                    wecom_kf_log("v3.7 kf link sent to $from: " . mb_substr($linkParams['title'], 0, 30));
+                    $linkSent = true;
+                } else {
+                    wecom_kf_log('v3.7 kf link send failed, fall back to text');
+                }
+            }
+        }
+
+        if ($linkSent) continue;
+
         // 4. 发送（必须用会话对应的 open_kfid，不能用配置里的固定值——
         //    用户扫码进的是事件里的 OpenKfId，跟 platform_config 配置的可能是不同账号）
         $sent = sendKfMessage($from, $replyText, $useOpenKfId);
@@ -400,6 +418,47 @@ function sendKfMessage(string $externalUserId, string $content, string $useOpenK
         wecom_kf_log('send_msg error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
         return false;
     }
+    return true;
+}
+
+/**
+ * v3.7 — 发送 link 类型消息(图文链接卡片)
+ * 用于云房卡跳转:title + desc + url + thumb_media_id
+ */
+function sendKfLinkMessage(string $externalUserId, array $link, string $useOpenKfId = ''): bool
+{
+    $accessToken = getAccessToken();
+    if ($accessToken === null) return false;
+
+    $openKfId = $useOpenKfId !== '' ? $useOpenKfId : getConfiguredOpenKfId();
+    $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token=" . urlencode($accessToken);
+
+    $payload = [
+        'touser' => $externalUserId,
+        'open_kfid' => $openKfId,
+        'msgtype' => 'link',
+        'link' => [
+            'title' => mb_substr((string)($link['title'] ?? '云房卡'), 0, 128),
+            'desc'  => mb_substr((string)($link['desc'] ?? ''), 0, 512),
+            'url'   => (string)($link['url'] ?? ''),
+            'thumb_media_id' => (string)($link['thumb_media_id'] ?? ''),
+        ],
+    ];
+
+    if ($payload['link']['url'] === '' || $payload['link']['thumb_media_id'] === '') {
+        wecom_kf_log('send_kf_link skip: missing url or thumb_media_id');
+        return false;
+    }
+
+    $resp = httpPostJson($url, $payload);
+    if (!$resp || !isset($resp['errcode'])) {
+        return false;
+    }
+    if ($resp['errcode'] !== 0) {
+        wecom_kf_log('send_kf_link error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        return false;
+    }
+    wecom_kf_log('Sent kf link to ' . $externalUserId . ': ' . mb_substr($payload['link']['title'], 0, 30));
     return true;
 }
 
