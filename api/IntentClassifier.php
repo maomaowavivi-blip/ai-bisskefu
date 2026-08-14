@@ -58,6 +58,28 @@ final class IntentClassifier
             );
         }
 
+        // 0.5 隐私套话拒绝（v3.9：查手机号/别人订单等隐私查询 → 直接拒绝）
+        //     必须在订单判定之前，否则"查186xxxx的订单"会走 ORDER_QUERY
+        if (preg_match('/查.*(手机号|电话|身份证|别人的订单|他的订单|她.*订单|帮.*查.*订单|那个客人)/u', $message)) {
+            return IntentContext::of(
+                Intent::KNOWLEDGE,
+                0.95,
+                ['privacy_refuse' => true],
+                'rule:privacy_refuse'
+            );
+        }
+
+        // 0.6 AI 身份问答（v3.9：你是AI还是真人 → 自然回答）
+        //     必须在转人工之前，否则"你是真人吗"触发 HandoffTriggers 转人工
+        if (preg_match('/你是(不是)?\s*(AI|ai|机器人|人工|真人|客服小柚|小柚)/u', $message)) {
+            return IntentContext::of(
+                Intent::SMALL_TALK,
+                0.9,
+                [],
+                'rule:ai_identity'
+            );
+        }
+
         // 1. 转人工（含 priority，修正 18）
         $match = HandoffTriggers::matchKeyword($ctx['db'], $message);
         if ($match !== null) {
@@ -188,6 +210,10 @@ final class IntentClassifier
             '/有空房|有房吗|还有房|空房吗|房型/u',
             // 现场订
             '/可以现场|现场订|到店订|当天订/u',
+            // 砍价/优惠(v3.9 新增)
+            '/便宜|优惠|打折|折扣|减价|特价|砍价|讲讲价|优惠点/u',
+            // 私下交易(v3.9 新增:拒绝绕过平台)
+            '/微信转|私下|直接订|不走平台|绕过平台|转账订|红包订|加微信/u',
         ];
 
         foreach ($patterns as $p) {

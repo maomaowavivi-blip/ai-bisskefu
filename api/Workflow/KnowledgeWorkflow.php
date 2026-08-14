@@ -19,6 +19,14 @@ final class KnowledgeWorkflow extends AbstractWorkflow
     {
         $message = $this->intentCtx->slots['original_message'] ?? '';
 
+        // v3.9:隐私拒绝 fast path（IntentClassifier 标记的隐私查询 → 直接拒绝，不走 KB/LLM）
+        if (!empty($this->intentCtx->slots['privacy_refuse'])) {
+            return WorkflowResult::text(
+                '为保护客人隐私，我无法查询他人订单或手机号对应的订单。如需查询，请提供您本人的订单号～',
+                'KnowledgeWorkflow'
+            );
+        }
+
         // 1. KB 关键词直答（早期 fast path）
         try {
             $earlyKb = PromptEngine::directReplyFromKb($message, [], $this->db, $this->config);

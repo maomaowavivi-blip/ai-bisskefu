@@ -43,30 +43,34 @@ final class OrderQueryWorkflow extends AbstractWorkflow
             );
         }
 
-        // 调 PMS 网关（与 chat.php:455 一致）
+        // v3.9:替代 callGateway 坏网关,直接调 channelOrder 查订单
         try {
-            $orderData = callGateway($this->db, 'query_order', ['order_no' => $orderNo]);
+            $orderData = self::queryChannelOrder($this->db, $orderNo);
         } catch (\Throwable $e) {
-            error_log('[OrderQueryWorkflow] callGateway failed: ' . $e->getMessage());
+            error_log('[OrderQueryWorkflow] queryChannelOrder failed: ' . $e->getMessage());
             return WorkflowResult::text(
-                '订单查询功能暂未上线，请拨打 400-155-9959 联系管家',
+                '订单查询暂时不可用，请稍后再试或拨打 400-155-9959 联系管家',
                 'OrderQueryWorkflow'
             );
         }
 
-        // 查单失败
-        if (!$orderData || (isset($orderData['code']) && $orderData['code'] !== 0)) {
+        // 查单失败(订单不存在)
+        if (!$orderData) {
             return WorkflowResult::text(
-                '订单查询功能暂未上线，请拨打 400-155-9959 联系管家',
+                '没有查询到这个订单号，请确认订单号是否正确，或拨打 400-155-9959 联系管家～',
                 'OrderQueryWorkflow'
             );
         }
 
-        // 查单成功 → 写 order_context_cache（24h TTL）+ 返回云房卡卡片
-        $roomList = $orderData['data']['room_list'] ?? [];
-        $roomId = $orderData['data']['room_id'] ?? 0;
-        $expiresAt = date('Y-m-d H:i:s', time() + 86400);
+        // 查单成功 → 文本订单信息(web 端不依赖 thumb/云房卡)
+        $reply = "订单查询成功：\n"
+            . ($orderData['unit_name'] ? "房型：{$orderData['unit_name']}\n" : '')
+            . ($orderData['check_in'] ? "入住：" . date('Y-m-d', strtotime($orderData['check_in'])) . "\n" : '')
+            . ($orderData['check_out'] ? "离店：" . date('Y-m-d', strtotime($orderData['check_out'])) . "\n" : '')
+            . ($orderData['price'] ? "房价：¥{$orderData['price']}\n" : '')
+            . '如需查看云房卡请前往微信客服发送订单号获取。';
 
+        // 写入 order_context_cache(24h TTL) — 保留原逻辑
         try {
             $stmt = $this->db->prepare(
                 'INSERT INTO order_context_cache (session_id, order_no, room_id, room_list, expires_at, created_at)
@@ -77,30 +81,49 @@ final class OrderQueryWorkflow extends AbstractWorkflow
             $stmt->execute([
                 $this->sessionId,
                 $orderNo,
-                $roomId,
-                json_encode($roomList, JSON_UNESCAPED_UNICODE),
-                $expiresAt,
+                $orderData['room_ids'] ?? 0,
+                json_encode($orderData, JSON_UNESCAPED_UNICODE),
+                date('Y-m-d H:i:s', time() + 86400),
             ]);
         } catch (\Throwable $e) {
             error_log('[OrderQueryWorkflow] cache write failed: ' . $e->getMessage());
         }
 
-        // 返云房卡卡片
-        $card = [
-            'type' => 'yunfangka_card',
-            'title' => '云房卡',
-            'description' => '订单 ' . $orderNo . ' 已查询，点击查看云房卡',
-            'image_link' => '',
-            'action_url' => '',
-        ];
+        return WorkflowResult::text($reply, 'OrderQueryWorkflow');
+    }
 
-        $reply = '订单查询成功！请查看下方云房卡办理入住～';
-        $result = WorkflowResult::card($reply, [$card], 'OrderQueryWorkflow');
-        $result->extra['order_cache'] = [
-            'order_no' => $orderNo,
-            'room_id' => $roomId,
-            'room_list' => $roomList,
-        ];
-        return $result;
+    /**
+     * v3.9:直接调 channelOrder API 查订单(替代已失效的 callGateway)
+     * 实测确认返回字段: check_in / check_out / unit_name / price / state
+     */
+    private static function queryChannelOrder(\PDO $db, string $channelOrderId): ?array
+    {
+        $user = trim(pcGet($db, 'roomcard.username', ''));
+        $pwd  = trim(pcGet($db, 'roomcard.password', ''));
+        if ($user === '' || $pwd === '') {
+            error_log('[OrderQueryWorkflow] roomcard.username/password not configured');
+            return null;
+        }
+
+        $url = "https://apicenter.sujia365.com/index.php/openapi/order/channelOrder"
+            . "?username=" . urlencode($user)
+            . "&pwd=" . $pwd
+            . "&channel_order_id=" . urlencode($channelOrderId);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200 || !$resp) return null;
+        $data = json_decode($resp, true);
+        if (!isset($data['code']) || intval($data['code']) !== 1 || empty($data['data']['order'])) {
+            return null;
+        }
+        return $data['data']['order'];
     }
 }
