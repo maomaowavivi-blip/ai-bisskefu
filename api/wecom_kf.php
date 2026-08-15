@@ -293,9 +293,9 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
-        // v3.8 — 长串数字订单号 → 发图文链接(msgtype=link),客户点图片进小程序
-//   卡片字段:title 房号 + desc 引导语 + thumb_media_id 云房卡图 + url urlLink
-//   替代之前 urlLink 纯文本(更直观,符合截图预期效果)
+        // v3.9 — 长串数字订单号 → 发小程序卡片(msgtype=miniprogram),客户点 → 直接进小程序
+//   区别于 v3.8c link 卡片:link 走中间页要再点一次,miniprogram 1 步直达
+//   必填:appid + pagepath + thumb_media_id,都从 DB 读
 $trimmedMsg = trim($content);
 $linkSent = false;
 if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
@@ -308,38 +308,39 @@ if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
         $card = generateRoomCard($db, $trimmedMsg);
     }
     if ($card) {
-        $cardData = $card['card'] ?? $card;  // 兼容两种结构
+        $cardData = $card['card'] ?? $card;
         $roomCode = $cardData['room_code'] ?? $cardData['roomCode'] ?? '';
     }
 
-    // 2. 读缩略图 media_id
+    // 2. 读小程序配置
+    $appid = trim(strval(pcGet($db, 'ai.miniprogram.appid', '')));
+    $pagepath = trim(strval(pcGet($db, 'ai.miniprogram.pagepath', '')));
     $thumbMediaId = trim(strval(pcGet($db, 'ai.roomcard.thumb_media_id', '')));
-    if ($thumbMediaId === '') {
-        wecom_kf_log('v3.8c: thumb_media_id not configured, fallback to text');
-    } else {
-        // 3. 构造图文链接 + 发出去
-        $desc = $roomCode !== ''
-            ? "您入住的房间为 $roomCode ,请点击下方云房卡获取相关信息。"
-            : "请点击下方云房卡获取您的入住信息。";
-        $linkParams = [
+
+    if ($appid !== '' && $pagepath !== '' && $thumbMediaId !== '') {
+        $miniParams = [
+            'appid' => $appid,
             'title' => '宿家云房卡',
-            'desc'  => $desc,
-            'url'   => 'https://wxmpurl.cn/f1c4BdFdHDn',
+            'pagepath' => $pagepath,
             'thumb_media_id' => $thumbMediaId,
         ];
-        if (sendKfLinkMessage($from, $linkParams, $useOpenKfId)) {
-            wecom_kf_log('v3.8c link sent to ' . $from);
+        if (sendKfMiniprogramMessage($from, $miniParams, $useOpenKfId)) {
+            wecom_kf_log('v3.9 miniprogram sent to ' . $from);
             $linkSent = true;
         } else {
-            wecom_kf_log('v3.8c link send failed, fallback to text');
+            wecom_kf_log('v3.9 miniprogram send failed, fallback');
         }
+    } else {
+        wecom_kf_log('v3.9 missing config: appid=' . ($appid !== '') . ' pagepath=' . ($pagepath !== '') . ' thumb=' . ($thumbMediaId !== ''));
     }
 
-    // 兜底:发不出 link 卡片就发文本
+    // 兜底:发不出 miniprogram 就发文本(同 v3.8)
     if (!$linkSent) {
-        $textReply = "您的云房卡请在小程序内查看 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn";
+        $textReply = $roomCode !== ''
+            ? "您入住的房间为 $roomCode ,请打开小程序查看云房卡 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn"
+            : "您的云房卡请在小程序内查看 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn";
         if (sendKfMessage($from, $textReply, $useOpenKfId)) {
-            wecom_kf_log('v3.8c text fallback sent');
+            wecom_kf_log('v3.9 text fallback sent');
             $linkSent = true;
         }
     }
@@ -495,6 +496,50 @@ function sendKfLinkMessage(string $externalUserId, array $link, string $useOpenK
         return false;
     }
     wecom_kf_log('Sent kf link to ' . $externalUserId . ': ' . mb_substr($payload['link']['title'], 0, 30));
+    return true;
+}
+
+/**
+ * v3.9 — 发送 miniprogram 类型消息(小程序卡片)
+ * 1 步直达:客户点 → 直接打开小程序 → 看到云房卡
+ * 区别于 link:link 走中间页(要再点"打开小程序"),miniprogram 直接进
+ */
+function sendKfMiniprogramMessage(string $externalUserId, array $mini, string $useOpenKfId = ''): bool
+{
+    $accessToken = getAccessToken();
+    if ($accessToken === null) return false;
+
+    $openKfId = $useOpenKfId !== '' ? $useOpenKfId : getConfiguredOpenKfId();
+    $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token=" . urlencode($accessToken);
+
+    $payload = [
+        'touser' => $externalUserId,
+        'open_kfid' => $openKfId,
+        'msgtype' => 'miniprogram',
+        'miniprogram' => [
+            'appid' => (string)($mini['appid'] ?? ''),
+            'title' => mb_substr((string)($mini['title'] ?? '云房卡'), 0, 64),
+            'pagepath' => (string)($mini['pagepath'] ?? ''),
+            'thumb_media_id' => (string)($mini['thumb_media_id'] ?? ''),
+        ],
+    ];
+
+    if ($payload['miniprogram']['appid'] === ''
+        || $payload['miniprogram']['pagepath'] === ''
+        || $payload['miniprogram']['thumb_media_id'] === '') {
+        wecom_kf_log('send_kf_mini skip: missing appid/pagepath/thumb_media_id');
+        return false;
+    }
+
+    $resp = httpPostJson($url, $payload);
+    if (!$resp || !isset($resp['errcode'])) {
+        return false;
+    }
+    if ($resp['errcode'] !== 0) {
+        wecom_kf_log('send_kf_mini error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        return false;
+    }
+    wecom_kf_log('Sent kf miniprogram to ' . $externalUserId . ': ' . mb_substr($payload['miniprogram']['title'], 0, 30));
     return true;
 }
 
