@@ -293,35 +293,59 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
-        // v3.7 — 检测长串数字订单号 → 生成云房卡 link 卡片（替换普通文本回复）
-        // v3.8 — share_bundle 字段为空,buildRoomCardLink 永远返 null → 改走 urlLink 文本引导
-        $linkSent = false;
-        $trimmedMsg = trim($content);
-        // v3.7.1：阈值从 10 位降到 8 位，覆盖美团 19 位 + 其他渠道 8-10 位订单号
-        // v3.7.2：is_dir 改成 is_file（is_dir 对文件路径返 false，永远不触发）
-        if (preg_match('/^\d{8,30}$/', $trimmedMsg) && is_file(__DIR__ . '/wecom_kf_roomcard_v37.php')) {
-            require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
-            $linkParams = buildRoomCardLink($db, $trimmedMsg);
-            if ($linkParams && !empty($linkParams['url'])) {
-                if (sendKfLinkMessage($from, $linkParams, $useOpenKfId)) {
-                    wecom_kf_log("v3.7 kf link sent to $from: " . mb_substr($linkParams['title'], 0, 30));
-                    $linkSent = true;
-                } else {
-                    wecom_kf_log('v3.7 kf link send failed, fall back to text');
-                }
-            }
-        }
+        // v3.8 — 长串数字订单号 → 发图文链接(msgtype=link),客户点图片进小程序
+//   卡片字段:title 房号 + desc 引导语 + thumb_media_id 云房卡图 + url urlLink
+//   替代之前 urlLink 纯文本(更直观,符合截图预期效果)
+$trimmedMsg = trim($content);
+$linkSent = false;
+if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
+    require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
 
-        // v3.8 — 兜底:订单号路径若 link 卡片发不出,发纯文本 + urlLink(避免 link 链断掉)
-        if (!$linkSent && preg_match('/^\d{8,30}$/', $trimmedMsg)) {
-            $textReply = "您的云房卡请在小程序内查看 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn";
-            if (sendKfMessage($from, $textReply, $useOpenKfId)) {
-                wecom_kf_log("v3.8 long-number text sent to $from");
-                $linkSent = true;
-            }
-        }
+    // 1. 查客房号(只显示非敏感信息)
+    $roomCode = '';
+    $card = getRoomCard($db, $trimmedMsg);
+    if (!$card) {
+        $card = generateRoomCard($db, $trimmedMsg);
+    }
+    if ($card) {
+        $cardData = $card['card'] ?? $card;  // 兼容两种结构
+        $roomCode = $cardData['room_code'] ?? $cardData['roomCode'] ?? '';
+    }
 
-        if ($linkSent) continue;
+    // 2. 读缩略图 media_id
+    $thumbMediaId = trim(strval(pcGet($db, 'ai.roomcard.thumb_media_id', '')));
+    if ($thumbMediaId === '') {
+        wecom_kf_log('v3.8c: thumb_media_id not configured, fallback to text');
+    } else {
+        // 3. 构造图文链接 + 发出去
+        $desc = $roomCode !== ''
+            ? "您入住的房间为 $roomCode ,请点击下方云房卡获取相关信息。"
+            : "请点击下方云房卡获取您的入住信息。";
+        $linkParams = [
+            'title' => '宿家云房卡',
+            'desc'  => $desc,
+            'url'   => 'https://wxmpurl.cn/f1c4BdFdHDn',
+            'thumb_media_id' => $thumbMediaId,
+        ];
+        if (sendKfLinkMessage($from, $linkParams, $useOpenKfId)) {
+            wecom_kf_log('v3.8c link sent to ' . $from);
+            $linkSent = true;
+        } else {
+            wecom_kf_log('v3.8c link send failed, fallback to text');
+        }
+    }
+
+    // 兜底:发不出 link 卡片就发文本
+    if (!$linkSent) {
+        $textReply = "您的云房卡请在小程序内查看 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn";
+        if (sendKfMessage($from, $textReply, $useOpenKfId)) {
+            wecom_kf_log('v3.8c text fallback sent');
+            $linkSent = true;
+        }
+    }
+}
+
+if ($linkSent) continue;
 
         // 4. 发送（必须用会话对应的 open_kfid，不能用配置里的固定值——
         //    用户扫码进的是事件里的 OpenKfId，跟 platform_config 配置的可能是不同账号）
