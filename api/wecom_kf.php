@@ -294,6 +294,7 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         transKfServiceState($useOpenKfId, $from, 1);
 
         // v3.7 — 检测长串数字订单号 → 生成云房卡 link 卡片（替换普通文本回复）
+        // v3.8 — share_bundle 字段为空,buildRoomCardLink 永远返 null → 改走 urlLink 文本引导
         $linkSent = false;
         $trimmedMsg = trim($content);
         // v3.7.1：阈值从 10 位降到 8 位，覆盖美团 19 位 + 其他渠道 8-10 位订单号
@@ -308,6 +309,15 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
                 } else {
                     wecom_kf_log('v3.7 kf link send failed, fall back to text');
                 }
+            }
+        }
+
+        // v3.8 — 兜底:订单号路径若 link 卡片发不出,发纯文本 + urlLink(避免 link 链断掉)
+        if (!$linkSent && preg_match('/^\d{8,30}$/', $trimmedMsg)) {
+            $textReply = "您的云房卡请在小程序内查看 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn";
+            if (sendKfMessage($from, $textReply, $useOpenKfId)) {
+                wecom_kf_log("v3.8 long-number text sent to $from");
+                $linkSent = true;
             }
         }
 
