@@ -320,6 +320,10 @@ if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
     $thumbMediaId = trim(strval(pcGet($db, 'ai.roomcard.thumb_media_id', '')));
 
     if ($appid !== '' && $pagepath !== '' && $thumbMediaId !== '') {
+        // v3.9.3:pagepath 带 channel_order_id 参数,让小程序识别是哪个客户
+        $pagepathWithOrder = $pagepath . (strpos($pagepath, '?') === false ? '?' : '&')
+            . 'channel_order_id=' . urlencode($trimmedMsg);
+
         // v3.9.1:title 改为 "您的房间为 XXXX"(用真实房号)
         $miniTitle = $roomCode !== ''
             ? "您的房间为 $roomCode"
@@ -327,7 +331,7 @@ if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
         $miniParams = [
             'appid' => $appid,
             'title' => $miniTitle,
-            'pagepath' => $pagepath,
+            'pagepath' => $pagepathWithOrder,
             'thumb_media_id' => $thumbMediaId,
         ];
         if (sendKfMiniprogramMessage($from, $miniParams, $useOpenKfId)) {
