@@ -61,36 +61,7 @@ try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `room_candidates
 try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `bound_at` DATETIME NULL COMMENT 'step=3 绑定时间' AFTER `room_candidates`"); } catch (Exception $e) {}
 try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `expires_at` DATETIME NULL COMMENT '会话过期' AFTER `bound_at`"); } catch (Exception $e) {}
 try { $dbInit->exec("ALTER TABLE room_query_sessions MODIFY COLUMN `step` TINYINT NOT NULL DEFAULT 0 COMMENT '0=idle 1=wait_order 2=wait_room_pick 3=bound'"); } catch (Exception $e) {}
-try { $dbInit->exec("CREATE TABLE IF NOT EXISTS human_handoffs (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    session_id VARCHAR(64) NOT NULL,
-    status TINYINT(1) NOT NULL DEFAULT 0,
-    reason VARCHAR(500) DEFAULT '',
-    taken_by INT UNSIGNED DEFAULT NULL,
-    taken_at DATETIME DEFAULT NULL,
-    ended_at DATETIME DEFAULT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_session (session_id),
-    INDEX idx_status (status),
-    INDEX idx_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人工接管记录'"); } catch (Exception $e) { error_log('migration human_handoffs: ' . $e->getMessage()); }
-try { $dbInit->exec("CREATE TABLE IF NOT EXISTS handoff_messages (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    handoff_id INT UNSIGNED NOT NULL,
-    role VARCHAR(20) NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_handoff (handoff_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='接管对话消息'"); } catch (Exception $e) { error_log('migration handoff_messages: ' . $e->getMessage()); }
-try { $dbInit->exec("CREATE TABLE IF NOT EXISTS handoff_triggers (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    keyword VARCHAR(100) NOT NULL COMMENT '触发词',
-    priority TINYINT NOT NULL DEFAULT 0 COMMENT '0=P0紧急 1=P1高 2=P2中 3=P3常规 4=兜底',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_keyword (keyword),
-    INDEX idx_priority (priority)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='转人工触发词'"); } catch (Exception $e) { error_log('migration handoff_triggers: ' . $e->getMessage()); }
+// v3.11: human_handoffs / handoff_messages / handoff_triggers 表已 DROP,移除自动建表
 
 $action = $_GET['action'] ?? '';
 header('Content-Type: application/json; charset=utf-8');

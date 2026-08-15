@@ -80,17 +80,14 @@ final class IntentClassifier
             );
         }
 
-        // 1. 转人工（含 priority，修正 18）
+        // 1. 转人工（v3.11：直接回 400 兜底，不再走 HandoffWorkflow/human_handoffs）
         $match = HandoffTriggers::matchKeyword($ctx['db'], $message);
         if ($match !== null) {
-            $priority = is_array($match) && isset($match['priority']) ? (int)$match['priority'] : 99;
             return IntentContext::of(
-                Intent::HUMAN,
+                Intent::KNOWLEDGE,
                 1.0,
-                [],
-                'rule:handoff_keyword',
-                [],
-                $priority
+                ['four_hundred_redirect' => true],
+                'rule:four_hundred_redirect'
             );
         }
 

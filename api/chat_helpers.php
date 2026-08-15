@@ -69,49 +69,21 @@ function checkInputSafety(string $msg, ?AgentConfig $config = null): ?string {
 }
 
 /**
- * 检测 AI 回复或用户消息是否触发转人工
+ * v3.11: shouldTriggerHandoff 已废弃（不再触发转人工，统一走 400 兜底）
+ * 保留函数签名作为兼容层，永远返 false
  */
-function shouldTriggerHandoff(string $reply, string $message, PDO $db): bool {
-    $keywords = [
-        '无法回答', '不清楚', '不知道', '没有相关信息',
-        '建议联系', '转人工', '联系客服', '无法处理',
-        '无法查询', '暂时无法', '不在我范围内',
-    ];
-    foreach ($keywords as $kw) {
-        if (mb_strpos($reply, $kw) !== false) return true;
-    }
-    if (mb_strpos($reply, '这个我帮您核实一下') !== false) return true;
-    if (mb_strpos($reply, '建议您联系') !== false) return true;
-
-    return HandoffTriggers::matchesMessage($db, $message);
+function shouldTriggerHandoff(string $reply, string $message, PDO $db): bool
+{
+    return false;
 }
 
-/** 命中转人工触发词：固定回复并写入待接管队列 */
-function respondDirectHandoff(PDO $db, string $sessionId, string $message, string $visitorHash, string $ip): void {
-    try {
-        $db->prepare('DELETE FROM room_query_sessions WHERE session_id = ?')->execute([$sessionId]);
-    } catch (Exception $e) {}
-    $handoffReply = '正在为您转接人工客服，请稍候。';
-    $stmt = $db->prepare('INSERT INTO chat_logs (session_id, role, content, has_verified, visitor_hash, source_ip, tokens) VALUES (?, ?, ?, 0, ?, ?, 0)');
-    $stmt->execute([$sessionId, 'user', $message, $visitorHash, $ip]);
-    $stmt->execute([$sessionId, 'assistant', $handoffReply, $visitorHash, $ip]);
-    try {
-        $stmt = $db->prepare("SELECT id, status FROM human_handoffs WHERE session_id = ? ORDER BY id DESC LIMIT 1");
-        $stmt->execute([$sessionId]);
-        $existing = $stmt->fetch();
-        if (!$existing || intval($existing['status']) === 2) {
-            $reason = '触发词转人工';
-            $hit = HandoffTriggers::matchKeyword($db, $message);
-            if ($hit) {
-                $reason = '触发词：' . $hit['keyword'] . ' (P' . $hit['priority'] . ')';
-            }
-            $stmt = $db->prepare("INSERT INTO human_handoffs (session_id, status, reason) VALUES (?, 0, ?)");
-            $stmt->execute([$sessionId, $reason]);
-        }
-    } catch (Exception $e) {
-        error_log('Direct handoff insert error: ' . $e->getMessage());
-    }
-    chatResponse(0, 'ok', ['reply' => $handoffReply, 'is_verified' => false, 'handoff_status' => 0]);
+/**
+ * v3.11: respondDirectHandoff 已废弃（handoff 整套删除）
+ * 保留函数签名作为 noop，新代码应直接走 KnowledgeWorkflow 400 fast path
+ */
+function respondDirectHandoff(PDO $db, string $sessionId, string $message, string $visitorHash, string $ip): void
+{
+    // noop - v3.11: handoff 机制已废弃
 }
 
 /** 查单展示云房卡卡片后，客人追问「这是什么 / 不会用」等 */

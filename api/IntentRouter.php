@@ -17,7 +17,7 @@ require_once __DIR__ . '/Workflow/OrderQueryWorkflow.php';
 require_once __DIR__ . '/Workflow/KnowledgeWorkflow.php';
 require_once __DIR__ . '/Workflow/SmallTalkWorkflow.php';
 require_once __DIR__ . '/Workflow/UnknownWorkflow.php';
-require_once __DIR__ . '/Workflow/HandoffWorkflow.php';
+// v3.11:HandoffWorkflow.php 已删除,不再 require
 require_once __DIR__ . '/Workflow/PreSalesWorkflow.php';
 
 final class IntentRouter
@@ -32,7 +32,7 @@ final class IntentRouter
         Intent::REFUND_QUERY        => 'KnowledgeWorkflow',  // 修正 18：复用 KB
         Intent::KNOWLEDGE           => 'KnowledgeWorkflow',
         Intent::SMALL_TALK          => 'SmallTalkWorkflow',
-        Intent::HUMAN               => 'HandoffWorkflow',
+        Intent::HUMAN               => 'KnowledgeWorkflow',  // v3.11：转人工关键词已改走 KnowledgeWorkflow 400 fast path
         Intent::PRE_SALES           => 'PreSalesWorkflow',  // v2.0：售前引导到 OTA
         Intent::UNKNOWN             => 'UnknownWorkflow',
     ];

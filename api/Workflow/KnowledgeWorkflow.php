@@ -27,6 +27,14 @@ final class KnowledgeWorkflow extends AbstractWorkflow
             );
         }
 
+        // v3.11:400 兜底（IntentClassifier 检测到转人工关键词 → 直接 400，不走 LLM）
+        if (!empty($this->intentCtx->slots['four_hundred_redirect'])) {
+            return WorkflowResult::text(
+                '请拨打 400-155-9959 联系管家～',
+                'KnowledgeWorkflow'
+            );
+        }
+
         // 1. KB 关键词直答（早期 fast path）
         try {
             $earlyKb = PromptEngine::directReplyFromKb($message, [], $this->db, $this->config);

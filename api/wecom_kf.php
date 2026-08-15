@@ -49,7 +49,7 @@ require_once __DIR__ . '/Workflow/OrderQueryWorkflow.php';
 require_once __DIR__ . '/Workflow/KnowledgeWorkflow.php';
 require_once __DIR__ . '/Workflow/SmallTalkWorkflow.php';
 require_once __DIR__ . '/Workflow/UnknownWorkflow.php';
-require_once __DIR__ . '/Workflow/HandoffWorkflow.php';
+// v3.11:HandoffWorkflow.php 已删除,不再 require
 
 // ──────────────────────────────────────────
 // 配置加载
