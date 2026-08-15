@@ -302,10 +302,12 @@ if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
     require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
 
     // 1. 查客房号(只显示非敏感信息)
+    //   v3.9.2:必须走 generateRoomCard 才能拿到 roomCode(byChannelOrder 不返该字段)
     $roomCode = '';
-    $card = getRoomCard($db, $trimmedMsg);
+    $card = generateRoomCard($db, $trimmedMsg);
     if (!$card) {
-        $card = generateRoomCard($db, $trimmedMsg);
+        // 兜底:用 getRoomCard
+        $card = getRoomCard($db, $trimmedMsg);
     }
     if ($card) {
         $cardData = $card['card'] ?? $card;
