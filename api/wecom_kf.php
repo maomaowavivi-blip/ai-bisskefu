@@ -316,8 +316,9 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
-        // v3.14 — 订单号 → 发送 A 样式原生小程序卡片。
-        // appid 和 pagepath 均使用宿家当前房卡返回值，本地不拼接订单参数。
+        // v3.15.1 — 订单号恢复发送 B 样式 link 卡片。
+        // 企微原生 miniprogram 虽可返回发送成功，但真实点击会打开空白；
+        // 宿家返回的 urlLink 才是当前企微场景已验证可用的跳转方式。
         $trimmedMsg = trim($content);
         $roomCardSent = false;
         if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
@@ -325,10 +326,10 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             $delivery = buildRoomCardDelivery($db, $trimmedMsg);
 
             if ($delivery) {
-                $roomCardSent = sendKfMiniprogramMessage($from, [
-                    'appid' => $delivery['appid'],
+                $roomCardSent = sendKfLinkMessage($from, [
                     'title' => $delivery['title'],
-                    'pagepath' => $delivery['pagepath'],
+                    'desc' => $delivery['desc'],
+                    'url' => $delivery['url'],
                     'thumb_media_id' => $delivery['thumb_media_id'],
                 ], $useOpenKfId);
             }

@@ -655,13 +655,19 @@ function appendMessage(content, role) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function safeResourceUrl(value) {
+function safeHttpsResourceUrl(value) {
   try {
     const url = new URL(String(value || ''), window.location.href);
     return url.protocol === 'https:' ? url.href : '';
   } catch (e) {
     return '';
   }
+}
+
+function safeLinkUrl(value) {
+  const raw = String(value || '').trim();
+  if (/^weixin:\/\/dl\/business\/\?t=[A-Za-z0-9_-]+$/.test(raw)) return raw;
+  return safeHttpsResourceUrl(raw);
 }
 
 function appendRichContent(cards) {
@@ -671,10 +677,10 @@ function appendRichContent(cards) {
   for (var i = 0; i < cards.length; i++) {
     var c = cards[i];
     if (c.type === 'image_link') {
-      var imageUrl = safeResourceUrl(c.image_url);
+      var imageUrl = safeHttpsResourceUrl(c.image_url);
       if (!imageUrl) continue;
       var link = document.createElement('a');
-      link.href = safeResourceUrl(c.link_url) || '#';
+      link.href = safeLinkUrl(c.link_url) || '#';
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.className = 'rich-card';
