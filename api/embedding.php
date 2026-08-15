@@ -11,17 +11,19 @@ require_once __DIR__ . '/config.php';
 define('EMBEDDING_MODEL', 'embo-01');
 
 function getEmbeddingApiKey() {
-    $key = envVal('MINIMAX_API_KEY', '');
-    if (!$key) {
-        try {
-            $db = getDB();
-            $key = trim(strval(pcGet($db, 'ai.api_key.minimax_backup', '')));
-            if (!$key) {
-                $key = trim(strval(pcGet($db, 'ai.api_key', '')));
-            }
-        } catch (Exception $e) {}
-    }
-    return $key;
+    // v3.7:优先读 Qwen/DashScope key,保留 MiniMax fallback 兼容
+    try {
+        $db = getDB();
+        $key = trim(strval(pcGet($db, 'ai.api_key.qwen_embedding', '')));
+        if ($key) return $key;
+        // 兼容旧路径
+        $key = trim(strval(pcGet($db, 'ai.api_key.minimax_backup', '')));
+        if ($key) return $key;
+        $key = trim(strval(pcGet($db, 'ai.api_key', '')));
+        if ($key) return $key;
+    } catch (Exception $e) {}
+    // 最后兼容 .env
+    return envVal('MINIMAX_API_KEY', '');
 }
 
 function callEmbeddingAPI(array $texts, string $type = 'db'): array {
@@ -30,15 +32,37 @@ function callEmbeddingAPI(array $texts, string $type = 'db'): array {
         throw new RuntimeException('AI未配置：请在 .env 或 platform_config 配置 MINIMAX_API_KEY');
     }
 
-    $apiUrl = envVal('MINIMAX_EMBEDDING_URL', 'https://api.minimaxi.com/v1/embeddings');
-    $model  = envVal('MINIMAX_EMBEDDING_MODEL', EMBEDDING_MODEL);
+    // v3.7:支持多 provider - 按 DB 配置切换;优先 DashScope(Qwen),保留 MiniMax fallback
+    try {
+        $db = getDB();
+        $provider = trim(strval(pcGet($db, 'ai.embedding_provider', 'dashscope')));
+        $apiUrl = trim(strval(pcGet($db, 'ai.embedding_api_url', 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings')));
+        $model = trim(strval(pcGet($db, 'ai.embedding_model', 'text-embedding-v3')));
+    } catch (Exception $e) {
+        // 没有 DB 时使用默认值
+        $provider = 'dashscope';
+        $apiUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings';
+        $model = 'text-embedding-v3';
+    }
+
+    if ($provider === 'dashscope') {
+        // 阿里兼容 OpenAI 协议
+        $body = [
+            'model' => $model,
+            'input' => $texts,                       // 字段名是 input 不是 texts
+            'encoding_format' => 'float',
+        ];
+    } else {
+        // 原 MiniMax 兼容路径
+        $body = ['model' => $model, 'texts' => $texts, 'type' => $type];
+    }
 
     $ch = curl_init($apiUrl);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode(['model' => $model, 'texts' => $texts, 'type' => $type], JSON_UNESCAPED_UNICODE),
+        CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE),
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
+        CURLOPT_TIMEOUT => 60,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $apiKey,
@@ -55,7 +79,7 @@ function callEmbeddingAPI(array $texts, string $type = 'db'): array {
         throw new RuntimeException('Embedding请求失败：' . $errStr);
     }
     if ($httpCode !== 200) {
-        throw new RuntimeException('Embedding API返回异常：HTTP ' . $httpCode);
+        throw new RuntimeException('Embedding API返回异常：HTTP ' . $httpCode . ' ' . substr($resp, 0, 200));
     }
 
     $json = json_decode($resp, true);
@@ -63,11 +87,23 @@ function callEmbeddingAPI(array $texts, string $type = 'db'): array {
         throw new RuntimeException('Embedding返回非JSON');
     }
 
-    if (isset($json['base_resp']['status_code']) && $json['base_resp']['status_code'] !== 0) {
-        throw new RuntimeException('Embedding API错误：' . ($json['base_resp']['status_msg'] ?? '未知错误'));
+    if ($provider === 'dashscope') {
+        // DashScope 返回格式:{ data: [{embedding: [...]}] }
+        if (!isset($json['data']) || !is_array($json['data'])) {
+            throw new RuntimeException('Embedding API错误：' . substr($resp, 0, 200));
+        }
+        $vectors = [];
+        foreach ($json['data'] as $d) {
+            $vectors[] = $d['embedding'] ?? [];
+        }
+    } else {
+        // MiniMax 返回格式:{ vectors: [...] }
+        if (isset($json['base_resp']['status_code']) && $json['base_resp']['status_code'] !== 0) {
+            throw new RuntimeException('Embedding API错误：' . ($json['base_resp']['status_msg'] ?? '未知错误'));
+        }
+        $vectors = $json['vectors'] ?? [];
     }
 
-    $vectors = $json['vectors'] ?? [];
     if (empty($vectors)) {
         throw new RuntimeException('Embedding返回为空');
     }
@@ -76,6 +112,10 @@ function callEmbeddingAPI(array $texts, string $type = 'db'): array {
 }
 
 function cosineSimilarity(array $vecA, array $vecB): float {
+    // v3.7:防御性维度检查 - 不同维度直接返 0,避免混存 1024/1536 时算错
+    if (count($vecA) !== count($vecB)) {
+        return 0.0;
+    }
     $dot = 0;
     $normA = 0;
     $normB = 0;
@@ -174,7 +214,8 @@ if ($action === 'vectorize') {
 }
 
 if ($action === 'batch_vectorize') {
-    $stmt = $db->query("SELECT id, question, answer, keywords FROM kb_entries WHERE status = 1 AND (embedding_vector IS NULL OR embedding_vector = '') ORDER BY id ASC LIMIT 50");
+    // v3.7:阿里 text-embedding-v3 batch 上限 10(实测),原 50 改 10
+    $stmt = $db->query("SELECT id, question, answer, keywords FROM kb_entries WHERE status = 1 AND (embedding_vector IS NULL OR embedding_vector = '') ORDER BY id ASC LIMIT 10");
     $entries = $stmt->fetchAll();
 
     if (empty($entries)) ok(['count' => 0, 'msg' => '所有条目已向量化']);
