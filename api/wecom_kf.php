@@ -275,7 +275,7 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             continue;
         }
 
-        // 去重：同 msgid 5 分钟内只处理一次（修复 95001 限流）
+        // 去重：同 msgid 24 小时内只处理一次，覆盖游标回退重试。
         $msgId = $msg['msgid'] ?? '';
         if ($msgId !== '' && isMsgProcessed($msgId)) {
             wecom_kf_log('Skip processed msg=' . substr(sha1($msgId), 0, 10));
@@ -284,6 +284,8 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 
         // 2. ChatPipeline 处理
         $sessionId = 'wecom_kf_' . substr(sha1($from), 0, 16);
+        $trimmedMsg = trim($content);
+        $isOrderMessage = preg_match('/^\d{8,30}$/', $trimmedMsg) === 1;
 
         try {
             $result = ChatPipeline::process(
@@ -296,17 +298,29 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
                 requestClientIp()
             );
         } catch (Throwable $e) {
-            $batchHandled = false;
-            wecom_kf_log('ChatPipeline failed: ' . get_class($e));
-            continue;
+            if ($isOrderMessage) {
+                // 订单号的核心交付是 A 样式房卡，不能被 AI 回复异常拦截。
+                $result = ['code' => 500, 'data' => null];
+                wecom_kf_log('ChatPipeline failed; continue roomcard delivery');
+            } else {
+                $batchHandled = false;
+                wecom_kf_log('ChatPipeline failed: ' . get_class($e));
+                continue;
+            }
         }
 
         if (intval($result['code'] ?? 500) !== 0 || !is_array($result['data'] ?? null)) {
-            $batchHandled = false;
-            wecom_kf_log('ChatPipeline returned failure');
-            continue;
+            if ($isOrderMessage) {
+                $replyText = '这边暂时没有查到准确信息，建议您联系前台确认。';
+                wecom_kf_log('ChatPipeline returned failure; continue roomcard delivery');
+            } else {
+                $batchHandled = false;
+                wecom_kf_log('ChatPipeline returned failure');
+                continue;
+            }
+        } else {
+            $replyText = $result['data']['reply'] ?? '这边暂时没有查到准确信息，建议您联系前台确认。';
         }
-        $replyText = $result['data']['reply'] ?? '这边暂时没有查到准确信息，建议您联系前台确认。';
 
         // 截断（微信客服单条 600 字限制）
         $replyText = mb_substr($replyText, 0, 600);
@@ -316,20 +330,18 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
-        // v3.15.1 — 订单号恢复发送 B 样式 link 卡片。
-        // 企微原生 miniprogram 虽可返回发送成功，但真实点击会打开空白；
-        // 宿家返回的 urlLink 才是当前企微场景已验证可用的跳转方式。
-        $trimmedMsg = trim($content);
+        // v3.15.2 — 订单号固定发送 A 样式原生小程序卡片。
+        // appid 和 pagepath 原样使用宿家当前房卡返回值，本地不拼接、不改写。
         $roomCardSent = false;
-        if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
+        if ($isOrderMessage) {
             require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
             $delivery = buildRoomCardDelivery($db, $trimmedMsg);
 
             if ($delivery) {
-                $roomCardSent = sendKfLinkMessage($from, [
+                $roomCardSent = sendKfMiniprogramMessage($from, [
+                    'appid' => $delivery['appid'],
                     'title' => $delivery['title'],
-                    'desc' => $delivery['desc'],
-                    'url' => $delivery['url'],
+                    'pagepath' => $delivery['pagepath'],
                     'thumb_media_id' => $delivery['thumb_media_id'],
                 ], $useOpenKfId);
             }
@@ -550,7 +562,10 @@ function sendKfMiniprogramMessage(string $externalUserId, array $mini, string $u
         wecom_kf_log('send_kf_mini error: ' . wecom_kf_response_error($resp));
         return false;
     }
-    wecom_kf_log('Sent roomcard miniprogram message');
+    $pagepath = $payload['miniprogram']['pagepath'];
+    wecom_kf_log('Sent roomcard miniprogram message appid_len=' . strlen($payload['miniprogram']['appid'])
+        . ' pagepath_len=' . strlen($pagepath)
+        . ' pagepath_has_query=' . (strpos($pagepath, '?') !== false ? '1' : '0'));
     return true;
 }
 
