@@ -215,18 +215,26 @@ function showToast(msg) {
 }
 
 function getHeaders() {
-  return { 'Content-Type': 'application/json' };
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
 function apiUrl(path) {
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  var sep = path.indexOf('?') > -1 ? '&' : '?';
-  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path);
 }
 
 var currentPage = 1;
 var kbItemsMap = {};
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 loadCategories();
 loadList();
@@ -239,17 +247,17 @@ function loadCategories() {
         const cats = res.data.list;
         const sel = document.getElementById('categoryFilter');
         sel.innerHTML = '<option value="0">全部分类</option>';
-        cats.forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+        cats.forEach(c => { sel.innerHTML += `<option value="${Number(c.id) || 0}">${escapeHtml(c.name)}</option>`; });
 
         const editCat = document.getElementById('editCategory');
         editCat.innerHTML = '<option value="0">无分类</option>';
-        cats.forEach(c => { editCat.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+        cats.forEach(c => { editCat.innerHTML += `<option value="${Number(c.id) || 0}">${escapeHtml(c.name)}</option>`; });
 
         const cl = document.getElementById('categoryList');
         cl.innerHTML = cats.map(c => `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light);">
-            <span style="font-size:var(--text-base);">${c.name}</span>
-            <button class="btn btn-sm btn-danger" onclick="deleteCategory(${c.id})">删除</button>
+            <span style="font-size:var(--text-base);">${escapeHtml(c.name)}</span>
+            <button class="btn btn-sm btn-danger" onclick="deleteCategory(${Number(c.id) || 0})">删除</button>
           </div>
         `).join('') || '<div style="color:var(--text-muted);padding:12px 0;text-align:center;">暂无分类</div>';
       }
@@ -306,8 +314,8 @@ function loadList() {
 function renderRow(item, idx) {
   const status = item.status == 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-error">禁用</span>';
   return `<tr>
-    <td><div class="cell-clamp">${item.question}</div></td>
-    <td><div class="cell-clamp">${item.answer || ''}</div></td>
+    <td><div class="cell-clamp">${escapeHtml(item.question)}</div></td>
+    <td><div class="cell-clamp">${escapeHtml(item.answer || '')}</div></td>
     <td>${status}</td>
     <td>${item.hit_count || 0}</td>
     <td>

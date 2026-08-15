@@ -47,6 +47,24 @@ final class ChatPipeline
         string $ip = ''
     ): array {
         try {
+            $sessionId = trim($sessionId);
+            $message = trim($message);
+            $visitorHash = trim($visitorHash);
+            $channel = trim($channel);
+            if ($sessionId === '' || strlen($sessionId) > 128 || !preg_match('/^[A-Za-z0-9_.:-]+$/D', $sessionId)) {
+                return ['code' => 400, 'msg' => 'session_id格式不正确', 'data' => null];
+            }
+            if ($message === '' || mb_strlen($message) > 2000) {
+                return ['code' => 400, 'msg' => '消息不能为空或过长', 'data' => null];
+            }
+            if ($visitorHash !== '' && (strlen($visitorHash) > 128 || !preg_match('/^[A-Za-z0-9_.:-]+$/D', $visitorHash))) {
+                return ['code' => 400, 'msg' => 'visitor_hash格式不正确', 'data' => null];
+            }
+            if (!in_array($channel, ['web', 'wechat_kf', 'wechat_mp', 'wechat_msg', 'openapi', 'api'], true)) {
+                return ['code' => 400, 'msg' => 'channel格式不正确', 'data' => null];
+            }
+            $clientIp = requestClientIp($ip);
+
             // 修正 32：Pipeline 入口只 new 一次
             $config = new \AgentConfig($db);
 
@@ -59,7 +77,7 @@ final class ChatPipeline
                 $val = $stmt->fetchColumn();
                 $pipelineEnabled = ($val === 'true');
             } catch (\Throwable $e) {
-                error_log('[ChatPipeline] read pipeline.enabled failed: ' . $e->getMessage());
+                error_log('[ChatPipeline] read pipeline.enabled failed: ' . get_class($e));
             }
             if (!$pipelineEnabled) {
                 throw new \RuntimeException('Pipeline disabled');
@@ -69,7 +87,7 @@ final class ChatPipeline
             $history = is_array($history) ? $history : [];
 
             // 修正 13：限流内联（20 req/min/IP）
-            $rateResult = self::enforceRateLimit($db, $ip);
+            $rateResult = self::enforceRateLimit($db, $clientIp);
             if ($rateResult !== null) {
                 return $rateResult;
             }
@@ -111,7 +129,7 @@ final class ChatPipeline
                 $sessionState,
                 $sessionId,
                 $visitorHash,
-                $ip
+                $clientIp
             );
 
             // 渲染
@@ -123,7 +141,7 @@ final class ChatPipeline
             $data['reasoning'] = $intentCtx->reasoning;
 
             // 写 chat_logs（intent / workflow 已填）
-            self::writeChatLog($db, $sessionId, $message, $intentCtx, $result, $channel, $visitorHash, $ip);
+            self::writeChatLog($db, $sessionId, $message, $intentCtx, $result, $channel, $visitorHash, $clientIp);
 
             return [
                 'code' => 0,
@@ -131,10 +149,10 @@ final class ChatPipeline
                 'data' => $data,
             ];
         } catch (\PDOException $e) {
-            error_log('[ChatPipeline] DB error: ' . $e->getMessage() . ' | session=' . $sessionId);
+            error_log('[ChatPipeline] DB error: ' . get_class($e) . ' | session_hash=' . substr(sha1($sessionId), 0, 10));
             return ['code' => 500, 'msg' => '系统繁忙，请稍后再试', 'data' => null];
         } catch (\Throwable $e) {
-            error_log('[ChatPipeline] Fatal: ' . $e->getMessage() . ' | trace=' . $e->getTraceAsString());
+            error_log('[ChatPipeline] Fatal: ' . get_class($e) . ' | session_hash=' . substr(sha1($sessionId), 0, 10));
             return ['code' => 500, 'msg' => '系统繁忙，请稍后再试', 'data' => null];
         }
     }
@@ -146,19 +164,17 @@ final class ChatPipeline
      */
     private static function enforceRateLimit(\PDO $db, string $ip): ?array
     {
-        $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
-        $ip = $xff ? trim(explode(',', $xff)[0]) : ($_SERVER['REMOTE_ADDR'] ?? $ip);
+        $ip = requestClientIp($ip);
         $rateKey = 'rl:' . $ip;
-        $now = date('Y-m-d H:i:s');
-        $st = $db->prepare("SELECT count, window_start FROM rate_limits WHERE key_str = ?");
+        $st = $db->prepare("SELECT `count`, window_start, window_start > DATE_SUB(NOW(), INTERVAL 1 MINUTE) AS in_window FROM rate_limits WHERE key_str = ?");
         $st->execute([$rateKey]);
         $rl = $st->fetch();
-        if ($rl && strtotime($rl['window_start']) > time() - 60) {
-            $db->prepare("UPDATE rate_limits SET count = count + 1 WHERE key_str = ?")->execute([$rateKey]);
+        if ($rl && intval($rl['in_window']) === 1) {
+            $db->prepare("UPDATE rate_limits SET `count` = `count` + 1 WHERE key_str = ?")->execute([$rateKey]);
         } else {
-            $db->prepare("INSERT INTO rate_limits (key_str, count, window_start) VALUES (?, 1, ?) ON DUPLICATE KEY UPDATE count = 1, window_start = ?")->execute([$rateKey, $now, $now]);
+            $db->prepare("INSERT INTO rate_limits (key_str, `count`, window_start) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE `count` = 1, window_start = NOW()")->execute([$rateKey]);
         }
-        $stmt = $db->prepare("SELECT count FROM rate_limits WHERE key_str = ?");
+        $stmt = $db->prepare("SELECT `count` FROM rate_limits WHERE key_str = ?");
         $stmt->execute([$rateKey]);
         $currentCount = intval($stmt->fetchColumn());
         if ($currentCount > 20) {
@@ -219,7 +235,7 @@ final class ChatPipeline
                 0,  // Pipeline 不算 tokens（统计成本改用 callAI usage）
             ]);
         } catch (\Throwable $e) {
-            error_log('[ChatPipeline] writeChatLog failed: ' . $e->getMessage());
+            error_log('[ChatPipeline] writeChatLog failed: ' . get_class($e));
         }
     }
 }

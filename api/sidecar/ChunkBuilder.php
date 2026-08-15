@@ -23,7 +23,6 @@ class ChunkBuilder {
     }
 
     public static function rebuildAll(PDO $db, ?int $roomId = null): array {
-        self::ensureSchema($db);
         $statuses = SidecarConfig::chunkEligibleStatuses();
         $in = implode(',', array_fill(0, count($statuses), '?'));
         $sql = "SELECT id, room_code, short_name FROM ai_room_profile WHERE data_status IN ($in)";
@@ -114,18 +113,6 @@ class ChunkBuilder {
         $db->prepare('INSERT INTO ai_knowledge_chunk (ai_room_id, source_type, source_id, chunk_title, chunk_text, permission_level, embedding_status) VALUES (?,?,?,?,?,?,"pending")')
             ->execute([$aiRoomId, $sourceType, $sourceId, $title, $chunkText, $perm]);
         return 1;
-    }
-
-    private static function ensureSchema(PDO $db): void {
-        try {
-            $db->exec("ALTER TABLE ai_knowledge_chunk ADD COLUMN embedding_vector JSON NULL AFTER chunk_text");
-        } catch (Exception $e) {}
-        try {
-            $db->exec("ALTER TABLE ai_knowledge_chunk ADD COLUMN embedding_model VARCHAR(50) NULL AFTER embedding_vector");
-        } catch (Exception $e) {}
-        try {
-            $db->exec("ALTER TABLE ai_knowledge_chunk ADD COLUMN embedding_updated_at DATETIME NULL AFTER embedding_model");
-        } catch (Exception $e) {}
     }
 
     private static function fetchOne(PDO $db, string $sql, array $params) {

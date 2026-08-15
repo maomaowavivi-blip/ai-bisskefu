@@ -14,15 +14,41 @@ if ($action === 'login') {
 
     if (!$username) fail('请输入用户名');
     if (!$password) fail('请输入密码');
+    if (strlen($username) > 64 || strlen($password) > 256) fail('用户名或密码格式错误');
 
     $db = getDB();
+    $loginRateKey = 'login_' . substr(hash('sha256', requestClientIp() . '|' . strtolower($username)), 0, 58);
+    $rateStmt = $db->prepare('SELECT `count`, window_start, window_start > DATE_SUB(NOW(), INTERVAL 15 MINUTE) AS in_window FROM rate_limits WHERE key_str = ? LIMIT 1');
+    $rateStmt->execute([$loginRateKey]);
+    $rateRow = $rateStmt->fetch();
+    if ($rateRow && intval($rateRow['in_window']) === 1 && intval($rateRow['count']) >= 5) {
+        fail('登录尝试过于频繁，请15分钟后再试', 429);
+    }
+    $recordFailedLogin = static function () use ($db, $loginRateKey): void {
+        $stmt = $db->prepare(
+            'INSERT INTO rate_limits (key_str, `count`, window_start) VALUES (?, 1, NOW())
+             ON DUPLICATE KEY UPDATE `count` = IF(window_start > DATE_SUB(NOW(), INTERVAL 15 MINUTE), `count` + 1, 1), window_start = IF(window_start > DATE_SUB(NOW(), INTERVAL 15 MINUTE), window_start, NOW())'
+        );
+        $stmt->execute([$loginRateKey]);
+    };
     $stmt = $db->prepare('SELECT id, username, password, role, status FROM users WHERE username = ?');
     $stmt->execute([$username]);
     $user = $stmt->fetch();
 
-    if (!$user) fail('用户名或密码错误');
-    if (!password_verify($password, $user['password'])) fail('用户名或密码错误');
-    if (intval($user['status'] ?? 1) === 0) fail('账号已被封禁');
+    if (!$user) {
+        $recordFailedLogin();
+        fail('用户名或密码错误');
+    }
+    if (!password_verify($password, $user['password'])) {
+        $recordFailedLogin();
+        fail('用户名或密码错误');
+    }
+    if (intval($user['status'] ?? 1) === 0) {
+        $recordFailedLogin();
+        fail('账号已被封禁');
+    }
+
+    $db->prepare('DELETE FROM rate_limits WHERE key_str = ?')->execute([$loginRateKey]);
 
     $token = makeToken($user['id'], $user['role']);
 

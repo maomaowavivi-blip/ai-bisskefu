@@ -52,6 +52,7 @@ require_once __DIR__ . '/../api/Workflow/UnknownWorkflow.php';
 require_once __DIR__ . '/../api/Workflow/HandoffWorkflow.php';
 require_once __DIR__ . '/../api/IntentRouter.php';
 require_once __DIR__ . '/../api/ReplyRenderer.php';
+require_once __DIR__ . '/../api/chat_helpers.php';
 require_once __DIR__ . '/../api/ChatPipeline.php';
 
 // 2. 构造 PDO

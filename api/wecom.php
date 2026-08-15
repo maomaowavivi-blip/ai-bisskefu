@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $nonce     = $_GET['nonce'] ?? '';
     $echostr   = $_GET['echostr'] ?? '';
 
-    wecom_log("GET verify: sig=$signature ts=$timestamp nonce=$nonce echostr_len=" . strlen($echostr));
+    wecom_log('GET verify request received echostr_len=' . strlen($echostr));
 
     if (!$signature || !$timestamp || !$nonce || !$echostr) {
         wecom_log('→ 400 Invalid params');
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     if (sha1Sort($token, $timestamp, $nonce, $echostr) !== $signature) {
-        wecom_log('→ 403 Signature mismatch (my_sig=' . sha1Sort($token, $timestamp, $nonce, $echostr) . ')');
+        wecom_log('→ 403 Signature mismatch');
         http_response_code(403);
         exit('Signature mismatch');
     }
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit('CorpID mismatch');
     }
 
-    wecom_log("→ 200 OK, reply=" . substr($msg, 0, 50));
+    wecom_log('→ 200 OK');
     echo $msg;
     exit;
 }

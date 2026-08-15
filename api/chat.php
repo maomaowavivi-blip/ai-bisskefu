@@ -22,46 +22,8 @@ require_once __DIR__ . '/Workflow/OrderQueryWorkflow.php';
 require_once __DIR__ . '/Workflow/KnowledgeWorkflow.php';
 require_once __DIR__ . '/Workflow/SmallTalkWorkflow.php';
 require_once __DIR__ . '/Workflow/UnknownWorkflow.php';
-require_once __DIR__ . '/Workflow/HandoffWorkflow.php';
 
-// 自动建表/迁移（每条独立 try-catch，避免低版本 MySQL 不支持某语法导致阻塞）
-$dbInit = getDB();
-try { $dbInit->exec("CREATE TABLE IF NOT EXISTS rate_limits (
-    key_str VARCHAR(64) PRIMARY KEY,
-    count INT DEFAULT 1,
-    window_start DATETIME NOT NULL,
-    INDEX idx_window (window_start)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (Exception $e) { error_log('migration rate_limits: ' . $e->getMessage()); }
-try { $dbInit->exec("ALTER TABLE chat_logs ADD COLUMN `visitor_hash` varchar(64) NOT NULL DEFAULT '' COMMENT '设备指纹' AFTER `has_verified`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE chat_logs ADD COLUMN `source_ip` varchar(45) NOT NULL DEFAULT '' COMMENT '来源IP' AFTER `visitor_hash`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE chat_logs ADD INDEX `idx_visitor` (`visitor_hash`)"); } catch (Exception $e) {}
-try { $dbInit->exec("CREATE TABLE IF NOT EXISTS order_verify_sessions (
-    session_id VARCHAR(64) PRIMARY KEY,
-    order_no VARCHAR(64) NOT NULL DEFAULT '',
-    phone VARCHAR(20) NOT NULL DEFAULT '',
-    phone_hash VARCHAR(64) NOT NULL DEFAULT '',
-    phone_mask VARCHAR(13) NOT NULL DEFAULT '',
-    step TINYINT NOT NULL DEFAULT 0 COMMENT '0=none 1=wait_order 2=wait_phone 3=wait_code 4=verified',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单验证会话'"); } catch (Exception $e) { error_log('migration order_verify_sessions: ' . $e->getMessage()); }
-try { $dbInit->exec("ALTER TABLE order_verify_sessions MODIFY COLUMN `order_no` VARCHAR(512) NOT NULL DEFAULT ''"); } catch (Exception $e) {}
-try { $dbInit->exec("CREATE TABLE IF NOT EXISTS room_query_sessions (
-    session_id VARCHAR(64) PRIMARY KEY,
-    room_id VARCHAR(64) NOT NULL DEFAULT '',
-    question TEXT NOT NULL,
-    step TINYINT NOT NULL DEFAULT 0 COMMENT '0=none 1=wait_room_id',
-    order_no VARCHAR(64) NOT NULL DEFAULT '' COMMENT '关联订单号',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房间查询会话'"); } catch (Exception $e) { error_log('migration room_query_sessions: ' . $e->getMessage()); }
-try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `order_no` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '关联订单号' AFTER `step`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `sidecar_room_id` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Sidecar ai_room_profile.id' AFTER `order_no`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `room_candidates` MEDIUMTEXT NULL COMMENT 'step=2 候选 JSON' AFTER `sidecar_room_id`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `bound_at` DATETIME NULL COMMENT 'step=3 绑定时间' AFTER `room_candidates`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE room_query_sessions ADD COLUMN `expires_at` DATETIME NULL COMMENT '会话过期' AFTER `bound_at`"); } catch (Exception $e) {}
-try { $dbInit->exec("ALTER TABLE room_query_sessions MODIFY COLUMN `step` TINYINT NOT NULL DEFAULT 0 COMMENT '0=idle 1=wait_order 2=wait_room_pick 3=bound'"); } catch (Exception $e) {}
-// v3.11: human_handoffs / handoff_messages / handoff_triggers 表已 DROP,移除自动建表
+// v3.15：运行时不再执行 DDL。请先执行 sql/migration_v3.15_security.sql。
 
 $action = $_GET['action'] ?? '';
 header('Content-Type: application/json; charset=utf-8');
@@ -78,9 +40,21 @@ if ($action === 'chat') {
     $sessionId = trim($body['session_id'] ?? '');
     $message   = trim($body['message']    ?? '');
     $history   = $body['history']         ?? [];
+    $visitorHash = trim($body['visitor_hash'] ?? '');
+    $channel = trim($body['channel'] ?? 'web');
 
-    if (!$sessionId) chatResponse(400, 'session_id不能为空');
-    if (!$message)   chatResponse(400, '消息不能为空');
+    if ($sessionId === '' || strlen($sessionId) > 128 || !preg_match('/^[A-Za-z0-9_.:-]+$/D', $sessionId)) {
+        chatResponse(400, 'session_id格式不正确');
+    }
+    if ($message === '' || mb_strlen($message) > 2000) {
+        chatResponse(400, '消息不能为空或过长');
+    }
+    if ($visitorHash !== '' && (strlen($visitorHash) > 128 || !preg_match('/^[A-Za-z0-9_.:-]+$/D', $visitorHash))) {
+        chatResponse(400, 'visitor_hash格式不正确');
+    }
+    if (!in_array($channel, ['web', 'wechat_kf', 'wechat_mp', 'wechat_msg', 'openapi', 'api'], true)) {
+        chatResponse(400, 'channel格式不正确');
+    }
 
     // v3.3：Pipeline 开关分流
     $pipelineEnabled = false;
@@ -94,11 +68,7 @@ if ($action === 'chat') {
     }
 
     if ($pipelineEnabled) {
-        $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
-        $ip = $xff ? trim(explode(',', $xff)[0]) : ($_SERVER['REMOTE_ADDR'] ?? '');
-        $visitorHash = trim($body['visitor_hash'] ?? '');
-        $channel = $body['channel'] ?? 'web';
-
+        $ip = requestClientIp();
         try {
             $db = getDB();
             $pipelineResult = ChatPipeline::process(

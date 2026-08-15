@@ -129,27 +129,8 @@ final class SessionState
      */
     private static function loadHandoff(\PDO $db, string $sessionId): ?array
     {
-        try {
-            $stmt = $db->prepare(
-                'SELECT id, status, assigned_to, created_at
-                 FROM human_handoffs
-                 WHERE session_id = ? AND status != ? AND status != ?
-                 ORDER BY id DESC LIMIT 1'
-            );
-            $stmt->execute([$sessionId, 'ended', 'resolved']);
-            $row = $stmt->fetch();
-            if (!$row) return null;
-
-            return [
-                'id' => (int)$row['id'],
-                'status' => $row['status'],
-                'assigned_to' => $row['assigned_to'] ?? null,
-                'created_at' => $row['created_at'],
-            ];
-        } catch (\Exception $e) {
-            error_log('[SessionState] loadHandoff failed: ' . $e->getMessage());
-            return null;
-        }
+        // v3.15：人工接管已停用，不能访问已下线的历史表。
+        return null;
     }
 
     /**

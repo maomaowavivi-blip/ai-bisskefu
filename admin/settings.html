@@ -363,7 +363,6 @@
           <button class="tab-btn active" data-tab="ai">🤖 AI 模型</button>
           <button class="tab-btn" data-tab="enterprise">🏢 企业集成</button>
           <button class="tab-btn" data-tab="embed">🔗 网站嵌入</button>
-          <button class="tab-btn" data-tab="handoff">🔄 转人工规则</button>
           <button class="tab-btn" data-tab="agentrules">⚙️ AI 行为规则</button>
         </div>
 
@@ -685,48 +684,6 @@ Authorization: Bearer {密钥}
           </div>
         </div>
 
-        <!-- ════════════════ Tab 4: 转人工规则 ════════════════ -->
-        <div class="tab-content" id="tabHandoff">
-          <div class="card">
-            <div class="card-header">
-              <h3>🔄 转人工触发词管理</h3>
-              <span id="handoffTriggersSavedBadge" style="display:none;"><span class="badge badge-success">已保存</span></span>
-            </div>
-            <p class="text-secondary" style="margin-bottom:var(--space-2);font-size:var(--text-sm);">
-              客户消息命中关键词时转人工。Room 房间问答（地址/停车/WiFi密码/垃圾指引等）优先由 Sidecar 回答，未命中后再走本词库。
-            </p>
-            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
-              优先级决定人工接管列表的展示顺序。可先「补全系统默认词库」再按需增删，保存后立即生效。
-            </p>
-
-            <div class="trigger-add-row">
-              <div class="form-group">
-                <label class="form-label">新增关键词</label>
-                <input type="text" class="form-input" id="newTriggerKeyword" placeholder="输入新关键词" style="font-family:var(--font-mono);" maxlength="100">
-              </div>
-              <div class="form-group" style="flex:0 0 160px;min-width:120px;">
-                <label class="form-label">优先级</label>
-                <select class="form-select" id="newTriggerPriority">
-                  <option value="0">🔴 P0 紧急</option>
-                  <option value="1">🟠 P1 高优先级</option>
-                  <option value="2" selected>🟡 P2 中优先级</option>
-                  <option value="3">🟢 P3 常规</option>
-                  <option value="4">⚪ 兜底</option>
-                </select>
-              </div>
-              <button class="btn btn-primary" onclick="addTriggerKeyword()" style="height:38px;">➕ 添加</button>
-            </div>
-
-            <div id="triggerGroupsContainer"></div>
-
-            <div style="margin-top:var(--space-4);display:flex;gap:var(--space-3);flex-wrap:wrap;">
-              <button class="btn btn-primary" id="saveHandoffTriggersBtn" onclick="saveHandoffTriggers()">💾 保存全部更改</button>
-              <button class="btn btn-secondary" onclick="syncDefaultHandoffTriggers()">📥 补全系统默认词库</button>
-              <button class="btn btn-secondary" onclick="loadHandoffTriggers()">🔄 重新加载</button>
-            </div>
-          </div>
-        </div>
-
         <!-- ════════════════ Tab 5: AI 行为规则（Phase 1 只读） ════════════════ -->
         <div class="tab-content" id="tabAgentrules">
           <div class="card" style="margin-bottom:var(--space-4);border:1px solid #f0d78c;background:#fffbeb;">
@@ -777,14 +734,13 @@ Authorization: Bearer {密钥}
 var token = localStorage.getItem('admin_token');
 
 function getHeaders() {
-  return { 'Content-Type': 'application/json' };
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
 function apiUrl(path) {
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  var sep = path.indexOf('?') > -1 ? '&' : '?';
-  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path);
 }
 
 function showToast(msg) {
@@ -1061,7 +1017,7 @@ function copyEmbedCode() {
 }
 
 function loadSidecarStats() {
-  fetch(apiUrl('/api/sidecar.php?action=stats'))
+  fetch(apiUrl('/api/sidecar.php?action=stats'), { headers: getHeaders() })
     .then(function(r) { return r.json(); })
     .then(function(res) {
       var box = document.getElementById('sidecarStats');
@@ -1109,7 +1065,6 @@ loadSidecarStats();
 loadWecomConfig();
 loadWecomKfConfig(); // v3.4：微信客服 API 配置
 loadApiKeys();
-loadHandoffTriggers();
 updateEmbedCode();
 
 // ═══ API 密钥管理 ═══
@@ -1623,13 +1578,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
-
-// 页面初始化时加载转人工规则
-var origLoad = loadSettings;
-loadSettings = function() {
-  if (typeof origLoad === 'function') origLoad();
-  loadHandoffTriggers();
-};
 
 // ═══ AI 行为规则（Phase 1 只读） ═══
 var _agentConfigLoaded = false;

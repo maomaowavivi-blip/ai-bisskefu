@@ -40,10 +40,6 @@
       <a class="nav-item" href="settings.html" data-page="settings">
         <span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span>
       </a>
-      <a class="nav-item" href="handoff.html" data-page="handoff">
-        <span class="nav-icon">🔄</span><span class="nav-label">人工接管</span>
-        <span class="handoff-badge" id="navHandoffBadge" style="display:none;margin-left:auto;background:#EF4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;">0</span>
-      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -135,12 +131,11 @@
 var token = localStorage.getItem('admin_token');
 if (!token) { window.location.href = 'login.html'; }
 
-function getHeaders() { return { 'Content-Type': 'application/json' }; }
+function getHeaders() { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }; }
 function apiUrl(path) {
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  var sep = path.indexOf('?') > -1 ? '&' : '?';
-  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path);
 }
 
 function doLogout() {
@@ -178,24 +173,6 @@ Promise.all([
   personaEl.textContent = persona ? persona.name : '⚠️ 未设置';
 });
 
-function loadHandoffBadge() {
-  fetch(apiUrl('/api/handoff.php?action=pending_count'), { headers: getHeaders() })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (res.code === 0) {
-        var badge = document.getElementById('navHandoffBadge');
-        var count = res.data.count || 0;
-        if (count > 0) {
-          badge.textContent = count > 99 ? '99+' : count;
-          badge.style.display = 'inline';
-        } else {
-          badge.style.display = 'none';
-        }
-      }
-    });
-}
-loadHandoffBadge();
-setInterval(loadHandoffBadge, 15000);
 </script>
 </body>
 </html>

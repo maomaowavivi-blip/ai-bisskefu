@@ -570,10 +570,6 @@ var visitorHash = getVisitorId();
 
 const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 let history = [];
-let handoffTimer = null;
-let handoffActive = false;
-let currentHandoffId = null;
-let lastHandoffMsgId = 0;
 
 const messagesEl = document.getElementById('messages');
 const msgInput = document.getElementById('msgInput');
@@ -586,7 +582,14 @@ fetch(API_BASE + 'api/chat.php?action=persona')
   .then(res => {
     if (res.code === 0 && res.data) {
       botName.textContent = res.data.name || '智能客服';
-      botGreeting.innerHTML = '<span class="status-dot"></span><span class="header-desc">' + (res.data.description || '在线') + '</span>';
+      botGreeting.textContent = '';
+      var statusDot = document.createElement('span');
+      statusDot.className = 'status-dot';
+      var headerDesc = document.createElement('span');
+      headerDesc.className = 'header-desc';
+      headerDesc.textContent = res.data.description || '在线';
+      botGreeting.appendChild(statusDot);
+      botGreeting.appendChild(headerDesc);
       if (res.data.avatar_url) {
         document.getElementById('botAvatar').src = res.data.avatar_url;
       }
@@ -639,44 +642,99 @@ orderModal.addEventListener('click', function(e) {
 function appendMessage(content, role) {
   const div = document.createElement('div');
   div.className = 'message ' + role;
-  div.innerHTML = content + '<div class="time">刚刚</div>';
+  const text = document.createElement('div');
+  text.style.whiteSpace = 'pre-wrap';
+  text.style.wordBreak = 'break-word';
+  text.textContent = String(content == null ? '' : content);
+  const time = document.createElement('div');
+  time.className = 'time';
+  time.textContent = '刚刚';
+  div.appendChild(text);
+  div.appendChild(time);
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function safeResourceUrl(value) {
+  try {
+    const url = new URL(String(value || ''), window.location.href);
+    return url.protocol === 'https:' ? url.href : '';
+  } catch (e) {
+    return '';
+  }
 }
 
 function appendRichContent(cards) {
   var msgDiv = document.createElement('div');
   msgDiv.className = 'message bot';
-  var html = '';
-  var hasRoomPick = false;
+  var roomGrid = null;
   for (var i = 0; i < cards.length; i++) {
     var c = cards[i];
     if (c.type === 'image_link') {
-      html += '<a href="' + c.link_url + '" target="_blank" rel="noopener" class="rich-card">';
-      html += '<img src="' + c.image_url + '" alt="' + (c.title || '') + '" loading="lazy">';
-      if (c.title) html += '<span class="rich-card-title">' + c.title + '</span>';
-      if (c.description) html += '<span class="rich-card-desc">' + c.description + '</span>';
-      html += '</a>';
-    } else if (c.type === 'room_pick') {
-      if (!hasRoomPick) {
-        html += '<div class="room-pick-grid">';
-        hasRoomPick = true;
+      var imageUrl = safeResourceUrl(c.image_url);
+      if (!imageUrl) continue;
+      var link = document.createElement('a');
+      link.href = safeResourceUrl(c.link_url) || '#';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'rich-card';
+      var img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = String(c.title || '');
+      img.loading = 'lazy';
+      link.appendChild(img);
+      if (c.title) {
+        var title = document.createElement('span');
+        title.className = 'rich-card-title';
+        title.textContent = String(c.title);
+        link.appendChild(title);
       }
-      html += '<button type="button" class="room-pick-card" data-room-id="' + c.sidecar_room_id + '">';
-      if (c.room_code) html += '<span class="room-pick-code">' + c.room_code + '</span>';
-      if (c.title) html += '<span class="room-pick-title">' + c.title + '</span>';
-      if (c.description) html += '<span class="room-pick-desc">' + c.description + '</span>';
-      html += '</button>';
+      if (c.description) {
+        var desc = document.createElement('span');
+        desc.className = 'rich-card-desc';
+        desc.textContent = String(c.description);
+        link.appendChild(desc);
+      }
+      msgDiv.appendChild(link);
+    } else if (c.type === 'room_pick') {
+      if (!roomGrid) {
+        roomGrid = document.createElement('div');
+        roomGrid.className = 'room-pick-grid';
+        msgDiv.appendChild(roomGrid);
+      }
+      var roomButton = document.createElement('button');
+      roomButton.type = 'button';
+      roomButton.className = 'room-pick-card';
+      roomButton.dataset.roomId = String(c.sidecar_room_id || '');
+      if (c.room_code) {
+        var code = document.createElement('span');
+        code.className = 'room-pick-code';
+        code.textContent = String(c.room_code);
+        roomButton.appendChild(code);
+      }
+      if (c.title) {
+        var roomTitle = document.createElement('span');
+        roomTitle.className = 'room-pick-title';
+        roomTitle.textContent = String(c.title);
+        roomButton.appendChild(roomTitle);
+      }
+      if (c.description) {
+        var roomDesc = document.createElement('span');
+        roomDesc.className = 'room-pick-desc';
+        roomDesc.textContent = String(c.description);
+        roomButton.appendChild(roomDesc);
+      }
+      roomGrid.appendChild(roomButton);
+      roomButton.addEventListener('click', function() {
+        sendMessage('room_pick:' + this.dataset.roomId);
+      });
     }
   }
-  if (hasRoomPick) html += '</div>';
-  msgDiv.innerHTML = html + '<div class="time">刚刚</div>';
+  var time = document.createElement('div');
+  time.className = 'time';
+  time.textContent = '刚刚';
+  msgDiv.appendChild(time);
   messagesEl.appendChild(msgDiv);
-  msgDiv.querySelectorAll('.room-pick-card').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      sendMessage('room_pick:' + btn.getAttribute('data-room-id'));
-    });
-  });
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -708,67 +766,6 @@ function addHandoffNotice(text, type) {
   div.textContent = text;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function startHandoffPolling() {
-  if (handoffTimer) return;
-  handoffTimer = setInterval(function() {
-    fetch(API_BASE + 'api/handoff.php?action=status&session_id=' + encodeURIComponent(sessionId))
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.code === 0 && res.data) {
-          var status = res.data.status;
-          var hid = res.data.handoff_id;
-          if (hid && hid !== currentHandoffId) {
-            currentHandoffId = hid;
-            lastHandoffMsgId = 0;
-          }
-
-          if (status === 1 && !handoffActive) {
-            handoffActive = true;
-            msgInput.disabled = true;
-            sendBtn.disabled = true;
-            msgInput.placeholder = '当前由人工客服接待...';
-            addHandoffNotice('您好，专属客服已为您服务，有什么可以帮您的吗？', 'takeover');
-          } else if (status === 0 && handoffActive) {
-            handoffActive = false;
-            currentHandoffId = null;
-            msgInput.disabled = false;
-            sendBtn.disabled = false;
-            msgInput.placeholder = '请输入您的问题...';
-            msgInput.focus();
-            addHandoffNotice('客服暂时离开，继续由智能客服为您服务', 'return');
-            stopHandoffPolling();
-          } else if (status === 2 && handoffActive) {
-            handoffActive = false;
-            currentHandoffId = null;
-            msgInput.disabled = false;
-            sendBtn.disabled = false;
-            msgInput.placeholder = '请输入您的问题...';
-            msgInput.focus();
-            addHandoffNotice('已回到智能客服接待，您可以继续提问', 'return');
-            stopHandoffPolling();
-          }
-
-          if (status === 1 && res.data.messages) {
-            for (var i = 0; i < res.data.messages.length; i++) {
-              var m = res.data.messages[i];
-              if (m.id > lastHandoffMsgId && m.role === 'admin') {
-                appendMessage(m.content, 'admin');
-                lastHandoffMsgId = m.id;
-              }
-            }
-          }
-        }
-      });
-  }, 3000);
-}
-
-function stopHandoffPolling() {
-  if (handoffTimer) {
-    clearInterval(handoffTimer);
-    handoffTimer = null;
-  }
 }
 
 async function sendMessage(text) {
@@ -818,9 +815,6 @@ async function sendMessage(text) {
       if (data.data.rich_content && data.data.rich_content.length > 0) {
         appendRichContent(data.data.rich_content);
       }
-      if (data.data.handoff_status !== undefined && data.data.handoff_status >= 0) {
-        startHandoffPolling();
-      }
     } else {
       hideTyping();
       appendMessage('抱歉，我遇到了一点问题，请稍后再试。', 'bot');
@@ -837,7 +831,16 @@ fetch(API_BASE + 'api/chat.php?action=persona')
     if (res.code === 0 && res.data) {
       const firstMsg = messagesEl.querySelector('.message.bot');
       if (firstMsg) {
-        firstMsg.innerHTML = (res.data.greeting || '您好~ 很高兴为您服务！') + '<div class="time">刚刚</div>';
+        firstMsg.textContent = '';
+        var greeting = document.createElement('div');
+        greeting.style.whiteSpace = 'pre-wrap';
+        greeting.style.wordBreak = 'break-word';
+        greeting.textContent = res.data.greeting || '您好~ 很高兴为您服务！';
+        var time = document.createElement('div');
+        time.className = 'time';
+        time.textContent = '刚刚';
+        firstMsg.appendChild(greeting);
+        firstMsg.appendChild(time);
       }
     }
   });

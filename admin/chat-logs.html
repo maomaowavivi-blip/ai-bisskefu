@@ -180,14 +180,13 @@ function showToast(msg) {
 }
 
 function getHeaders() {
-  return { 'Content-Type': 'application/json' };
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
 function apiUrl(path) {
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  var sep = path.indexOf('?') > -1 ? '&' : '?';
-  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path);
 }
 
 function doLogout() {
@@ -237,6 +236,7 @@ function loadList() {
         tbody.innerHTML = res.data.list.map(function(item) {
           return renderSessionRow(item);
         }).join('');
+        bindSessionButtons();
         renderPagination(res.data.total, res.data.page);
       } else {
         tbody.innerHTML = '';
@@ -244,6 +244,15 @@ function loadList() {
         document.getElementById('pagination').innerHTML = '';
       }
     });
+}
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function renderSessionRow(item) {
@@ -270,14 +279,20 @@ function renderSessionRow(item) {
     userTitle = '';
   }
   return '<tr class="session-item">' +
-    '<td><span title="' + sid + '" style="font-family:var(--font-mono);font-size:var(--text-sm);">' + shortSid + '</span></td>' +
-    '<td><span class="text-sm text-secondary">' + time + '</span></td>' +
-    '<td>' + (item.msg_count || 0) + '</td>' +
+    '<td><span title="' + escapeHtml(sid) + '" style="font-family:var(--font-mono);font-size:var(--text-sm);">' + escapeHtml(shortSid) + '</span></td>' +
+    '<td><span class="text-sm text-secondary">' + escapeHtml(time) + '</span></td>' +
+    '<td>' + escapeHtml(item.msg_count || 0) + '</td>' +
     '<td>' + verified + '</td>' +
-    '<td><span title="' + userTitle + '" class="text-sm" style="font-family:var(--font-mono);color:var(--text-secondary);">' + userLabel + '</span></td>' +
-    '<td>' + (item.total_tokens || 0) + '</td>' +
-    '<td><button class="btn btn-sm btn-primary" onclick="viewDetail(\'' + sid + '\')">查看</button></td>' +
+    '<td><span title="' + escapeHtml(userTitle) + '" class="text-sm" style="font-family:var(--font-mono);color:var(--text-secondary);">' + escapeHtml(userLabel) + '</span></td>' +
+    '<td>' + escapeHtml(item.total_tokens || 0) + '</td>' +
+    '<td><button class="btn btn-sm btn-primary" data-session-id="' + escapeHtml(sid) + '">查看</button></td>' +
   '</tr>';
+}
+
+function bindSessionButtons() {
+  document.querySelectorAll('#logList [data-session-id]').forEach(function(btn) {
+    btn.addEventListener('click', function() { viewDetail(btn.dataset.sessionId || ''); });
+  });
 }
 
 function renderPagination(total, page) {
@@ -305,8 +320,8 @@ function viewDetail(sessionId) {
 }
 
 function renderMessages(messages) {
-  var html = '';
-  var showUserInfo = messages.some(function(m) { return m.visitor_hash || m.source_ip; });
+  var container = document.getElementById('detailContent');
+  container.textContent = '';
   messages.forEach(function(m) {
     var role = m.role === 'user' ? '用户' : '客服';
     var labelClass = m.role === 'user' ? 'msg-label-user' : 'msg-label-assistant';
@@ -317,17 +332,27 @@ function renderMessages(messages) {
     if (m.tokens) metaParts.push('Token: ' + m.tokens);
     if (m.visitor_hash) metaParts.push('设备: ' + m.visitor_hash);
     if (m.source_ip) metaParts.push('IP: ' + m.source_ip);
-    html += '<div>' +
-      '<span class="msg-label ' + labelClass + '">' + role + '</span>' +
-      '<div class="msg-bubble ' + bubbleClass + '">' +
-        '<div style="white-space:pre-wrap;word-break:break-word;">' + content + '</div>' +
-        '<div class="msg-meta">' +
-          '<span>' + metaParts.join(' · ') + '</span>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
+    var row = document.createElement('div');
+    var label = document.createElement('span');
+    label.className = 'msg-label ' + labelClass;
+    label.textContent = role;
+    var bubble = document.createElement('div');
+    bubble.className = 'msg-bubble ' + bubbleClass;
+    var body = document.createElement('div');
+    body.style.whiteSpace = 'pre-wrap';
+    body.style.wordBreak = 'break-word';
+    body.textContent = String(content);
+    var meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    var metaText = document.createElement('span');
+    metaText.textContent = metaParts.join(' · ');
+    meta.appendChild(metaText);
+    bubble.appendChild(body);
+    bubble.appendChild(meta);
+    row.appendChild(label);
+    row.appendChild(bubble);
+    container.appendChild(row);
   });
-  document.getElementById('detailContent').innerHTML = html;
   document.getElementById('detailModal').classList.add('active');
 }
 

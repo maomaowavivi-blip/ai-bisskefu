@@ -130,14 +130,13 @@ function showToast(msg) {
 }
 
 function getHeaders() {
-  return { 'Content-Type': 'application/json' };
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
 function apiUrl(path) {
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  var sep = path.indexOf('?') > -1 ? '&' : '?';
-  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path);
 }
 
 var token = localStorage.getItem('admin_token');
@@ -153,6 +152,15 @@ function toggleSidebar() {
 }
 
 var currentUser = null;
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 fetch(apiUrl('/api/auth.php?action=me'), { headers: getHeaders() })
   .then(function(r) { return r.json(); })
@@ -198,9 +206,9 @@ function renderUserRow(item) {
     ? ''
     : '<button class="btn btn-sm btn-danger" onclick="deleteUser(' + item.id + ')">删除</button>';
   return '<tr>' +
-    '<td><strong>' + item.username + '</strong></td>' +
+    '<td><strong>' + escapeHtml(item.username) + '</strong></td>' +
     '<td>' + status + '</td>' +
-    '<td><span class="text-sm text-secondary">' + (item.created_at || '') + '</span></td>' +
+    '<td><span class="text-sm text-secondary">' + escapeHtml(item.created_at || '') + '</span></td>' +
     '<td><div class="cell-actions">' +
       '<button class="btn btn-sm btn-primary" onclick="resetPwd(' + item.id + ')">重置密码</button>' +
       toggleBtn +

@@ -153,18 +153,8 @@ class HandoffTriggers {
     }
 
     public static function pruneRetiredKeywords(PDO $db): int {
-        $deleted = 0;
-        try {
-            $stmt = $db->prepare('DELETE FROM handoff_triggers WHERE keyword = ?');
-            foreach (self::retiredKeywords() as $kw) {
-                $stmt->execute([$kw]);
-                $deleted += $stmt->rowCount();
-            }
-            self::$keywordCache = null;
-        } catch (Exception $e) {
-            error_log('HandoffTriggers prune error: ' . $e->getMessage());
-        }
-        return $deleted;
+        // v3.15：触发词改为代码内存中的 400 电话兜底，不再访问已下线的表。
+        return 0;
     }
 
     /** Sidecar 负责回答、故意不放入触发词库的示例（文档/测试用） */
@@ -177,16 +167,7 @@ class HandoffTriggers {
 
     /** 增量合并默认词（不删、不覆盖已有词的优先级） */
     public static function ensureSeeded(PDO $db): void {
-        try {
-            $stmt = $db->prepare('INSERT IGNORE INTO handoff_triggers (keyword, priority) VALUES (?, ?)');
-            foreach (self::defaultSeed() as [$kw, $priority]) {
-                $stmt->execute([$kw, $priority]);
-            }
-            self::pruneRetiredKeywords($db);
-            self::$keywordCache = null;
-        } catch (Exception $e) {
-            error_log('HandoffTriggers seed error: ' . $e->getMessage());
-        }
+        // v3.15：不再自动建表或写入数据库。
     }
 
     /**
@@ -195,40 +176,7 @@ class HandoffTriggers {
      * @return array{added:int, updated:int, total:int}
      */
     public static function syncDefaultLibrary(PDO $db): array {
-        $added = 0;
-        $updated = 0;
-        try {
-            $db->beginTransaction();
-            $insert = $db->prepare('INSERT INTO handoff_triggers (keyword, priority) VALUES (?, ?)');
-            $update = $db->prepare('UPDATE handoff_triggers SET priority = ? WHERE keyword = ?');
-            $exists = $db->prepare('SELECT id, priority FROM handoff_triggers WHERE keyword = ? LIMIT 1');
-
-            foreach (self::defaultSeed() as [$kw, $priority]) {
-                $exists->execute([$kw]);
-                $row = $exists->fetch();
-                if (!$row) {
-                    $insert->execute([$kw, $priority]);
-                    $added++;
-                    continue;
-                }
-                if ((int)$row['priority'] !== $priority) {
-                    $update->execute([$priority, $kw]);
-                    $updated++;
-                }
-            }
-            $db->commit();
-            self::pruneRetiredKeywords($db);
-            self::$keywordCache = null;
-        } catch (Exception $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
-            error_log('HandoffTriggers sync error: ' . $e->getMessage());
-            throw $e;
-        }
-
-        $total = (int)$db->query('SELECT COUNT(*) FROM handoff_triggers')->fetchColumn();
-        return ['added' => $added, 'updated' => $updated, 'total' => $total];
+        return ['added' => 0, 'updated' => 0, 'total' => count(self::defaultSeed())];
     }
 
     /** @return string[] */
@@ -236,35 +184,15 @@ class HandoffTriggers {
         if (self::$keywordCache !== null) {
             return self::$keywordCache;
         }
-        self::ensureSeeded($db);
-        try {
-            $stmt = $db->query('SELECT keyword FROM handoff_triggers ORDER BY LENGTH(keyword) DESC, priority ASC, id ASC');
-            $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            self::$keywordCache = is_array($rows) ? array_values(array_filter($rows)) : [];
-        } catch (Exception $e) {
-            error_log('HandoffTriggers load error: ' . $e->getMessage());
-            self::$keywordCache = array_column(self::defaultSeed(), 0);
-        }
+        self::$keywordCache = array_column(self::defaultSeed(), 0);
         return self::$keywordCache;
     }
 
     /** @return array{keyword:string,priority:int}|null */
     public static function matchKeyword(PDO $db, string $message): ?array {
-        try {
-            self::ensureSeeded($db);
-            $stmt = $db->query('SELECT keyword, priority FROM handoff_triggers ORDER BY LENGTH(keyword) DESC, priority ASC, id ASC');
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $kw = (string)($row['keyword'] ?? '');
-                if ($kw !== '' && mb_strpos($message, $kw) !== false) {
-                    return ['keyword' => $kw, 'priority' => (int)$row['priority']];
-                }
-            }
-        } catch (Exception $e) {
-            error_log('HandoffTriggers match error: ' . $e->getMessage());
-            foreach (self::defaultSeed() as [$kw, $priority]) {
-                if (mb_strpos($message, $kw) !== false) {
-                    return ['keyword' => $kw, 'priority' => $priority];
-                }
+        foreach (self::defaultSeed() as [$kw, $priority]) {
+            if (mb_strpos($message, $kw) !== false) {
+                return ['keyword' => $kw, 'priority' => $priority];
             }
         }
         return null;

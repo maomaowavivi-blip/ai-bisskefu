@@ -279,7 +279,7 @@ body::after {
 var token = localStorage.getItem('admin_token');
 if (token) {
   var base = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
-  fetch(base + 'api/auth.php?action=me&token=' + encodeURIComponent(token))
+  fetch(base + 'api/auth.php?action=me', { headers: { 'Authorization': 'Bearer ' + token } })
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res.code === 0) { window.location.href = 'dashboard.html'; }

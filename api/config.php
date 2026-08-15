@@ -50,11 +50,16 @@ define('SIDECAR_DB_USER', envVal('SIDECAR_DB_USER', DB_USER));
 define('SIDECAR_DB_PASS', envVal('SIDECAR_DB_PASS', DB_PASS));
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+$requestOrigin = trim($_SERVER['HTTP_ORIGIN'] ?? '');
+$allowedOrigins = array_values(array_filter(array_map('trim', preg_split('/[,\s]+/', (string)envVal('CORS_ALLOWED_ORIGINS', '')))));
+if ($requestOrigin !== '' && in_array($requestOrigin, $allowedOrigins, true)) {
+    header('Access-Control-Allow-Origin: ' . $requestOrigin);
+    header('Vary: Origin');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
+}
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
@@ -106,6 +111,23 @@ function getBody() {
     return json_decode(file_get_contents('php://input'), true) ?? [];
 }
 
+/**
+ * 只信任 Web 服务器实际收到的来源 IP。
+ * X-Forwarded-For 不能由客户端直接决定，除非前置代理已明确配置并清洗它。
+ */
+function requestClientIp($fallback = '') {
+    $ip = trim((string)($_SERVER['REMOTE_ADDR'] ?? $fallback));
+    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : 'unknown';
+}
+
+function validateRequestId($value, $field = '请求标识', $maxLength = 128) {
+    $value = trim((string)$value);
+    if ($value === '' || strlen($value) > $maxLength || !preg_match('/^[A-Za-z0-9_.:-]+$/D', $value)) {
+        fail($field . '格式不正确');
+    }
+    return $value;
+}
+
 // ══════════════════════════════════════════
 // JWT 认证（管理员用）
 // ══════════════════════════════════════════
@@ -123,20 +145,19 @@ function makeToken($userId, $role) {
 
 function authToken() {
     $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    if (!$auth || !str_starts_with($auth, 'Bearer ')) {
-        $auth = 'Bearer ' . ($_GET['token'] ?? '');
-        if (!str_starts_with($auth, 'Bearer ') || trim(substr($auth, 7)) === '') {
-            fail('未登录', 401);
-        }
+    if (!$auth || !preg_match('/^Bearer\s+(.+)$/i', $auth, $matches)) {
+        fail('未登录', 401);
     }
-    $token = substr($auth, 7);
+    $token = trim($matches[1]);
     $parts = explode('.', $token);
     if (count($parts) !== 2) fail('Token无效', 401);
     $data = $parts[0];
     $sign = $parts[1];
-    if (hash_hmac('sha256', $data, JWT_SECRET) !== $sign) fail('Token签名错误', 401);
-    $payload = json_decode(base64_decode($data), true);
-    if (!$payload || $payload['exp'] < time()) fail('Token已过期', 401);
+    $expected = hash_hmac('sha256', $data, JWT_SECRET);
+    if (!hash_equals($expected, $sign)) fail('Token签名错误', 401);
+    $decoded = base64_decode($data, true);
+    $payload = $decoded === false ? null : json_decode($decoded, true);
+    if (!$payload || !isset($payload['exp']) || intval($payload['exp']) < time()) fail('Token已过期', 401);
     return $payload;
 }
 

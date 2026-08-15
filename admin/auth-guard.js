@@ -12,7 +12,8 @@
   var xhr = new XMLHttpRequest();
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  xhr.open('GET', base + 'api/auth.php?action=me&token=' + encodeURIComponent(token), true);
+  xhr.open('GET', base + 'api/auth.php?action=me', true);
+  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
   xhr.onload = function() {
     if (xhr.status !== 200) {
       localStorage.removeItem('admin_token');

@@ -81,6 +81,11 @@ function wecom_kf_log(string $msg): void
     @file_put_contents($logDir . '/wecom_kf.log', $line, FILE_APPEND);
 }
 
+function wecom_kf_response_error(array $response): string
+{
+    return 'errcode=' . (string)($response['errcode'] ?? 'unknown');
+}
+
 // ──────────────────────────────────────────
 // 路由
 // ──────────────────────────────────────────
@@ -111,7 +116,7 @@ function handleVerifyUrl(): void
     $nonce     = $_GET['nonce'] ?? '';
     $echostr   = $_GET['echostr'] ?? '';
 
-    wecom_kf_log("GET verify: sig=" . substr($signature, 0, 10) . "... ts=$timestamp");
+    wecom_kf_log('GET verify request received');
 
     if (!$signature || !$timestamp || !$nonce || !$echostr) {
         wecom_kf_log('→ 400 Invalid params');
@@ -202,7 +207,7 @@ function handleCallback(): void
     $eventToken = (string)($msg->Token ?? '');  // 用于 sync_msg
     $callbackOpenKfId = (string)($msg->OpenKfId ?? '');
 
-    wecom_kf_log("POST: MsgType=$msgType Event=$event openKfId=$callbackOpenKfId");
+    wecom_kf_log('POST: MsgType=' . $msgType . ' Event=' . $event . ' openKfHash=' . substr(sha1($callbackOpenKfId), 0, 10));
 
     // 立即返空串（企业微信不要求 5 秒内回复）
     http_response_code(200);
@@ -234,36 +239,48 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 {
     global $db;
 
-    // 1. 拉消息（用持久化的 cursor 增量拉，避免一次拉回历史未消费消息）
-    $cursorFile = __DIR__ . '/../logs/wecom_kf_cursor_' . substr(sha1($useOpenKfId), 0, 8) . '.txt';
-    $savedCursor = file_exists($cursorFile) ? trim(file_get_contents($cursorFile)) : '';
-    wecom_kf_log('sync_msg cursor=' . substr($savedCursor, 0, 30));
-
-    $messages = syncMsg($useOpenKfId, $eventToken, $savedCursor);
-    if ($messages === null) {
-        wecom_kf_log('sync_msg failed');
+    $lockFile = __DIR__ . '/../logs/wecom_kf_processing.lock';
+    $lockHandle = @fopen($lockFile, 'c');
+    if (!$lockHandle || !@flock($lockHandle, LOCK_EX)) {
+        wecom_kf_log('process lock unavailable');
+        if (is_resource($lockHandle)) @fclose($lockHandle);
         return;
     }
-    wecom_kf_log('sync_msg returned ' . count($messages) . ' messages');
 
-    foreach ($messages as $msg) {
+    try {
+
+        // 1. 拉消息（用持久化的 cursor 增量拉，避免一次拉回历史未消费消息）
+        $cursorFile = __DIR__ . '/../logs/wecom_kf_cursor_' . substr(sha1($useOpenKfId), 0, 8) . '.txt';
+        $savedCursor = file_exists($cursorFile) ? trim(file_get_contents($cursorFile)) : '';
+        wecom_kf_log('sync_msg started');
+
+        $syncResult = syncMsg($useOpenKfId, $eventToken, $savedCursor);
+        if ($syncResult === null) {
+            wecom_kf_log('sync_msg failed');
+            return;
+        }
+        $messages = $syncResult['messages'];
+        $nextCursor = $syncResult['next_cursor'];
+        $batchHandled = true;
+        wecom_kf_log('sync_msg returned ' . count($messages) . ' messages');
+
+        foreach ($messages as $msg) {
         // 只处理客户发来的文本消息（external_userid 开头 + msgtype=text）
         $msgType = $msg['msgtype'] ?? '';
         $from    = $msg['external_userid'] ?? '';
         $content = $msg['text']['content'] ?? '';
 
         if ($msgType !== 'text' || empty($from) || empty($content)) {
-            wecom_kf_log("Skip msg: type=$msgType from=$from content=" . substr($content, 0, 20));
+            wecom_kf_log('Skip unsupported message type=' . $msgType);
             continue;
         }
 
         // 去重：同 msgid 5 分钟内只处理一次（修复 95001 限流）
         $msgId = $msg['msgid'] ?? '';
         if ($msgId !== '' && isMsgProcessed($msgId)) {
-            wecom_kf_log("Skip dup msgid=$msgId from=$from");
+            wecom_kf_log('Skip processed msg=' . substr(sha1($msgId), 0, 10));
             continue;
         }
-        if ($msgId !== '') markMsgProcessed($msgId);
 
         // 2. ChatPipeline 处理
         $sessionId = 'wecom_kf_' . substr(sha1($from), 0, 16);
@@ -276,13 +293,19 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
                 $db,
                 'wechat_kf',   // channel：Pipeline 不带 rich_content
                 $from,
-                'wecom_kf_callback'
+                requestClientIp()
             );
         } catch (Throwable $e) {
-            wecom_kf_log('ChatPipeline failed: ' . $e->getMessage());
+            $batchHandled = false;
+            wecom_kf_log('ChatPipeline failed: ' . get_class($e));
             continue;
         }
 
+        if (intval($result['code'] ?? 500) !== 0 || !is_array($result['data'] ?? null)) {
+            $batchHandled = false;
+            wecom_kf_log('ChatPipeline returned failure');
+            continue;
+        }
         $replyText = $result['data']['reply'] ?? '这边暂时没有查到准确信息，建议您联系前台确认。';
 
         // 截断（微信客服单条 600 字限制）
@@ -319,16 +342,33 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             }
         }
 
-        if ($roomCardSent) continue;
+        if ($roomCardSent) {
+            if ($msgId !== '') markMsgProcessed($msgId);
+            continue;
+        }
 
         // 4. 发送（必须用会话对应的 open_kfid，不能用配置里的固定值——
         //    用户扫码进的是事件里的 OpenKfId，跟 platform_config 配置的可能是不同账号）
         $sent = sendKfMessage($from, $replyText, $useOpenKfId);
         if ($sent) {
-            wecom_kf_log("Replied to $from: " . mb_substr($replyText, 0, 40));
+            if ($msgId !== '') markMsgProcessed($msgId);
+            wecom_kf_log('Replied to user=' . substr(sha1($from), 0, 10));
         } else {
-            wecom_kf_log("send_kf_message failed for $from");
+            $batchHandled = false;
+            wecom_kf_log('send_kf_message failed user=' . substr(sha1($from), 0, 10));
         }
+        }
+
+        // 只有本批消息全部成功处理，才推进游标；失败时保留旧游标等待微信重试。
+        if ($batchHandled && $nextCursor !== '') {
+            @file_put_contents($cursorFile, $nextCursor, LOCK_EX);
+            wecom_kf_log('sync_msg cursor advanced');
+        } elseif (!$batchHandled) {
+            wecom_kf_log('cursor not advanced because batch handling failed');
+        }
+    } finally {
+        @flock($lockHandle, LOCK_UN);
+        @fclose($lockHandle);
     }
 }
 
@@ -354,10 +394,10 @@ function transKfServiceState(string $openKfId, string $externalUserId, int $serv
         return false;
     }
     if ($resp['errcode'] !== 0) {
-        wecom_kf_log('service_state/trans error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        wecom_kf_log('service_state/trans error: ' . wecom_kf_response_error($resp));
         return false;
     }
-    wecom_kf_log("service_state/trans OK: $openKfId $externalUserId -> state=$serviceState");
+    wecom_kf_log('service_state/trans OK user=' . substr(sha1($externalUserId), 0, 10) . ' state=' . $serviceState);
     return true;
 }
 
@@ -385,18 +425,15 @@ function syncMsg(string $openKfId, string $token, string $cursor = ''): ?array
         return null;
     }
     if ($resp['errcode'] !== 0) {
-        wecom_kf_log('sync_msg error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        wecom_kf_log('sync_msg error: ' . wecom_kf_response_error($resp));
         return null;
     }
 
-    // 持久化 next_cursor（按 open_kfid 分文件，避免不同客服账号串扰）
-    if (isset($resp['next_cursor']) && $resp['next_cursor'] !== '') {
-        $cursorFile = __DIR__ . '/../logs/wecom_kf_cursor_' . substr(sha1($openKfId), 0, 8) . '.txt';
-        @file_put_contents($cursorFile, $resp['next_cursor']);
-        wecom_kf_log('sync_msg next_cursor saved: ' . substr($resp['next_cursor'], 0, 30));
-    }
-
-    return $resp['msg_list'] ?? [];
+    // 由 processKfEvent 在消息成功发送后统一持久化，失败时必须保留旧游标。
+    return [
+        'messages' => $resp['msg_list'] ?? [],
+        'next_cursor' => (string)($resp['next_cursor'] ?? ''),
+    ];
 }
 
 // ──────────────────────────────────────────
@@ -425,7 +462,7 @@ function sendKfMessage(string $externalUserId, string $content, string $useOpenK
         return false;
     }
     if ($resp['errcode'] !== 0) {
-        wecom_kf_log('send_msg error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        wecom_kf_log('send_msg error: ' . wecom_kf_response_error($resp));
         return false;
     }
     return true;
@@ -465,7 +502,7 @@ function sendKfLinkMessage(string $externalUserId, array $link, string $useOpenK
         return false;
     }
     if ($resp['errcode'] !== 0) {
-        wecom_kf_log('send_kf_link error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        wecom_kf_log('send_kf_link error: ' . wecom_kf_response_error($resp));
         return false;
     }
     wecom_kf_log('Sent roomcard link message');
@@ -509,7 +546,7 @@ function sendKfMiniprogramMessage(string $externalUserId, array $mini, string $u
         return false;
     }
     if ($resp['errcode'] !== 0) {
-        wecom_kf_log('send_kf_mini error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
+        wecom_kf_log('send_kf_mini error: ' . wecom_kf_response_error($resp));
         return false;
     }
     wecom_kf_log('Sent roomcard miniprogram message');
@@ -544,7 +581,7 @@ function getAccessToken(): ?string
     $url = "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=" . urlencode($corpId) . "&corpsecret=" . urlencode($corpSecret);
     $resp = httpGet($url);
     if (!$resp || !isset($resp['access_token'])) {
-        wecom_kf_log('gettoken failed: ' . json_encode($resp ?? [], JSON_UNESCAPED_UNICODE));
+        wecom_kf_log('gettoken failed: ' . wecom_kf_response_error(is_array($resp) ? $resp : []));
         return null;
     }
 

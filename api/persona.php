@@ -47,7 +47,7 @@ if ($action === 'save') {
         foreach ($fields as $f) {
             if (isset($body[$f])) {
                 $updates[] = "`{$f}` = ?";
-                $params[] = trim($body[$f]);
+                $params[] = strip_tags(trim((string)$body[$f]));
             }
         }
         if (empty($updates)) fail('没有要更新的字段');
@@ -62,7 +62,7 @@ if ($action === 'save') {
             if (isset($body[$f])) {
                 $cols[] = "`{$f}`";
                 $placeholders[] = '?';
-                $params[] = trim($body[$f]);
+                $params[] = strip_tags(trim((string)$body[$f]));
             }
         }
         if (empty($params)) fail('没有要保存的字段');
@@ -84,7 +84,10 @@ if ($action === 'upload_avatar') {
 
     $file = $_FILES['file'];
     $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!in_array($file['type'], $allowedTypes)) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $actualType = $finfo ? finfo_file($finfo, $file['tmp_name']) : '';
+    if ($finfo) finfo_close($finfo);
+    if (!in_array($actualType, $allowedTypes, true)) {
         fail('仅支持 JPG、PNG、GIF、WebP 格式');
     }
 

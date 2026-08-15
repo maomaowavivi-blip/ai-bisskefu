@@ -148,7 +148,7 @@ function kbSemanticSearch(PDO $db, string $query, int $limit = 5, float $thresho
         $vectors = callEmbeddingAPI([$query], 'query');
         $queryVec = $vectors[0];
     } catch (Throwable $e) {
-        error_log('kbSemanticSearch embed: ' . $e->getMessage());
+        error_log('kbSemanticSearch embed: ' . get_class($e));
         return ['list' => PromptEngine::searchKnowledge($db, $query, $limit), 'source' => 'fallback'];
     }
 
@@ -180,70 +180,77 @@ function kbSemanticSearch(PDO $db, string $query, int $limit = 5, float $thresho
     return ['list' => array_slice($scored, 0, $limit), 'source' => 'semantic'];
 }
 
+function vectorizeKbEntry(PDO $db, int $id): array {
+    if ($id <= 0) throw new InvalidArgumentException('参数错误：缺少条目ID');
+    $stmt = $db->prepare("SELECT id, question, answer, keywords FROM kb_entries WHERE id = ? AND status = 1");
+    $stmt->execute([$id]);
+    $entry = $stmt->fetch();
+    if (!$entry) throw new RuntimeException('条目不存在或已禁用');
+
+    $text = (string)$entry['question'];
+    if ($entry['keywords']) $text .= ' ' . $entry['keywords'];
+    if ($entry['answer']) $text .= ' ' . strip_tags($entry['answer']);
+    $vectors = callEmbeddingAPI([mb_substr($text, 0, 2000)]);
+    if (empty($vectors[0]) || !is_array($vectors[0])) throw new RuntimeException('Embedding返回为空');
+
+    $stmt = $db->prepare("UPDATE kb_entries SET embedding_vector = ?, embedding_updated_at = NOW() WHERE id = ?");
+    $stmt->execute([json_encode($vectors[0], JSON_UNESCAPED_UNICODE), $id]);
+    return ['id' => $id];
+}
+
+function batchVectorizeKb(PDO $db): array {
+    // v3.7:阿里 text-embedding-v3 batch 上限 10(实测)
+    $stmt = $db->query("SELECT id, question, answer, keywords FROM kb_entries WHERE status = 1 AND (embedding_vector IS NULL OR embedding_vector = '') ORDER BY id ASC LIMIT 10");
+    $entries = $stmt->fetchAll();
+    if (empty($entries)) return ['count' => 0, 'message' => '所有条目已向量化'];
+
+    $texts = [];
+    $idMap = [];
+    foreach ($entries as $entry) {
+        $text = (string)$entry['question'];
+        if ($entry['keywords']) $text .= ' ' . $entry['keywords'];
+        if ($entry['answer']) $text .= ' ' . strip_tags($entry['answer']);
+        $texts[] = mb_substr($text, 0, 2000);
+        $idMap[] = intval($entry['id']);
+    }
+
+    $vectors = callEmbeddingAPI($texts);
+    $updateStmt = $db->prepare("UPDATE kb_entries SET embedding_vector = ?, embedding_updated_at = NOW() WHERE id = ?");
+    $updated = 0;
+    foreach ($idMap as $i => $id) {
+        if (isset($vectors[$i]) && is_array($vectors[$i]) && !empty($vectors[$i])) {
+            $updateStmt->execute([json_encode($vectors[$i], JSON_UNESCAPED_UNICODE), $id]);
+            $updated++;
+        }
+    }
+    return ['count' => $updated, 'message' => '向量化完成：共 ' . $updated . ' 条'];
+}
+
 if (basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'embedding.php') {
     return;
 }
 
+$admin = adminGuard();
 $action = $_GET['action'] ?? '';
 $body   = getBody();
 $db     = getDB();
 
 if ($action === 'vectorize') {
     $id = intval($body['id'] ?? 0);
-    if (!$id) fail('参数错误：缺少条目ID');
-
-    $stmt = $db->prepare("SELECT id, question, answer, keywords FROM kb_entries WHERE id = ? AND status = 1");
-    $stmt->execute([$id]);
-    $entry = $stmt->fetch();
-    if (!$entry) fail('条目不存在或已禁用');
-
-    $text = $entry['question'];
-    if ($entry['keywords']) $text .= ' ' . $entry['keywords'];
-    if ($entry['answer'])   $text .= ' ' . strip_tags($entry['answer']);
-
     try {
-        $vectors = callEmbeddingAPI([mb_substr($text, 0, 2000)]);
+        ok(vectorizeKbEntry($db, $id), '向量化成功');
     } catch (Throwable $e) {
-        fail($e->getMessage(), 500);
+        fail('向量化失败', 500);
     }
-
-    $stmt = $db->prepare("UPDATE kb_entries SET embedding_vector = ?, embedding_updated_at = NOW() WHERE id = ?");
-    $stmt->execute([json_encode($vectors[0], JSON_UNESCAPED_UNICODE), $id]);
-
-    ok(['id' => $id], '向量化成功');
 }
 
 if ($action === 'batch_vectorize') {
-    // v3.7:阿里 text-embedding-v3 batch 上限 10(实测),原 50 改 10
-    $stmt = $db->query("SELECT id, question, answer, keywords FROM kb_entries WHERE status = 1 AND (embedding_vector IS NULL OR embedding_vector = '') ORDER BY id ASC LIMIT 10");
-    $entries = $stmt->fetchAll();
-
-    if (empty($entries)) ok(['count' => 0, 'msg' => '所有条目已向量化']);
-
-    $texts = [];
-    $idMap = [];
-    foreach ($entries as $entry) {
-        $text = $entry['question'];
-        if ($entry['keywords']) $text .= ' ' . $entry['keywords'];
-        if ($entry['answer'])   $text .= ' ' . strip_tags($entry['answer']);
-        $texts[] = mb_substr($text, 0, 2000);
-        $idMap[] = $entry['id'];
-    }
-
     try {
-        $vectors = callEmbeddingAPI($texts);
+        $result = batchVectorizeKb($db);
+        ok(['count' => $result['count']], $result['message']);
     } catch (Throwable $e) {
-        fail($e->getMessage(), 500);
+        fail('批量向量化失败', 500);
     }
-
-    $updateStmt = $db->prepare("UPDATE kb_entries SET embedding_vector = ?, embedding_updated_at = NOW() WHERE id = ?");
-    foreach ($idMap as $i => $id) {
-        if (isset($vectors[$i])) {
-            $updateStmt->execute([json_encode($vectors[$i], JSON_UNESCAPED_UNICODE), $id]);
-        }
-    }
-
-    ok(['count' => count($idMap)], '向量化完成：共 ' . count($idMap) . ' 条');
 }
 
 if ($action === 'search') {
@@ -253,8 +260,12 @@ if ($action === 'search') {
 
     if (!$query) fail('请输入搜索内容');
 
-    $result = kbSemanticSearch($db, $query, $limit, $threshold);
-    ok(['list' => $result['list'], 'source' => $result['source']]);
+    try {
+        $result = kbSemanticSearch($db, $query, $limit, $threshold);
+        ok(['list' => $result['list'], 'source' => $result['source']]);
+    } catch (Throwable $e) {
+        fail('语义检索失败', 500);
+    }
 }
 
 fail('未知操作');

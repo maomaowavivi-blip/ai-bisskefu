@@ -201,7 +201,38 @@
 </head>
 <body>
 
-<div class="app-layout">
+<style>
+  .disabled-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    box-sizing: border-box;
+    color: var(--text, #1f2937);
+  }
+  .disabled-card {
+    max-width: 560px;
+    padding: 32px;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 16px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+  }
+  .disabled-card h1 { margin: 0 0 12px; font-size: 24px; }
+  .disabled-card p { margin: 0; color: var(--text-muted, #6b7280); line-height: 1.7; }
+  .app-layout, .sidebar-toggle { display: none !important; }
+</style>
+
+<main class="disabled-page" aria-live="polite">
+  <section class="disabled-card">
+    <h1>人工接管功能已停用</h1>
+    <p>当前版本统一由智能客服处理。此页面保留为历史兼容入口，不会读取或发送人工接管数据。</p>
+  </section>
+</main>
+
+<div class="app-layout" hidden>
   <aside class="sidebar" id="sidebar">
     <a href="dashboard.html" class="sidebar-brand">
       <div class="brand-icon">🤖</div>
@@ -290,15 +321,15 @@
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
 <script>
+if (false) {
 var token = localStorage.getItem('admin_token');
 if (!token) { window.location.href = 'login.html'; }
 
-function getHeaders() { return { 'Content-Type': 'application/json' }; }
+function getHeaders() { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }; }
 function apiUrl(path) {
   var dir = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
   var base = dir.substring(0, dir.lastIndexOf('/') + 1);
-  var sep = path.indexOf('?') > -1 ? '&' : '?';
-  return base + (path.charAt(0) === '/' ? path.substring(1) : path) + sep + 'token=' + encodeURIComponent(token);
+  return base + (path.charAt(0) === '/' ? path.substring(1) : path);
 }
 
 var currentHandoffId = null;
@@ -575,6 +606,7 @@ function loadPendingCount() {
 loadList();
 loadPendingCount();
 setInterval(loadPendingCount, 15000);
+}
 </script>
 </body>
 </html>

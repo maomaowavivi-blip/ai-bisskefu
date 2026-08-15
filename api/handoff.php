@@ -2,15 +2,12 @@
 // api/handoff.php
 // 人工接管接口
 //
-// GET    /api/handoff.php?action=status&session_id=xxx      客户轮询（无认证）
-// POST   /api/handoff.php?action=pending_list               管理员：待处理列表
-// POST   /api/handoff.php?action=take_over                  管理员：接管
-// POST   /api/handoff.php?action=send_message               管理员：发送消息
-// POST   /api/handoff.php?action=release                     管理员：放弃接管（退回待处理）
-// POST   /api/handoff.php?action=end                        管理员/系统：结束
+// v3.15：历史入口统一返回 410，保留文件路径兼容旧链接。
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/HandoffTriggers.php';
+
+// v3.15：人工接管已停用。保留入口文件，避免旧链接触发 500 或误进入历史流程。
+fail('人工接管已停用', 410);
 
 $action = $_GET['action'] ?? '';
 $body   = getBody();

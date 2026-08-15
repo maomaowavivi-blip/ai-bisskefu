@@ -25,6 +25,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/PromptEngine.php';
+require_once __DIR__ . '/embedding.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     fail('仅支持POST请求', 405);
@@ -62,8 +63,10 @@ $history   = $body['history'] ?? [];
 
 if (!$sessionId) {
     $sessionId = 'openapi_' . date('Ymd') . '_' . bin2hex(random_bytes(8));
+} elseif (strlen($sessionId) > 128 || !preg_match('/^[A-Za-z0-9_.:-]+$/D', $sessionId)) {
+    fail('session_id格式不正确', 400);
 }
-if (!$message) fail('消息不能为空', 400);
+if (!$message || mb_strlen($message) > 2000) fail('消息不能为空或过长', 400);
 
 // 安全拦截
 $safetyReply = checkInputSafety($message, $config);
@@ -85,34 +88,18 @@ $rewrittenQuery = $message;
 try {
     $rewrittenQuery = PromptEngine::rewriteQuery($message, $history, $sessionId);
 } catch (Exception $e) {
-    error_log('问题改写异常: ' . $e->getMessage());
+    error_log('问题改写异常: ' . get_class($e));
 }
 
 $kbItems = [];
 try {
     // 先尝试语义搜索
-    $embeddingFile = __DIR__ . '/embedding.php';
-    if (file_exists($embeddingFile)) {
-        $ch = curl_init('http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/embedding.php?action=search');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode(['query' => $rewrittenQuery, 'limit' => 3, 'threshold' => 0.5]),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        ]);
-        $resp = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($resp && $httpCode === 200) {
-            $result = json_decode($resp, true);
-            if (isset($result['data']['list']) && !empty($result['data']['list'])) {
-                $kbItems = $result['data']['list'];
-            }
-        }
+    $semantic = kbSemanticSearch($db, $rewrittenQuery, 3, 0.5);
+    if (!empty($semantic['list'])) {
+        $kbItems = $semantic['list'];
     }
 } catch (Exception $e) {
-    error_log('语义搜索异常: ' . $e->getMessage());
+    error_log('语义搜索异常: ' . get_class($e));
 }
 
 // 语义搜索无结果时降级到全文检索
@@ -120,7 +107,7 @@ if (empty($kbItems)) {
     try {
         $kbItems = PromptEngine::searchKnowledge($db, $rewrittenQuery, PromptEngine::KB_MAX_ITEMS);
     } catch (Exception $e) {
-        error_log('知识库检索异常: ' . $e->getMessage());
+        error_log('知识库检索异常: ' . get_class($e));
     }
 }
 
@@ -139,22 +126,13 @@ try {
 
     // 记录日志
     $stmt = $db->prepare('INSERT INTO chat_logs (session_id, channel, role, content, has_verified, source_ip, tokens) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $ip = requestClientIp();
     $stmt->execute([$sessionId, 'api', 'user', $message, $isVerified ? 1 : 0, $ip, 0]);
     $stmt->execute([$sessionId, 'api', 'assistant', $reply, $isVerified ? 1 : 0, $ip, intval($result['usage']['completion_tokens'] ?? 0)]);
 
-    // 检查是否需要转人工
-    try {
-        if (shouldTriggerHandoff($reply, $message)) {
-            createHandoffIfNeeded($db, $sessionId, 'AI无法回答触发转人工');
-        }
-    } catch (Exception $e) {
-        error_log('Handoff check error: ' . $e->getMessage());
-    }
-
     ok(['session_id' => $sessionId, 'reply' => $reply]);
 } catch (Exception $e) {
-    fail('AI调用失败：' . $e->getMessage(), 500);
+    fail('AI调用失败', 500);
 }
 
 // ── 辅助函数 ──
@@ -185,42 +163,10 @@ function checkInputSafety(string $msg, ?AgentConfig $config = null): ?string {
 }
 
 function shouldTriggerHandoff(string $reply, string $message): bool {
-    $keywords = [
-        '无法回答', '不清楚', '不知道', '没有相关信息',
-        '建议联系', '转人工', '联系客服', '无法处理',
-        '无法查询', '暂时无法', '不在我范围内',
-    ];
-    foreach ($keywords as $kw) {
-        if (mb_strpos($reply, $kw) !== false) return true;
-    }
-    if (mb_strpos($reply, '这个我帮您核实一下') !== false) return true;
-    if (mb_strpos($reply, '建议您联系') !== false) return true;
-
-    // 从 DB 读取客户触发词（静态缓存，避免重复查询）
-    static $triggerKeywords = null;
-    if ($triggerKeywords === null) {
-        try {
-            $db = getDB();
-            $stmt = $db->query("SELECT keyword FROM handoff_triggers");
-            $triggerKeywords = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        } catch (Exception $e) {
-            $triggerKeywords = [];
-        }
-    }
-    foreach ($triggerKeywords as $kw) {
-        if (mb_strpos($message, $kw) !== false) return true;
-    }
-
+    // v3.15：不再创建人工接管记录，统一使用知识库中的 400 电话话术。
     return false;
 }
 
 function createHandoffIfNeeded(PDO $db, string $sessionId, string $reason): void {
-    $stmt = $db->prepare("SELECT id, status FROM human_handoffs WHERE session_id = ? ORDER BY id DESC LIMIT 1");
-    $stmt->execute([$sessionId]);
-    $existing = $stmt->fetch();
-
-    if ($existing && intval($existing['status']) !== 2) return;
-
-    $stmt = $db->prepare("INSERT INTO human_handoffs (session_id, status, reason) VALUES (?, 0, ?)");
-    $stmt->execute([$sessionId, $reason]);
+    // 兼容旧调用方，故意不落库。
 }

@@ -13,6 +13,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/PromptEngine.php';
 require_once __DIR__ . '/KnowledgeBaseSeed.php';
+require_once __DIR__ . '/embedding.php';
 
 $action = $_GET['action'] ?? '';
 $body   = getBody();
@@ -140,57 +141,21 @@ if ($action === 'vectorize') {
     adminGuard();
     $id = intval($body['id'] ?? 0);
     if (!$id) fail('参数错误');
-
-    $embedFile = __DIR__ . '/embedding.php';
-    if (!file_exists($embedFile)) fail('向量服务未部署');
-
-    $ch = curl_init('http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/embedding.php?action=vectorize');
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode(['id' => $id]),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($resp && $httpCode === 200) {
-        $result = json_decode($resp, true);
-        if ($result['code'] === 0) {
-            ok(['id' => $id], '向量化成功');
-        }
-        fail($result['msg'] ?? '向量化失败');
+    try {
+        ok(vectorizeKbEntry($db, $id), '向量化成功');
+    } catch (Throwable $e) {
+        fail('向量化失败', 500);
     }
-    fail('向量化请求失败');
 }
 
 if ($action === 'batch_vectorize') {
     adminGuard();
-    $embedFile = __DIR__ . '/embedding.php';
-    if (!file_exists($embedFile)) fail('向量服务未部署');
-
-    $ch = curl_init('http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/embedding.php?action=batch_vectorize');
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode([]),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 120,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($resp && $httpCode === 200) {
-        $result = json_decode($resp, true);
-        if ($result['code'] === 0) {
-            ok(['count' => $result['data']['count'] ?? 0], $result['msg'] ?? '向量化完成');
-        }
-        fail($result['msg'] ?? '批量向量化失败');
+    try {
+        $result = batchVectorizeKb($db);
+        ok(['count' => $result['count']], $result['message']);
+    } catch (Throwable $e) {
+        fail('批量向量化失败', 500);
     }
-    fail('批量向量化请求失败');
 }
 
 if ($action === 'delete') {
@@ -287,7 +252,7 @@ if ($action === 'import') {
             $insStmt->execute([$categoryId, $question, $answer, $keywords]);
             $success++;
         } catch (Exception $e) {
-            $errors[] = '第' . ($success + $skip + count($errors) + 2) . '行导入失败: ' . $e->getMessage();
+            $errors[] = '第' . ($success + $skip + count($errors) + 2) . '行导入失败';
         }
     }
 
@@ -304,7 +269,7 @@ if ($action === 'rebuild_defaults') {
         $stats = KnowledgeBaseSeed::rebuild($db);
         ok($stats, '知识库已按系统默认模板重建');
     } catch (Exception $e) {
-        fail('重建失败：' . $e->getMessage());
+        fail('重建失败', 500);
     }
 }
 

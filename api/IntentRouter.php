@@ -70,9 +70,6 @@ final class IntentRouter
             case 'SmallTalkWorkflow':
                 $workflow = new SmallTalkWorkflow($db, $config, $intentCtx, $sessionState, $sessionId, $visitorHash, $ip);
                 break;
-            case 'HandoffWorkflow':
-                $workflow = new HandoffWorkflow($db, $config, $intentCtx, $sessionState, $sessionId, $visitorHash, $ip);
-                break;
             case 'PreSalesWorkflow':
                 $workflow = new PreSalesWorkflow($db, $config, $intentCtx, $sessionState, $sessionId, $visitorHash, $ip);
                 break;

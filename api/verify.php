@@ -16,6 +16,7 @@ $db     = getDB();
 // 发送验证码
 // ══════════════════════════════════════════
 if ($action === 'send_code') {
+    fail('短信验证暂未开放', 503);
     $phone    = trim($body['phone'] ?? '');
     $orderNo  = trim($body['order_no'] ?? '');
     $sessionId = trim($body['session_id'] ?? '');
@@ -51,10 +52,6 @@ if ($action === 'send_code') {
     $stmt = $db->prepare('INSERT INTO sms_verify_logs (phone_hash, phone_mask, otp_hash, session_id, source_ip, status, expires_at) VALUES (?, ?, ?, ?, ?, 0, DATE_ADD(NOW(), INTERVAL 5 MINUTE))');
     $stmt->execute([$phoneHash, $phoneMask, $otpHash, $sessionId, $ip]);
 
-    // TODO: MVP 阶段先 mock 不真发短信，在日志中输出验证码用于测试
-    // 正式上线时改为调用阿里云短信 API
-    error_log("[SMS MOCK] 验证码发送: {$phoneMask} → {$otp}");
-
     ok([
         'phone_mask' => $phoneMask,
         'expires_in' => 300,
@@ -65,6 +62,7 @@ if ($action === 'send_code') {
 // 校验验证码
 // ══════════════════════════════════════════
 if ($action === 'verify_code') {
+    fail('短信验证暂未开放', 503);
     $phone    = trim($body['phone'] ?? '');
     $otp      = trim($body['otp'] ?? '');
     $orderNo  = trim($body['order_no'] ?? '');
