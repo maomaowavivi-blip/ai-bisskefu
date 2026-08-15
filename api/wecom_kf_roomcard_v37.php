@@ -111,22 +111,39 @@ function parseRoomCardDelivery(array $card): ?array
     $appid = trim((string)($mini['appid'] ?? ''));
     $pagepath = trim((string)($mini['path'] ?? ''));
     $urlLink = trim((string)($mini['urlLink'] ?? ''));
-    $roomNo = trim((string)($cardData['baoyu_room_no'] ?? ''));
-
-    if ($appid === '' || $pagepath === '' || str_starts_with($pagepath, 'weixin://')) {
-        return null;
+    $shareText = (string)($mini['shareText'] ?? ($bundle['shareText'] ?? ''));
+    $roomNo = extractDisplayRoomNo($shareText);
+    if ($roomNo === '') {
+        $roomNo = trim((string)($cardData['baoyu_room_no'] ?? ''));
     }
+
     if (!preg_match('#^weixin://dl/business/\?t=[A-Za-z0-9_-]+$#D', $urlLink)) {
-        $urlLink = '';
+        return null;
     }
 
     return [
-        'title' => $roomNo !== '' ? $roomNo : '宿家云房卡',
-        'desc' => (string)($mini['shareText'] ?? ($bundle['shareText'] ?? '点击查看您的云房卡')),
+        'title' => $roomNo !== '' ? '您的房间为 ' . $roomNo : '宿家云房卡',
+        'desc' => $shareText !== '' ? $shareText : '点击查看您的云房卡',
         'appid' => $appid,
         'pagepath' => $pagepath,
         'url' => $urlLink,
     ];
+}
+
+/**
+ * 从宿家面向客户的分享文案中提取真实展示房间号。
+ * 示例：关于您【某某门店的1001号房间】的预订 → 1001。
+ */
+function extractDisplayRoomNo(string $shareText): string
+{
+    if (!preg_match('/【([^】]+)】/u', $shareText, $matches)) {
+        return '';
+    }
+
+    $label = trim($matches[1]);
+    $label = preg_replace('/^.*的/u', '', $label) ?? $label;
+    $label = preg_replace('/号房间$/u', '', $label) ?? $label;
+    return trim($label);
 }
 
 /**
