@@ -293,70 +293,42 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
-        // v3.9 — 长串数字订单号 → 发小程序卡片(msgtype=miniprogram),客户点 → 直接进小程序
-//   区别于 v3.8c link 卡片:link 走中间页要再点一次,miniprogram 1 步直达
-//   必填:appid + pagepath + thumb_media_id,都从 DB 读
-$trimmedMsg = trim($content);
-$linkSent = false;
-if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
-    require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
+        // v3.12 — 订单号 → 使用宿家当前房卡返回的跳转信息。
+        // 原生小程序卡片使用 appid + path；发送失败时用完整 urlLink 降级。
+        $trimmedMsg = trim($content);
+        $roomCardSent = false;
+        if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
+            require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
+            $delivery = buildRoomCardDelivery($db, $trimmedMsg);
 
-    // 1. 查客房号(只显示非敏感信息)
-    //   v3.9.2:必须走 generateRoomCard 才能拿到 roomCode(byChannelOrder 不返该字段)
-    $roomCode = '';
-    $card = generateRoomCard($db, $trimmedMsg);
-    if (!$card) {
-        // 兜底:用 getRoomCard
-        $card = getRoomCard($db, $trimmedMsg);
-    }
-    if ($card) {
-        $cardData = $card['card'] ?? $card;
-        $roomCode = $cardData['room_code'] ?? $cardData['roomCode'] ?? '';
-    }
+            if ($delivery) {
+                $roomCardSent = sendKfMiniprogramMessage($from, [
+                    'appid' => $delivery['appid'],
+                    'title' => $delivery['title'],
+                    'pagepath' => $delivery['pagepath'],
+                    'thumb_media_id' => $delivery['thumb_media_id'],
+                ], $useOpenKfId);
 
-    // 2. 读小程序配置
-    $appid = trim(strval(pcGet($db, 'ai.miniprogram.appid', '')));
-    $pagepath = trim(strval(pcGet($db, 'ai.miniprogram.pagepath', '')));
-    $thumbMediaId = trim(strval(pcGet($db, 'ai.roomcard.thumb_media_id', '')));
+                if (!$roomCardSent && $delivery['url'] !== '') {
+                    $roomCardSent = sendKfLinkMessage($from, [
+                        'title' => $delivery['title'],
+                        'desc' => $delivery['desc'],
+                        'url' => $delivery['url'],
+                        'thumb_media_id' => $delivery['thumb_media_id'],
+                    ], $useOpenKfId);
+                }
+            }
 
-    if ($appid !== '' && $pagepath !== '' && $thumbMediaId !== '') {
-        // v3.9.3:pagepath 带 channel_order_id 参数,让小程序识别是哪个客户
-        $pagepathWithOrder = $pagepath . (strpos($pagepath, '?') === false ? '?' : '&')
-            . 'channel_order_id=' . urlencode($trimmedMsg);
-
-        // v3.9.1:title 改为 "您的房间为 XXXX"(用真实房号)
-        $miniTitle = $roomCode !== ''
-            ? "您的房间为 $roomCode"
-            : '宿家云房卡';
-        $miniParams = [
-            'appid' => $appid,
-            'title' => $miniTitle,
-            'pagepath' => $pagepathWithOrder,
-            'thumb_media_id' => $thumbMediaId,
-        ];
-        if (sendKfMiniprogramMessage($from, $miniParams, $useOpenKfId)) {
-            wecom_kf_log('v3.9.1 miniprogram sent to ' . $from . ': ' . $miniTitle);
-            $linkSent = true;
-        } else {
-            wecom_kf_log('v3.9.1 miniprogram send failed, fallback');
+            if (!$roomCardSent) {
+                $roomCardSent = sendKfMessage(
+                    $from,
+                    '暂时未能打开您的云房卡，请稍后重试或联系前台。',
+                    $useOpenKfId
+                );
+            }
         }
-    } else {
-        wecom_kf_log('v3.9.1 missing config: appid=' . ($appid !== '') . ' pagepath=' . ($pagepath !== '') . ' thumb=' . ($thumbMediaId !== ''));
-    }
 
-    // 兜底:发不出 miniprogram 就发文本(同 v3.8)
-    if (!$linkSent) {
-        $textReply = $roomCode !== ''
-            ? "您入住的房间为 $roomCode ,请打开小程序查看云房卡 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn"
-            : "您的云房卡请在小程序内查看 👇\n\nhttps://wxmpurl.cn/f1c4BdFdHDn";
-        if (sendKfMessage($from, $textReply, $useOpenKfId)) {
-            wecom_kf_log('v3.9 text fallback sent');
-            $linkSent = true;
-        }
-    }
-}
-
-if ($linkSent) continue;
+        if ($roomCardSent) continue;
 
         // 4. 发送（必须用会话对应的 open_kfid，不能用配置里的固定值——
         //    用户扫码进的是事件里的 OpenKfId，跟 platform_config 配置的可能是不同账号）
@@ -505,7 +477,7 @@ function sendKfLinkMessage(string $externalUserId, array $link, string $useOpenK
         wecom_kf_log('send_kf_link error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
         return false;
     }
-    wecom_kf_log('Sent kf link to ' . $externalUserId . ': ' . mb_substr($payload['link']['title'], 0, 30));
+    wecom_kf_log('Sent roomcard link message');
     return true;
 }
 
@@ -549,7 +521,7 @@ function sendKfMiniprogramMessage(string $externalUserId, array $mini, string $u
         wecom_kf_log('send_kf_mini error: ' . json_encode($resp, JSON_UNESCAPED_UNICODE));
         return false;
     }
-    wecom_kf_log('Sent kf miniprogram to ' . $externalUserId . ': ' . mb_substr($payload['miniprogram']['title'], 0, 30));
+    wecom_kf_log('Sent roomcard miniprogram message');
     return true;
 }
 

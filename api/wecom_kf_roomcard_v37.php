@@ -2,13 +2,13 @@
 /**
  * api/wecom_kf_roomcard_v37.php
  *
- * v3.7 — 云房卡 link 卡片生成与发送
+ * v3.12 — 云房卡跳转参数生成
  *
  * 流程:
  *   1. 调 byChannelOrder 查云房卡
- *   2. 有云房卡 → 解析 share_bundle → 返回 link 卡片参数
+ *   2. 有云房卡 → 解析 share_bundle → 返回宿家生成的 appid/path/urlLink
  *   3. 没有云房卡 → 调 generateByChannelOrder 生成 → 再解析
- *   4. thumb_media_id 缓存到 logs/roomcard_thumb_media_id.txt,首次上传后永久使用
+ *   4. 固定封面上传为 thumb_media_id,不生成订单图片
  *
  * 凭证来自 DB platform_config:
  *   - roomcard.username
@@ -17,8 +17,8 @@
 
 declare(strict_types=1);
 
-// 临时缩略图 URL(Unsplash 免费商用酒店房间图)
-define('ROOMCARD_THUMB_URL', 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=520&h=416&fit=crop&q=80');
+// 宿家云房卡固定封面图(不含订单动态文字)
+define('ROOMCARD_THUMB_URL', 'https://gongan-1331464141.cos.ap-guangzhou.myqcloud.com/file/08010fd4a1aefe1eab90365e82e4ded9.jpg');
 
 /**
  * 查云房卡(根据 channel_order_id)
@@ -93,36 +93,55 @@ function generateRoomCard(PDO $db, string $channelOrderId): ?array
 }
 
 /**
- * 从云房卡记录里提取 link 卡片参数(urlLink/shareText)
+ * 统一生成小程序卡片及 link 兜底参数。
+ *
+ * 原生小程序卡片必须使用 appid + pagepath；link 兜底原样使用 urlLink。
+ * 两种跳转信息都由宿家针对当前房卡生成，本地不再拼接订单号。
+ */
+function parseRoomCardDelivery(array $card): ?array
+{
+    $cardData = isset($card['card']) && is_array($card['card']) ? $card['card'] : $card;
+    $bundleRaw = $cardData['share_bundle'] ?? ($card['share_bundle'] ?? '');
+    $bundle = is_array($bundleRaw) ? $bundleRaw : json_decode((string)$bundleRaw, true);
+    if (!is_array($bundle) || !isset($bundle['miniapps'][0]) || !is_array($bundle['miniapps'][0])) {
+        return null;
+    }
+
+    $mini = $bundle['miniapps'][0];
+    $appid = trim((string)($mini['appid'] ?? ''));
+    $pagepath = trim((string)($mini['path'] ?? ''));
+    $urlLink = trim((string)($mini['urlLink'] ?? ''));
+    $roomNo = trim((string)($cardData['baoyu_room_no'] ?? ''));
+
+    if ($appid === '' || $pagepath === '' || str_starts_with($pagepath, 'weixin://')) {
+        return null;
+    }
+    if (!preg_match('#^weixin://dl/business/\?t=[A-Za-z0-9_-]+$#D', $urlLink)) {
+        $urlLink = '';
+    }
+
+    return [
+        'title' => $roomNo !== '' ? $roomNo : '宿家云房卡',
+        'desc' => (string)($mini['shareText'] ?? ($bundle['shareText'] ?? '点击查看您的云房卡')),
+        'appid' => $appid,
+        'pagepath' => $pagepath,
+        'url' => $urlLink,
+    ];
+}
+
+/**
+ * 保留旧入口，供 link 类型兜底和其他调用方兼容。
  */
 function parseRoomCardForLink(array $card): ?array
 {
-    $bundleRaw = $card['share_bundle'] ?? '';
-    if (!empty($bundleRaw)) {
-        $bundle = json_decode($bundleRaw, true);
-        if (is_array($bundle) && isset($bundle['miniapps'][0])) {
-            $mini = $bundle['miniapps'][0];
-            $url  = $mini['urlLink'] ?? '';
-            if ($url !== '') {
-                return [
-                    'title' => $mini['name'] ?? '柚光云房卡',
-                    'desc'  => $bundle['shareText'] ?? '点击查看您的云房卡',
-                    'url'   => $url,
-                ];
-            }
-        }
-    }
+    $parsed = parseRoomCardDelivery($card);
+    if (!$parsed || $parsed['url'] === '') return null;
 
-    // share_bundle 为空时降级:用 card.urlLink(老 API 可能直接返这个)
-    if (!empty($card['urlLink'])) {
-        return [
-            'title' => '柚光云房卡',
-            'desc'  => '点击查看您的云房卡',
-            'url'   => $card['urlLink'],
-        ];
-    }
-
-    return null;
+    return [
+        'title' => $parsed['title'],
+        'desc' => $parsed['desc'],
+        'url' => $parsed['url'],
+    ];
 }
 
 /**
@@ -210,4 +229,29 @@ function buildRoomCardLink(PDO $db, string $channelOrderId): ?array
         'url'   => $parsed['url'],
         'thumb_media_id' => $thumb,
     ];
+}
+
+/**
+ * v3.12 主入口：构建原生小程序卡片和 link 兜底所需的全部参数。
+ */
+function buildRoomCardDelivery(PDO $db, string $channelOrderId): ?array
+{
+    $card = getRoomCard($db, $channelOrderId);
+    if (!$card) {
+        $card = generateRoomCard($db, $channelOrderId);
+        if (!$card) return null;
+    }
+
+    $parsed = parseRoomCardDelivery($card);
+    if (!$parsed) return null;
+
+    // 优先沿用当前已经验证可显示的封面素材；缺失时才上传固定封面。
+    $thumb = trim((string)pcGet($db, 'ai.roomcard.thumb_media_id', ''));
+    if ($thumb === '') {
+        $thumb = getThumbMediaIdCached() ?? '';
+    }
+    if ($thumb === '') return null;
+
+    $parsed['thumb_media_id'] = $thumb;
+    return $parsed;
 }
