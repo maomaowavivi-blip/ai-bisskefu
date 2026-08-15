@@ -318,20 +318,24 @@ if (preg_match('/^\d{8,30}$/', $trimmedMsg)) {
     $thumbMediaId = trim(strval(pcGet($db, 'ai.roomcard.thumb_media_id', '')));
 
     if ($appid !== '' && $pagepath !== '' && $thumbMediaId !== '') {
+        // v3.9.1:title 改为 "您的房间为 XXXX"(用真实房号)
+        $miniTitle = $roomCode !== ''
+            ? "您的房间为 $roomCode"
+            : '宿家云房卡';
         $miniParams = [
             'appid' => $appid,
-            'title' => '宿家云房卡',
+            'title' => $miniTitle,
             'pagepath' => $pagepath,
             'thumb_media_id' => $thumbMediaId,
         ];
         if (sendKfMiniprogramMessage($from, $miniParams, $useOpenKfId)) {
-            wecom_kf_log('v3.9 miniprogram sent to ' . $from);
+            wecom_kf_log('v3.9.1 miniprogram sent to ' . $from . ': ' . $miniTitle);
             $linkSent = true;
         } else {
-            wecom_kf_log('v3.9 miniprogram send failed, fallback');
+            wecom_kf_log('v3.9.1 miniprogram send failed, fallback');
         }
     } else {
-        wecom_kf_log('v3.9 missing config: appid=' . ($appid !== '') . ' pagepath=' . ($pagepath !== '') . ' thumb=' . ($thumbMediaId !== ''));
+        wecom_kf_log('v3.9.1 missing config: appid=' . ($appid !== '') . ' pagepath=' . ($pagepath !== '') . ' thumb=' . ($thumbMediaId !== ''));
     }
 
     // 兜底:发不出 miniprogram 就发文本(同 v3.8)
