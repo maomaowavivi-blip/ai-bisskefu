@@ -201,23 +201,41 @@ function uploadImageToWeCom(string $accessToken, string $imgUrl): ?string
 }
 
 /**
- * 获取缩略图 media_id(文件缓存,首次上传后永久使用)
+ * 获取缩略图 media_id(文件缓存 + 60 小时自动刷新)
+ * v3.15.5:企微临时素材有效期约 72 小时,60 小时阈值强制重传
  */
 function getThumbMediaIdCached(): ?string
 {
     $cacheFile = __DIR__ . '/../logs/roomcard_thumb_media_id.txt';
+
     if (file_exists($cacheFile)) {
-        $cached = trim(file_get_contents($cacheFile));
-        if ($cached !== '') return $cached;
+        $raw = trim(file_get_contents($cacheFile));
+        // v3.15.5:尝试解析 JSON 格式 {media_id, created_at}
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded) && isset($decoded['media_id'], $decoded['created_at'])) {
+            // 60 小时内复用(留 12 小时缓冲:72-60=12)
+            if (time() < (int)$decoded['created_at'] + 60 * 3600) {
+                return (string)$decoded['media_id'];
+            }
+            // 过期 → 删除走重新上传路径
+            @unlink($cacheFile);
+        } elseif (preg_match('/^[A-Za-z0-9_=-]+$/', $raw) && strlen($raw) >= 40) {
+            // v3.15.5:兼容旧格式(只有 media_id 一行),直接当成过期删掉重新上传
+            // 保留向后兼容 1 次,后续稳定
+            @unlink($cacheFile);
+        }
     }
 
-    // 复用 wecom_kf.php 的 getAccessToken(全局函数)
+    // 重新上传
     $token = getAccessToken();
     if (!$token) return null;
 
     $mediaId = uploadImageToWeCom($token, ROOMCARD_THUMB_URL);
     if ($mediaId) {
-        @file_put_contents($cacheFile, $mediaId);
+        @file_put_contents($cacheFile, json_encode([
+            'media_id'   => $mediaId,
+            'created_at' => time(),
+        ]));
     }
     return $mediaId;
 }
@@ -270,5 +288,7 @@ function buildRoomCardDelivery(PDO $db, string $channelOrderId): ?array
     if ($thumb === '') return null;
 
     $parsed['thumb_media_id'] = $thumb;
+    // v3.15.5:同步写回 DB,确保 buildRoomCardDelivery 后续调用读新 thumb
+    @pcSet($db, 'ai.roomcard.thumb_media_id', $thumb);
     return $parsed;
 }
