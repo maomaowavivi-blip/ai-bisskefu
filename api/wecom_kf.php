@@ -285,7 +285,16 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         // 2. ChatPipeline 处理
         $sessionId = 'wecom_kf_' . substr(sha1($from), 0, 16);
         $trimmedMsg = trim($content);
-        $isOrderMessage = preg_match('/^\d{8,30}$/', $trimmedMsg) === 1;
+
+        // v3.15.3:放宽闸门 — 消息中包含 8-30 位数字串即视为订单号
+        // 真人发订单号常带中文("我的订单号是XXX"),原 /^\\d{8,30}$/ 过严导致走 SMALL_TALK
+        if (preg_match('/\b(\d{8,30})\b/', $trimmedMsg, $mOrder) === 1) {
+            $isOrderMessage = true;
+            $orderCandidate  = $mOrder[1];
+        } else {
+            $isOrderMessage = false;
+            $orderCandidate  = '';
+        }
 
         try {
             $result = ChatPipeline::process(
@@ -335,7 +344,7 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         $roomCardSent = false;
         if ($isOrderMessage) {
             require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
-            $delivery = buildRoomCardDelivery($db, $trimmedMsg);
+            $delivery = buildRoomCardDelivery($db, $orderCandidate);
 
             if ($delivery) {
                 $roomCardSent = sendKfMiniprogramMessage($from, [
