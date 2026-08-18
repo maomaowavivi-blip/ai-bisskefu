@@ -44,6 +44,7 @@ require_once __DIR__ . '/ReplyRenderer.php';
 require_once __DIR__ . '/ChatPipeline.php';
 require_once __DIR__ . '/Workflow/AbstractWorkflow.php';
 require_once __DIR__ . '/Workflow/YunfangkaCredentialWorkflow.php';
+require_once __DIR__ . '/helpers/order_candidate.php';  // v3.15.4:统一订单号提取 + OCR
 require_once __DIR__ . '/Workflow/RoomQueryWorkflow.php';
 require_once __DIR__ . '/Workflow/OrderQueryWorkflow.php';
 require_once __DIR__ . '/Workflow/KnowledgeWorkflow.php';
@@ -265,13 +266,29 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         wecom_kf_log('sync_msg returned ' . count($messages) . ' messages');
 
         foreach ($messages as $msg) {
-        // 只处理客户发来的文本消息（external_userid 开头 + msgtype=text）
+        // v3.15.4:放过 image/voice/file,只 skip event
         $msgType = $msg['msgtype'] ?? '';
         $from    = $msg['external_userid'] ?? '';
-        $content = $msg['text']['content'] ?? '';
 
-        if ($msgType !== 'text' || empty($from) || empty($content)) {
+        if ($msgType === 'event' || empty($from)) {
             wecom_kf_log('Skip unsupported message type=' . $msgType);
+            continue;
+        }
+
+        // 提取文本: text 直接取 / image 调本地 RapidOCR / voice/file 暂不接
+        $extractedText = '';
+        if ($msgType === 'text') {
+            $extractedText = $msg['text']['content'] ?? '';
+        } elseif ($msgType === 'image') {
+            $picUrl = $msg['image']['pic_url'] ?? '';
+            if ($picUrl !== '') {
+                $extractedText = ocrImageFromUrl($db, $picUrl, $from);
+            }
+        }
+        // voice/file 暂不接 — v3.15.4 范围不包含
+
+        if ($extractedText === '') {
+            wecom_kf_log('Skip empty content type=' . $msgType);
             continue;
         }
 
@@ -284,22 +301,17 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 
         // 2. ChatPipeline 处理
         $sessionId = 'wecom_kf_' . substr(sha1($from), 0, 16);
-        $trimmedMsg = trim($content);
+        $trimmedMsg = trim($extractedText);
 
-        // v3.15.3:放宽闸门 — 消息中包含 8-30 位数字串即视为订单号
-        // 真人发订单号常带中文("我的订单号是XXX"),原 /^\\d{8,30}$/ 过严导致走 SMALL_TALK
-        if (preg_match('/\b(\d{8,30})\b/', $trimmedMsg, $mOrder) === 1) {
-            $isOrderMessage = true;
-            $orderCandidate  = $mOrder[1];
-        } else {
-            $isOrderMessage = false;
-            $orderCandidate  = '';
-        }
+        // v3.15.4:用统一入口 extractOrderCandidate 替代内联正则
+        // 文本(text 原文 / OCR 识别结果 / 后续 ASR)统一过此闸门
+        $orderCandidate  = extractOrderCandidate($trimmedMsg);
+        $isOrderMessage  = ($orderCandidate !== '');
 
         try {
             $result = ChatPipeline::process(
                 $sessionId,
-                $content,
+                $extractedText,   // v3.15.4:text 原文 / OCR 文本统一进 Pipeline
                 [],
                 $db,
                 'wechat_kf',   // channel：Pipeline 不带 rich_content
