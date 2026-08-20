@@ -49,7 +49,7 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         } catch (\Throwable $e) {
             error_log('[OrderQueryWorkflow] queryChannelOrder failed: ' . $e->getMessage());
             return WorkflowResult::text(
-                '订单查询暂时不可用，请稍后再试或拨打 400-155-9959 联系管家',
+                '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
                 'OrderQueryWorkflow'
             );
         }
@@ -57,7 +57,7 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         // 查单失败(订单不存在)
         if (!$orderData) {
             return WorkflowResult::text(
-                '没有查询到这个订单号，请确认订单号是否正确，或拨打 400-155-9959 联系管家～',
+                '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
                 'OrderQueryWorkflow'
             );
         }
