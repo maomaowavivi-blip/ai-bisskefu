@@ -241,8 +241,8 @@ CREATE TABLE kb_entries (
 
 > **线上实际**:kb_entries 总条数 = **149**(种子 44 + CSV 手工导入 105),全部已向量化(149/149,2026-08-20 实测)。
 
--- 文档知识(表结构保留,未启用)
-CREATE TABLE kb_documents ( ... );
+-- ~~文档知识(表结构保留,未启用)~~
+-- ~~CREATE TABLE kb_documents ( ... );~~
 
 -- 订单 API 配置(预留,实际用宿家直连)
 CREATE TABLE enterprise_api_config ( ... );
@@ -258,9 +258,8 @@ CREATE TABLE enterprise_api_config ( ... );
 | 语义向量检索 | `api/embedding.php` → `kbSemanticSearch()` | **Qwen dashscope `text-embedding-v3`**(1024 维) |
 | **KB 直答(跳过 LLM)** | `PromptEngine::directReplyFromKb` | 政策/预订/云房卡类固定答复 |
 | 批量向量化 | `embedding.php?action=batch_vectorize` | 后台「批量向量化」按钮 |
-| **CSV 批量导入** | `api/knowledge.php?action=import` | v3.1 新增;≤1000 行 UTF-8 |
+| **CSV 批量导入** | `api/knowledge.php?action=import` | v3.1 新增;UTF-8;**无代码层行数限制**(§9.6) |
 | Excel 批量导入 | — | **未实现**(CSV 已覆盖 80% 场景) |
-| `kb_documents` 文档库 | — | **表结构在 PRD,未接入 RAG** |
 
 #### 柚光通用知识库结构(`KnowledgeBaseSeed`,8 类)
 
@@ -664,7 +663,7 @@ sujia_source_snapshot_dev → ai-sujia 同步 → sujia_ai_sidecar_dev
 - [ ] 掌柜统一联系方式写入 KB
 - [ ] PMS 绑单结果会话缓存(`RoomQueryWorkflow` step=1 **仍每次要订单号**)
 - [x] ~~Excel 批量导入 FAQ~~ → **已用 CSV 替代**
-- [ ] `kb_documents` 文档 RAG(表结构在,未启用)
+- [x] ~~`kb_documents` 文档 RAG~~ → **已放弃**,本功能从 PRD 移除
 - [ ] `chat.html` 作 iframe 内页面嵌入测试(嵌入代码已生成,待补测试)
 
 ### 7.2 人格化验收
@@ -942,7 +941,7 @@ Body: { "session_id": "...", "message": "...", "history": [] }
 |---|----|---------|------|
 | 1 | 南宁吃喝玩乐长篇攻略 KB | ✅ **短答已有(4 条)**,长篇攻略客户走地图核实即可 | 客户问吃喝玩乐 → 短答 + 建议地图核实;**完整 KB 由苏鸣在 admin/knowledge.html 手工补充** |
 | 2 | 掌柜统一联系方式 KB | ❌ **0 条** | 客户问"怎么联系掌柜"无具体微信/电话 |
-| 3 | `kb_documents` 文档 RAG | ❌ 表不存在,grep api 也无引用 | 长篇攻略 KB 无法落地(**保留选项,待苏鸣拍板是否启用**) |
+| 3 | ~~`kb_documents` 文档 RAG~~ | ❌ **已放弃**,本功能从 PRD 移除 | 无 |
 | 4 | `chat.html` iframe 嵌入测试 | 🟡 嵌入代码已生成(`settings.html` Tab「🔗 网站嵌入」第 365/665 行),**实际嵌入测试待苏鸣执行** | 第三方网站嵌入功能代码已可用,待业务侧验证 |
 | 5 | 批量导入 1000+ 条 | ✅ `knowledge.php` CSV 无强制行数限制(仅受 PHP 上传配置限制);已实测 | 无 |
 | 6 | §7.2 人格化验收 3 项 | 🟡 **待苏鸣执行**(功能代码完整,缺真实多 persona 对比验收) | 人设功能代码存在,验收流程缺失 |
