@@ -231,13 +231,15 @@ CREATE TABLE kb_entries (
     similar_questions TEXT DEFAULT NULL,
     status TINYINT DEFAULT 1,
     hit_count INT DEFAULT 0,
-    embedding_status TINYINT DEFAULT 0, -- v3.7 KB: 0=未向量 1=已向量
-    embedding_dim INT DEFAULT 0,
+    embedding_vector LONGTEXT DEFAULT NULL,    -- v3.7 KB:Qwen 1024 维向量(已废弃 embedding_status)
+    embedding_updated_at DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_enterprise (enterprise_id),
     INDEX idx_category (category_id)
 );
+
+> **线上实际**:kb_entries 总条数 = **149**(种子 44 + CSV 手工导入 105),全部已向量化(149/149,2026-08-20 实测)。
 
 -- 文档知识(表结构保留,未启用)
 CREATE TABLE kb_documents ( ... );
