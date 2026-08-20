@@ -384,7 +384,7 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             if (!$roomCardSent) {
                 $roomCardSent = sendKfMessage(
                     $from,
-                    '暂时未能打开您的云房卡，请稍后重试或联系前台。',
+                    '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
                     $useOpenKfId
                 );
             }
