@@ -352,20 +352,34 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         transKfServiceState($useOpenKfId, $from, 1);
 
         // v3.15.2 — 订单号固定发送 A 样式原生小程序卡片。
-        // appid 和 pagepath 原样使用宿家当前房卡返回值，本地不拼接、不改写。
+        // appid 和 pagepath 原样使用宿家当前房卡返回值,本地不拼接、不改写。
+        // v3.16 — 一单多房:宿家 cards 数组有几张就发几张。
         $roomCardSent = false;
         if ($isOrderMessage) {
             require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
-            $delivery = buildRoomCardDelivery($db, $orderCandidate);
+            $deliveries = buildRoomCardDeliveries($db, $orderCandidate);
+            $cardCount = count($deliveries);
 
-            if ($delivery) {
-                $roomCardSent = sendKfMiniprogramMessage($from, [
-                    'appid' => $delivery['appid'],
-                    'title' => $delivery['title'],
-                    'pagepath' => $delivery['pagepath'],
+            // 2 张及以上:加文字引导(避免客户不知道有几间房)
+            if ($cardCount >= 2) {
+                sendKfMessage(
+                    $from,
+                    sprintf('您一共订了 %d 间房,以下是各房间的云房卡～', $cardCount),
+                    $useOpenKfId
+                );
+            }
+
+            $sentCount = 0;
+            foreach ($deliveries as $delivery) {
+                $ok = sendKfMiniprogramMessage($from, [
+                    'appid'          => $delivery['appid'],
+                    'title'          => $delivery['title'],
+                    'pagepath'       => $delivery['pagepath'],
                     'thumb_media_id' => $delivery['thumb_media_id'],
                 ], $useOpenKfId);
+                if ($ok) $sentCount++;
             }
+            $roomCardSent = $sentCount > 0;
 
             if (!$roomCardSent) {
                 $roomCardSent = sendKfMessage(

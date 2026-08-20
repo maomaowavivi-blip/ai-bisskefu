@@ -241,6 +241,73 @@ function getThumbMediaIdCached(): ?string
 }
 
 /**
+ * v3.16:调 generateByChannelOrder 拿当前订单的所有 cards。
+ * 与 generateRoomCard 区别:返 cards 数组本身而非 [0],支持一单多房。
+ */
+function generateAllRoomCards(PDO $db, string $channelOrderId): ?array
+{
+    $user = trim(pcGet($db, 'roomcard.username', ''));
+    $pwd  = trim(pcGet($db, 'roomcard.password', ''));
+    if ($user === '' || $pwd === '') return null;
+
+    $url = "https://apicenter.sujia365.com/index.php/openapi/room_card/generateByChannelOrder"
+        . "?username=" . urlencode($user)
+        . "&pwd=" . $pwd  // 密码已编码,不再二次 urlencode
+        . "&channel_order_id=" . urlencode($channelOrderId);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => [],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $resp = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$resp) {
+        error_log('[roomcard] generateAll HTTP fail: ' . $httpCode . ' err=' . $err);
+        return null;
+    }
+    $data = json_decode($resp, true);
+    if (!isset($data['code']) || intval($data['code']) !== 1) return null;
+    if (empty($data['data']['cards']) || !is_array($data['data']['cards'])) return null;
+    return $data['data']['cards'];
+}
+
+/**
+ * v3.16:一次返回当前订单的全部房卡 delivery 数组。
+ * 宿家一单多房时返 N 张(N>=1),每张都是独立云房卡。
+ * @return array[] 每个元素是 parseRoomCardDelivery + thumb_media_id 的结果
+ */
+function buildRoomCardDeliveries(PDO $db, string $channelOrderId): array
+{
+    $cards = generateAllRoomCards($db, $channelOrderId);
+    if (!$cards || !is_array($cards)) return [];
+
+    // thumb 一次性取好(避免重复上传/DB 查询)
+    $thumb = trim((string)pcGet($db, 'ai.roomcard.thumb_media_id', ''));
+    if ($thumb === '') {
+        $thumb = getThumbMediaIdCached() ?? '';
+    }
+    if ($thumb === '') return [];
+    // v3.15.5:同步写回 DB,确保后续调用读新 thumb
+    @pcSet($db, 'ai.roomcard.thumb_media_id', $thumb);
+
+    $deliveries = [];
+    foreach ($cards as $card) {
+        if (!is_array($card)) continue;
+        $parsed = parseRoomCardDelivery($card);
+        if (!$parsed) continue;
+        $parsed['thumb_media_id'] = $thumb;
+        $deliveries[] = $parsed;
+    }
+    return $deliveries;
+}
+
+/**
  * 主入口:返回完整 link 卡片参数数组(给 sendKfLinkMessage 用)
  * 返回 null 表示无法生成(配置缺失/API 失败/无 thumb 等)
  */
