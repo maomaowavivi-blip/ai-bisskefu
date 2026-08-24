@@ -197,7 +197,7 @@ kf_msg_or_event
 
 **v3.4 修复**(`v3.4-persona-prompt-fix-blueprint.md`):
 - `emotion_strategy` 进入 prompt
-- `service_rules` 掌柜句过滤修正
+- `service_rules` 房管句过滤修正
 - `principles` 不再截断
 - "您"字冲突解决
 
@@ -398,7 +398,7 @@ sujia_source_snapshot_dev → ai-sujia 同步 → sujia_ai_sidecar_dev
 | 宠物/吸烟 | **南宁统一禁宠物、室内禁烟** |
 | 增值服务 | **无**接送机/生日布置/寄存等特殊服务 |
 | 预订 | 仅上述三平台;**AI/聊天不代订** |
-| 掌柜联系方式 | ❌ 暂未写入 KB(待补充) |
+| 房管联系方式 | ❌ 暂未写入 KB(待补充) |
 | 吃喝玩乐攻略 | **暂缓**;现有条目仅短答 + 建议地图核实 |
 
 ### 3.3.3 转人工触发词库(已实现)
@@ -660,7 +660,7 @@ sujia_source_snapshot_dev → ai-sujia 同步 → sujia_ai_sidecar_dev
 ### 7.1.5 暂缓 / 未做
 
 - [ ] 南宁吃喝玩乐长篇攻略 KB
-- [ ] 掌柜统一联系方式写入 KB
+- [ ] 房管统一联系方式写入 KB
 - [ ] PMS 绑单结果会话缓存(`RoomQueryWorkflow` step=1 **仍每次要订单号**)
 - [x] ~~Excel 批量导入 FAQ~~ → **已用 CSV 替代**
 - [x] ~~`kb_documents` 文档 RAG~~ → **已放弃**,本功能从 PRD 移除
@@ -826,7 +826,7 @@ Body: { "session_id": "...", "message": "...", "history": [] }
 ### 10.1 v3.4 — persona prompt 修复(2026-08-14)
 **蓝图**:`v3.4-persona-prompt-fix-blueprint.md`
 - `emotion_strategy` 进 prompt
-- `service_rules` 掌柜句过滤修正
+- `service_rules` 房管句过滤修正
 - `principles` 不再截断
 - 「您」字冲突解决
 
@@ -940,7 +940,7 @@ Body: { "session_id": "...", "message": "...", "history": [] }
 ### B.3 PRD 写了但**未完全落地**的(2026-08-20 重新核查)| # | 项 | 实际状态 | 影响 |
 |---|----|---------|------|
 | 1 | 南宁吃喝玩乐长篇攻略 KB | ✅ **短答已有(4 条)**,长篇攻略客户走地图核实即可 | 客户问吃喝玩乐 → 短答 + 建议地图核实;**完整 KB 由苏鸣在 admin/knowledge.html 手工补充** |
-| 2 | 掌柜统一联系方式 KB | ❌ **0 条** | 客户问"怎么联系掌柜"无具体微信/电话 |
+| 2 | 房管统一联系方式 KB | ❌ **0 条** | 客户问"怎么联系房管"无具体微信/电话 |
 | 3 | ~~`kb_documents` 文档 RAG~~ | ❌ **已放弃**,本功能从 PRD 移除 | 无 |
 | 4 | `chat.html` iframe 嵌入测试 | 🟡 嵌入代码已生成(`settings.html` Tab「🔗 网站嵌入」第 365/665 行),**实际嵌入测试待苏鸣执行** | 第三方网站嵌入功能代码已可用,待业务侧验证 |
 | 5 | 批量导入 1000+ 条 | ✅ `knowledge.php` CSV 无强制行数限制(仅受 PHP 上传配置限制);已实测 | 无 |
