@@ -73,6 +73,7 @@
   font-weight: 600;
 }
 </style>
+<script src="auth-guard.js"></script>
 </head>
 <body>
 <div class="app-layout">
@@ -207,10 +208,18 @@ function toggleSidebar() {
 loadStats();
 loadList();
 
+// v3.18: 鉴权失败统一处理(401 → 清 token 跳登录)
+function handleAuthFail() {
+  localStorage.removeItem('admin_token');
+  showToast('登录已过期，正在跳转登录页...');
+  setTimeout(function() { window.location.href = 'login.html'; }, 1200);
+}
+
 function loadStats() {
   fetch(apiUrl('/api/chat.php?action=stats'), { headers: getHeaders() })
     .then(function(r) { return r.json(); })
     .then(function(res) {
+      if (res.code === 401) { handleAuthFail(); return; }
       if (res.code === 0 && res.data) {
         document.getElementById('statsInfo').textContent =
           '今日 ' + (res.data.today_sessions || 0) +
@@ -232,15 +241,20 @@ function loadList() {
     .then(function(res) {
       document.getElementById('loading').style.display = 'none';
       var tbody = document.getElementById('logList');
+      if (res.code === 401) { handleAuthFail(); return; }
       if (res.code === 0 && res.data.list && res.data.list.length > 0) {
         tbody.innerHTML = res.data.list.map(function(item) {
           return renderSessionRow(item);
         }).join('');
         bindSessionButtons();
         renderPagination(res.data.total, res.data.page);
-      } else {
+      } else if (res.code === 0) {
         tbody.innerHTML = '';
         document.getElementById('empty').style.display = 'block';
+        document.getElementById('pagination').innerHTML = '';
+      } else {
+        // v3.18: 非 0 且非 401 的错误,显示具体原因而非假装无数据
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary);">加载失败：' + escapeHtml(res.msg || ('错误码 ' + res.code)) + '</td></tr>';
         document.getElementById('pagination').innerHTML = '';
       }
     });
@@ -311,10 +325,11 @@ function viewDetail(sessionId) {
   fetch(apiUrl('/api/chat.php?action=logs&session_id=' + encodeURIComponent(sessionId)), { headers: getHeaders() })
     .then(function(r) { return r.json(); })
     .then(function(res) {
+      if (res.code === 401) { handleAuthFail(); return; }
       if (res.code === 0 && res.data && res.data.messages) {
         renderMessages(res.data.messages);
       } else {
-        showToast('加载失败');
+        showToast('加载失败：' + (res.msg || '未知错误'));
       }
     });
 }
