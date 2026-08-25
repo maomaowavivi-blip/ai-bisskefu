@@ -371,13 +371,34 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 
             $sentCount = 0;
             foreach ($deliveries as $delivery) {
-                $ok = sendKfMiniprogramMessage($from, [
+                $result = sendKfMiniprogramMessageEx($from, [
                     'appid'          => $delivery['appid'],
                     'title'          => $delivery['title'],
                     'pagepath'       => $delivery['pagepath'],
                     'thumb_media_id' => $delivery['thumb_media_id'],
                 ], $useOpenKfId);
-                if ($ok) $sentCount++;
+
+                // v3.21:40007 = thumb_media_id 无效 → 现场自愈
+                // (强制删缓存重传新 thumb,用新值重发这一张;消息未投递,重发不会双卡)
+                if (!$result['ok'] && $result['errcode'] === 40007) {
+                    wecom_kf_log('thumb 40007 self-healing: force refresh and retry');
+                    $newThumb = forceRefreshThumbCache();
+                    if ($newThumb && $newThumb !== $delivery['thumb_media_id']) {
+                        $delivery['thumb_media_id'] = $newThumb;
+                        @pcSet($db, 'ai.roomcard.thumb_media_id', $newThumb);
+                        // 后续卡直接复用新 thumb
+                        foreach ($deliveries as &$d) { $d['thumb_media_id'] = $newThumb; }
+                        unset($d);
+                        $result = sendKfMiniprogramMessageEx($from, [
+                            'appid'          => $delivery['appid'],
+                            'title'          => $delivery['title'],
+                            'pagepath'       => $delivery['pagepath'],
+                            'thumb_media_id' => $newThumb,
+                        ], $useOpenKfId);
+                    }
+                }
+
+                if ($result['ok']) $sentCount++;
             }
             $roomCardSent = $sentCount > 0;
 
@@ -562,6 +583,50 @@ function sendKfLinkMessage(string $externalUserId, array $link, string $useOpenK
  * 1 步直达:客户点 → 直接打开小程序 → 看到云房卡
  * 区别于 link:link 走中间页(要再点"打开小程序"),miniprogram 直接进
  */
+/**
+ * v3.21:sendKfMiniprogramMessage 的扩展版,返回 ['ok'=>bool, 'errcode'=>int]。
+ * 40007 自愈路径需要区分"thumb 无效"与其他错误。
+ */
+function sendKfMiniprogramMessageEx(string $externalUserId, array $mini, string $useOpenKfId = ''): array
+{
+    $accessToken = getAccessToken();
+    if ($accessToken === null) return ['ok' => false, 'errcode' => -1];
+
+    $openKfId = $useOpenKfId !== '' ? $useOpenKfId : getConfiguredOpenKfId();
+    $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token=" . urlencode($accessToken);
+
+    $payload = [
+        'touser' => $externalUserId,
+        'open_kfid' => $openKfId,
+        'msgtype' => 'miniprogram',
+        'miniprogram' => [
+            'appid' => (string)($mini['appid'] ?? ''),
+            'title' => mb_substr((string)($mini['title'] ?? '云房卡'), 0, 64),
+            'pagepath' => (string)($mini['pagepath'] ?? ''),
+            'thumb_media_id' => (string)($mini['thumb_media_id'] ?? ''),
+        ],
+    ];
+
+    if ($payload['miniprogram']['appid'] === ''
+        || $payload['miniprogram']['pagepath'] === ''
+        || $payload['miniprogram']['thumb_media_id'] === '') {
+        wecom_kf_log('send_kf_mini skip: missing appid/pagepath/thumb_media_id');
+        return ['ok' => false, 'errcode' => -2];
+    }
+
+    $resp = httpPostJson($url, $payload);
+    if (!$resp || !isset($resp['errcode'])) {
+        return ['ok' => false, 'errcode' => -3];
+    }
+    $errcode = intval($resp['errcode']);
+    if ($errcode !== 0) {
+        wecom_kf_log('send_kf_mini error: ' . wecom_kf_response_error($resp));
+        return ['ok' => false, 'errcode' => $errcode];
+    }
+    wecom_kf_log('Sent roomcard miniprogram message');
+    return ['ok' => true, 'errcode' => 0];
+}
+
 function sendKfMiniprogramMessage(string $externalUserId, array $mini, string $useOpenKfId = ''): bool
 {
     $accessToken = getAccessToken();

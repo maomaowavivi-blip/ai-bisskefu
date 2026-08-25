@@ -241,6 +241,17 @@ function getThumbMediaIdCached(): ?string
 }
 
 /**
+ * v3.21:强制刷新 thumb 缓存(删缓存→重传→写缓存+DB)。
+ * 40007 自愈路径专用。
+ */
+function forceRefreshThumbCache(): ?string
+{
+    $cacheFile = __DIR__ . '/../logs/roomcard_thumb_media_id.txt';
+    @unlink($cacheFile);
+    return getThumbMediaIdCached();
+}
+
+/**
  * v3.16:调 generateByChannelOrder 拿当前订单的所有 cards。
  * 与 generateRoomCard 区别:返 cards 数组本身而非 [0],支持一单多房。
  */
@@ -287,13 +298,11 @@ function buildRoomCardDeliveries(PDO $db, string $channelOrderId): array
     $cards = generateAllRoomCards($db, $channelOrderId);
     if (!$cards || !is_array($cards)) return [];
 
-    // thumb 一次性取好(避免重复上传/DB 查询)
-    $thumb = trim((string)pcGet($db, 'ai.roomcard.thumb_media_id', ''));
-    if ($thumb === '') {
-        $thumb = getThumbMediaIdCached() ?? '';
-    }
+    // v3.21:一律走 getThumbMediaIdCached() 的 60h 过期检查+自动重传,
+    // 不再先读 DB(旧逻辑 DB 非空即短路,导致过期检查永远不执行 → 40007)
+    $thumb = getThumbMediaIdCached() ?? '';
     if ($thumb === '') return [];
-    // v3.15.5:同步写回 DB,确保后续调用读新 thumb
+    // 同步写回 DB,仅作运维排查副本,不作读取源
     @pcSet($db, 'ai.roomcard.thumb_media_id', $thumb);
 
     $deliveries = [];
@@ -347,15 +356,12 @@ function buildRoomCardDelivery(PDO $db, string $channelOrderId): ?array
     $parsed = parseRoomCardDelivery($card);
     if (!$parsed) return null;
 
-    // 优先沿用当前已经验证可显示的封面素材；缺失时才上传固定封面。
-    $thumb = trim((string)pcGet($db, 'ai.roomcard.thumb_media_id', ''));
-    if ($thumb === '') {
-        $thumb = getThumbMediaIdCached() ?? '';
-    }
+    // v3.21:同上,一律走过期检查,不再先读 DB
+    $thumb = getThumbMediaIdCached() ?? '';
     if ($thumb === '') return null;
 
     $parsed['thumb_media_id'] = $thumb;
-    // v3.15.5:同步写回 DB,确保 buildRoomCardDelivery 后续调用读新 thumb
+    // v3.21:DB 仅作运维副本
     @pcSet($db, 'ai.roomcard.thumb_media_id', $thumb);
     return $parsed;
 }
