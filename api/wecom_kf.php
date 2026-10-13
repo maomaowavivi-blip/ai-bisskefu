@@ -270,8 +270,23 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         $msgType = $msg['msgtype'] ?? '';
         $from    = $msg['external_userid'] ?? '';
 
-        if ($msgType === 'event' || empty($from)) {
-            wecom_kf_log('Skip unsupported message type=' . $msgType);
+        // v3.23:进入会话事件 — 客户首次接入自动发欢迎语。
+        // 必须写在本行的 event 丢弃分支之前,否则永不执行。
+        // 注意:enter_session 的 external_userid / open_kfid / welcome_code
+        //      全部嵌套在 event 内,不是顶层字段(顶层取不到,$from 会是空)。
+        if ($msgType === 'event') {
+            $evt       = $msg['event'] ?? [];
+            $eventType = (string)($evt['event_type'] ?? '');
+            if ($eventType === 'enter_session') {
+                handleEnterSession($db, $evt, (string)($evt['open_kfid'] ?? $useOpenKfId));
+            } else {
+                wecom_kf_log('Skip event type=' . $eventType);
+            }
+            continue;
+        }
+
+        if (empty($from)) {
+            wecom_kf_log('Skip message without external_userid, type=' . $msgType);
             continue;
         }
 
@@ -508,6 +523,77 @@ function syncMsg(string $openKfId, string $token, string $cursor = ''): ?array
 // ──────────────────────────────────────────
 // messages/send —发送消息
 // ──────────────────────────────────────────
+
+/**
+ * v3.23 进入会话欢迎语。
+ *
+ * 企业微信下发 welcome_code 的条件(官方原文):
+ *   「用户在过去48小时里未收过欢迎语,且未向客服发过消息」
+ * 也就是说「顾客一进来就直接发订单号」时平台不会给 welcome_code,
+ * 本函数自然跳过 —— 需求里的「不是直接发订单才发欢迎语」由平台判定,
+ * 代码不做任何订单号判断。
+ *
+ * 幂等:code 仅可使用一次且 20 秒过期,平台会自动拒绝重复使用,
+ *       游标回退重放时接口返回非 0,记日志跳过即可。不建去重表。
+ *
+ * @return bool 是否成功发送
+ */
+function handleEnterSession(PDO $db, array $evt, string $useOpenKfId): bool
+{
+    $externalUserId = trim((string)($evt['external_userid'] ?? ''));
+    $welcomeCode    = trim((string)($evt['welcome_code'] ?? ''));
+
+    if ($externalUserId === '') {
+        wecom_kf_log('enter_session: missing external_userid, skip');
+        return false;
+    }
+
+    if ($welcomeCode === '') {
+        // 48h 内收过欢迎语,或顾客已主动发过消息(含直接发订单号)
+        wecom_kf_log('enter_session: no welcome_code, skip (already messaged or welcomed within 48h)');
+        return false;
+    }
+
+    $text = trim((string)pcGet($db, 'wecom.welcome_text', ''));
+    if ($text === '') {
+        $text = '欢迎您咨询柚光民宿AI客服，我是小柚。您想办理自助入住，请发送完整的订单号码';
+    }
+    // 官方上限:2048 字节(UTF-8)
+    if (strlen($text) > 2048) {
+        $text = function_exists('mb_strcut')
+            ? mb_strcut($text, 0, 2048, 'UTF-8')
+            : substr($text, 0, 2048);
+        wecom_kf_log('enter_session: welcome text truncated to 2048 bytes');
+    }
+
+    $accessToken = getAccessToken();
+    if ($accessToken === null) {
+        wecom_kf_log('enter_session: getAccessToken failed, welcome not sent');
+        return false;
+    }
+
+    $url  = 'https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg_on_event?access_token=' . urlencode($accessToken);
+    $resp = httpPostJson($url, [
+        'code'    => $welcomeCode,
+        'msgtype' => 'text',
+        'text'    => ['content' => $text],
+    ]);
+
+    if (!$resp || !isset($resp['errcode'])) {
+        wecom_kf_log('enter_session: send_msg_on_event no response');
+        return false;
+    }
+    if ((int)$resp['errcode'] !== 0) {
+        // 预期路径:code 已用过 / 超过20秒 / 权限未开通,均不影响正常对话
+        wecom_kf_log('enter_session: send_msg_on_event errcode=' . (int)$resp['errcode']
+            . ' errmsg=' . (string)($resp['errmsg'] ?? ''));
+        return false;
+    }
+
+    wecom_kf_log('enter_session: welcome sent, kf=' . substr(sha1($useOpenKfId), 0, 10)
+        . ' msgid=' . (string)($resp['msgid'] ?? ''));
+    return true;
+}
 
 function sendKfMessage(string $externalUserId, string $content, string $useOpenKfId = ''): bool
 {
