@@ -40,39 +40,59 @@
 - 脚本执行后立刻删除
 - 测试响应只显示前缀+后缀(例: `sk-d83...a4c3 len=35`)
 
-## 4. ⚠️ 不要删除的"假删除"文件(2026-08-15 苏鸣特别提醒)
+## 4. handoff 残留文件现状(2026-10-13 校正)
 
-以下 3 个文件 **线上仍在运行**,但本地 git 可能曾显示为 `D` 状态:
+> **本节已于 2026-10-13 重写**。原「Git 操作禁区」清单基于一个不成立的断言:
+> 「`chat.php:25` 仍 require `HandoffWorkflow.php`，删了必死」。
+> 2026-10-13 三方只读审计(本地 / GitHub / 生产)实测确认该断言**已失效**，
+> 原「Git 操作禁区」清单**全部解除**。
 
-| 文件 | 作用 | 状态 |
+### 三个文件的真实状态
+
+| 文件 | 真实状态 | 唯一残留引用 |
 |---|---|---|
-| `admin/handoff.html` | 后台人工接管页面 | 线上存在,**生产在用** |
-| `api/handoff.php` | 后台 API 入口 | 线上存在,**生产在用** |
-| `api/Workflow/HandoffWorkflow.php` | 工作流逻辑 | 线上存在,**chat.php:25 在 require** |
+| `admin/handoff.html` | **已删除**(v3.19 / `a99c726`, 2026-08-24，苏鸣授权 a 方案)。生产仅存备份 `admin/bak_v318/`、`admin/bak_v319/` | 无 |
+| `api/handoff.php` | **410 死壳**。第 9 行 `fail('人工接管已停用', 410)` 无条件拦截，第 11 行起 340 行不可达 | `admin/settings.html:1319/1346/1526`(触发词配置) |
+| `api/Workflow/HandoffWorkflow.php` | **主链路零引用死代码**。`api/wecom_kf.php:53`、`api/IntentRouter.php:20` 均注「v3.11 已删除，不再 require」 | `scripts/smoke_test_pipeline_direct.php:52` |
 
-### 为什么不能删?
+### 清理前置条件(违反会造成功能损失)
 
-- v3.7 之前本应清理,但**线上还在跑** — 删了会让 `chat.php` require 报 Fatal,所有客户对话立刻挂掉
-- 当前线上 `chat.php:25` 仍然 `require_once HandoffWorkflow.php`,删了必死
-- 清理必须单独走 v3.8+ 蓝图(改 chat.php:25 + IntentRouter.php:73-74 引用后),不能 git rm
+- ⚠️ 删除 `api/handoff.php` 前，**必须先确认 `admin/settings.html` 的转人工触发词配置去向**。该页面的 `get_triggers` / `sync_defaults` / `save_triggers` 三个 action 目前挂在该文件上(定义于 `api/handoff.php:260/282/296`)，全仓库无第二个端点。直接删文件 = 后台转人工规则配置**永久报废**。
+- ⚠️ 删除 `api/Workflow/HandoffWorkflow.php` 前，**必须先改 `scripts/smoke_test_pipeline_direct.php:52` 的 require**，否则该 smoke 脚本 Fatal。
 
-### Git 操作禁区
+### 已知问题:后台「转人工规则」配置界面返回 410
 
-**禁止**以下操作(直到 v3.8+ 蓝图清理完成):
-- `git rm admin/handoff.html`
-- `git rm api/handoff.php`
-- `git rm api/Workflow/HandoffWorkflow.php`
-- `git add -A`(可能误带 D 类 — 但本次已恢复,理论上不再有 D 类,但仍要小心)
-- 把这些路径加入任何 commit 的删除变更
+`api/handoff.php:9` 的无条件 `fail(410)` 把 `get_triggers` / `sync_defaults` / `save_triggers`
+一起拦掉了，**后台可视化编辑触发词当前不可用**。
 
-### 当前转人工怎么走?(供参考)
+影响面**仅限后台编辑界面**。运行时匹配走
+`HandoffTriggers::matchKeyword()`(`api/HandoffTriggers.php:192`)，直读 `handoff_triggers` 表，
+**转人工 → 400 电话兜底不受影响**。修复方案另开蓝图。
+
+### 当前转人工怎么走(链路未变)
 
 客户消息 → IntentClassifier → `HandoffTriggers::matchKeyword()`(p0~p3 关键词)
   → Intent::KNOWLEDGE + `four_hundred_redirect=true`
   → KnowledgeWorkflow 检查标记 → 直接回复 "请拨打 400-155-9959"
 
-**完全不依赖已"假删除"的 3 个文件**。但既然线上还在,就不能真删。
+**完全不依赖上述任何文件**。`HandoffTriggers.php` 是实际入口，不是 handoff 三件套之一。
 
+### Git 操作说明
+
+原「禁止 `git rm` 三个文件 / 禁止 `git add -A`」清单**已解除**。
+但仍需遵守:
+
+- 改文件时**显式 `git add <路径>`**，不要 `git add -A`。工作区常有未跟踪的设计文档
+  (如 `v3.8-miniprogram-*.md`、`v3.15.5-miniprogram-roomcard-direct-spec.md`)，`git add -A` 会误带进提交。
+- 删除任何生产在用的文件，必须先按本节「清理前置条件」核对引用链，并走独立蓝图。
+
+### 本节不做的事
+
+- 不删除任何 handoff 文件(清理另开蓝图)
+- 不修 410 问题(修复另开蓝图)
+- 不动生产备份 `admin/bak_v319/` 等
+
+---
 ## 5. KB 向量化相关(2026-08-15)
 
 - **embedding provider**:`dashscope`(阿里云 Qwen `text-embedding-v3`,1024 维)
@@ -130,4 +150,4 @@ curl / 测试时:
 
 ---
 
-**最后更新**:2026-08-15 by 波尼(基于 v3.7 实战教训)
+**最后更新**:2026-10-13 by 波尼(v3.22 校正第 4 节 handoff 残留说明)
