@@ -1588,7 +1588,8 @@ function saveHandoffReply() {
   var input = document.getElementById('handoffReplyInput');
   var btn = document.getElementById('saveHandoffReplyBtn');
   if (!input || !btn) return;
-  var v = input.value.trim();
+  // v3.25：<textarea> 提交的是 CRLF，统一归一化成 LF 再入库
+  var v = input.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
   if (!v) { showToast('话术不能为空'); return; }
   btn.disabled = true;
   btn.textContent = '保存中...';
@@ -1667,7 +1668,8 @@ function loadAgentConfig(force) {
           '<label class="form-label">命中转人工规则时自动回复的完整话术</label>' +
           '<textarea id="handoffReplyInput" class="form-input" rows="2" style="min-height:64px;width:100%;">' + handoffSafe + '</textarea>' +
           '<p class="text-secondary text-sm" style="margin:6px 0 0;">' +
-            '生效渠道：H5 聊天 / 微信客服 / 企业微信 / openapi API。保存后<strong>下一条消息立即生效</strong>，无需重启。' +
+            '生效渠道：H5 聊天 / 微信客服 / 企业微信 / openapi API。保存后<strong>下一条消息立即生效</strong>，无需重启。'
+            + '<br>支持多行（例如列多个联系电话），客户收到的就是这里换行的排版。' +
             (handoffUsingDefault ? '<br>⚠️ 尚未自定义，当前使用系统默认话术。' : '<br>✅ 已自定义，保存会覆盖上方内容。') +
           '</p>' +
         '</div>' +

@@ -82,7 +82,7 @@ class PromptEngine {
         $handoffHint = ($config) ? trim((string)$config->get('agent.rules.handoff_system_hint', '')) : '';
         if ($handoffHint !== '') {
             // v3.24：{reply} 占位符 → 当前生效的兜底话术（提示词里不再硬编码号码）
-            $handoffHint = str_replace('{reply}', self::handoffReply($config), $handoffHint);
+            $handoffHint = str_replace('{reply}', self::handoffReplyOneLine($config), $handoffHint);
             foreach (explode("\n", $handoffHint) as $line) {
                 $line = trim($line);
                 if ($line !== '') {
@@ -90,7 +90,7 @@ class PromptEngine {
                 }
             }
         } else {
-            $parts[] = '【涉及需联系管家】以下问题只回复"' . self::handoffReply($config) . '"，不再转接人工，不做其他回答';
+            $parts[] = '【涉及需联系管家】以下问题只回复"' . self::handoffReplyOneLine($config) . '"，不再转接人工，不做其他回答';
             $parts[] = '涉及：发票、续住、换房、退款、投诉、赔偿、押金纠纷等；具体以系统「转人工规则」词库为准';
         }
 
@@ -112,7 +112,7 @@ class PromptEngine {
             $simpleRules = implode('。', array_map('trim', $filtered)) . '。';
             if ($simpleRules !== '。') {
                 $parts[] = '';
-                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"' . self::handoffReply($config) . '"';
+                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"' . self::handoffReplyOneLine($config) . '"';
             }
         }
 
@@ -211,19 +211,30 @@ class PromptEngine {
      */
     public static function handoffReply(?AgentConfig $config = null, ?PDO $db = null): string {
         $key = 'agent.handoff.reply';
+        $v = '';
         if ($config !== null) {
-            $v = trim((string)$config->getFresh($key, ''));
-            if ($v !== '') {
-                return $v;
-            }
+            $v = (string)$config->getFresh($key, '');
         }
-        if ($db !== null) {
-            $v = trim((string)pcGet($db, $key, ''));
-            if ($v !== '') {
-                return $v;
-            }
+        if (trim($v) === '' && $db !== null) {
+            $v = (string)pcGet($db, $key, '');
         }
-        return self::HANDOFF_REPLY_DEFAULT;
+        $v = trim($v);
+        if ($v === '') {
+            return self::HANDOFF_REPLY_DEFAULT;
+        }
+        // v3.25：统一换行符——后台 <textarea> 提交的是 CRLF，原样返回会让微信客服出现不可见的 \r
+        return str_replace(array("\r\n", "\r"), "\n", $v);
+    }
+
+    /**
+     * v3.25：单行折叠版话术（只给 system prompt 用）
+     *
+     * prompt 里是「只回复"…"」，引号内含真实换行会破坏指令结构；
+     * 客户实际收到的仍是 handoffReply() 的多行版。
+     */
+    public static function handoffReplyOneLine(?AgentConfig $config = null, ?PDO $db = null): string {
+        $v = self::handoffReply($config, $db);
+        return (string)preg_replace('/\s*\n+\s*/u', ' ', $v);
     }
 
     /**
@@ -251,10 +262,28 @@ class PromptEngine {
 
     /** 无 KB 时仍须保留的固定回复（转人工、安全拦截等） */
     private static function isPreservedReplyWithoutKb(string $reply, ?AgentConfig $config = null): bool {
-        // v3.24：当前生效的兜底话术整句保留（不依赖 markers 里写死号码，话术改成什么都保留）
+        // v3.24/v3.25：当前生效的兜底话术保留（不依赖 markers 里写死号码，话术改成什么都保留）
         $handoff = self::handoffReply($config);
-        if ($handoff !== '' && mb_strpos($reply, $handoff) !== false) {
-            return true;
+        if ($handoff !== '') {
+            // ① 整句包含
+            if (mb_strpos($reply, $handoff) !== false) {
+                return true;
+            }
+            // ② 任意一行包含（多行话术被模型压成一行时也命中）
+            foreach (explode("\n", $handoff) as $line) {
+                $line = trim($line);
+                if ($line !== '' && mb_strpos($reply, $line) !== false) {
+                    return true;
+                }
+            }
+            // ③ 关键数字片段包含（模型只复述了其中某个号码，如「请联系橙子 156xxxx」）
+            if (preg_match_all('/[0-9][0-9\-]{4,}/u', $handoff, $numTokens)) {
+                foreach ($numTokens[0] as $token) {
+                    if (mb_strpos($reply, $token) !== false) {
+                        return true;
+                    }
+                }
+            }
         }
         $markers = ($config) ? $config->getJson('agent.fallback.preserved_markers', []) : [];
         if (empty($markers)) {

@@ -157,6 +157,11 @@ curl / 测试时:
   system prompt 两处注入、LLM 分支终检保留,四处同源)
 - **prompt 里的 `{reply}` 占位符**:`agent.rules.handoff_system_hint` 用 `{reply}` 代表当前话术,
   代码在拼 prompt 时替换。**不要再往这个配置值里写死号码**,否则换话术后 prompt 会说旧号码
+- **支持多行话术**(v3.25):后台 textarea 提交的是 CRLF,`handoffReply()` 统一归一化成 LF 再返回,
+  避免微信客服纯文本出现不可见的 `\r`。**客户实际收到多行版,system prompt 注入用单行折叠版**
+  (`handoffReplyOneLine()`),否则引号内换行会破坏「只回复"…"」的指令结构
+- **终检保留判定已放宽为三级**(v3.25):整句包含 / 任意一行包含 / 关键数字片段(≥5 位数字)包含。
+  多行话术被模型压成一行、或只复述了其中一个号码时,都不会再被拒答句吃掉
 - **不归本配置管的**:`kb_entries` 里的历史话术、`RoomQueryWorkflow.php:34` 的房间查询话术(要去后台知识库单独改)
 - 背景与取舍见 `.trae/documents/v3.24-handoff-reply-config-blueprint.md`
 
