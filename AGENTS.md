@@ -140,7 +140,21 @@ curl / 测试时:
 - 不要在聊天回复里展开"我接下来做什么" — 直接做,简短报告
 - 不要替苏鸣拍板 a/b/c/d(除非他明确说"你来决定")
 
-## 10. 出蓝图前必查的事
+## 10. 转人工兜底话术（2026-10-21 v3.24 起可后台配置）
+
+- **配置键**:`platform_config.agent.handoff.reply`,默认 `请拨打 400-155-9959 联系管家～`
+- **改法**:管理后台 → 设置 → 「AI 行为规则」→ 「转人工兜底话术(可编辑)」→ 保存 → **下一条消息立即生效,无需 reload**
+- **唯一取值入口**:`PromptEngine::handoffReply()`(`api/PromptEngine.php`)。全仓任何地方都不要再硬编码这句
+- **读值必须用 `pcGet()` 直查 DB**,不能用 `AgentConfig::get()`——后者是进程级静态缓存、无 TTL、无跨进程失效,
+  php-fpm 多 worker 下后台保存后其它 worker 仍读旧值(表现为"保存了没生效")。`AgentConfig::getFresh()` 是为此加的旁路
+- **生效范围**:H5 / 微信客服 / 企业微信 / openapi 全渠道一致(主链路 `KnowledgeWorkflow`、openapi `filterReply`、
+  system prompt 两处注入、LLM 分支终检保留,四处同源)
+- **prompt 里的 `{reply}` 占位符**:`agent.rules.handoff_system_hint` 用 `{reply}` 代表当前话术,
+  代码在拼 prompt 时替换。**不要再往这个配置值里写死号码**,否则换话术后 prompt 会说旧号码
+- **不归本配置管的**:`kb_entries` 里的历史话术、`RoomQueryWorkflow.php:34` 的房间查询话术(要去后台知识库单独改)
+- 背景与取舍见 `.trae/documents/v3.24-handoff-reply-config-blueprint.md`
+
+## 11. 出蓝图前必查的事
 
 1. **接口是否真存在?** `curl` 实测
 2. **认证方式是什么?** Bearer? query string?
@@ -150,4 +164,4 @@ curl / 测试时:
 
 ---
 
-**最后更新**:2026-10-13 by 波尼(v3.22 校正第 4 节 handoff 残留说明)
+**最后更新**:2026-10-21 by 波尼(v3.24 新增第 10 节 转人工兜底话术配置说明)

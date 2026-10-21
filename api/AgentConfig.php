@@ -31,6 +31,25 @@ class AgentConfig {
         return ($v !== null && $v !== '' && is_numeric($v)) ? (int)$v : $default;
     }
 
+    /**
+     * v3.24：读取单个配置键，绕过进程级静态缓存，直查 DB。
+     *
+     * 用途：需要「后台保存后立即生效」的配置（如转人工兜底话术）。
+     * AgentConfig::all() 用的是进程级 static 缓存，无 TTL、无跨进程失效，
+     * php-fpm 多 worker 场景下 clearCache() 只清当前进程，别的 worker 仍读旧值。
+     *
+     * @param  string $key
+     * @param  mixed  $default
+     * @return mixed
+     */
+    public function getFresh($key, $default = null) {
+        $v = pcGet($this->db, $key, null);
+        if ($v === null || $v === '') {
+            return $default;
+        }
+        return $v;
+    }
+
     public function getJson($key, array $default = array()) {
         $v = $this->get($key);
         if ($v === null || $v === '') {

@@ -81,6 +81,8 @@ class PromptEngine {
         $parts[] = '';
         $handoffHint = ($config) ? trim((string)$config->get('agent.rules.handoff_system_hint', '')) : '';
         if ($handoffHint !== '') {
+            // v3.24：{reply} 占位符 → 当前生效的兜底话术（提示词里不再硬编码号码）
+            $handoffHint = str_replace('{reply}', self::handoffReply($config), $handoffHint);
             foreach (explode("\n", $handoffHint) as $line) {
                 $line = trim($line);
                 if ($line !== '') {
@@ -88,7 +90,7 @@ class PromptEngine {
                 }
             }
         } else {
-            $parts[] = '【涉及需联系管家】以下问题只回复"请拨打 400-155-9959 联系管家"，不再转接人工，不做其他回答';
+            $parts[] = '【涉及需联系管家】以下问题只回复"' . self::handoffReply($config) . '"，不再转接人工，不做其他回答';
             $parts[] = '涉及：发票、续住、换房、退款、投诉、赔偿、押金纠纷等；具体以系统「转人工规则」词库为准';
         }
 
@@ -110,7 +112,7 @@ class PromptEngine {
             $simpleRules = implode('。', array_map('trim', $filtered)) . '。';
             if ($simpleRules !== '。') {
                 $parts[] = '';
-                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"请拨打 400-155-9959 联系管家"';
+                $parts[] = '【服务边界】' . $simpleRules . '遇到上述问题回复"' . self::handoffReply($config) . '"';
             }
         }
 
@@ -192,6 +194,38 @@ class PromptEngine {
     /** 知识库无命中时的唯一允许回复 */
     const NO_KB_FALLBACK_REPLY = '这边暂时没有查到准确信息，建议您联系前台确认。';
 
+    /** v3.24：转人工 400 电话兜底话术默认值（与 v3.11 起的 fast path 文案逐字节一致） */
+    const HANDOFF_REPLY_DEFAULT = '请拨打 400-155-9959 联系管家～';
+
+    /**
+     * v3.24：取当前生效的转人工兜底话术（全仓唯一取值入口）
+     *
+     * 优先级：platform_config.agent.handoff.reply（直查 DB，后台保存即生效）
+     *        > PromptEngine::HANDOFF_REPLY_DEFAULT
+     *
+     * 不用 AgentConfig::get()：那是进程级静态缓存，php-fpm 多 worker 下
+     * 后台保存后其它 worker 仍读旧值，会出现「保存了没生效」。
+     *
+     * @param AgentConfig|null $config
+     * @param PDO|null         $db     config 为空时用 db 直查兜底
+     */
+    public static function handoffReply(?AgentConfig $config = null, ?PDO $db = null): string {
+        $key = 'agent.handoff.reply';
+        if ($config !== null) {
+            $v = trim((string)$config->getFresh($key, ''));
+            if ($v !== '') {
+                return $v;
+            }
+        }
+        if ($db !== null) {
+            $v = trim((string)pcGet($db, $key, ''));
+            if ($v !== '') {
+                return $v;
+            }
+        }
+        return self::HANDOFF_REPLY_DEFAULT;
+    }
+
     /**
      * 回复终检：无【参考资料】时只允许固定拒答，防止模型绕过 system 约束
      */
@@ -217,6 +251,11 @@ class PromptEngine {
 
     /** 无 KB 时仍须保留的固定回复（转人工、安全拦截等） */
     private static function isPreservedReplyWithoutKb(string $reply, ?AgentConfig $config = null): bool {
+        // v3.24：当前生效的兜底话术整句保留（不依赖 markers 里写死号码，话术改成什么都保留）
+        $handoff = self::handoffReply($config);
+        if ($handoff !== '' && mb_strpos($reply, $handoff) !== false) {
+            return true;
+        }
         $markers = ($config) ? $config->getJson('agent.fallback.preserved_markers', []) : [];
         if (empty($markers)) {
             $markers = ['400-155-9959', '不太方便讨论', '没法聊', '无法回应'];
@@ -298,9 +337,9 @@ class PromptEngine {
         $reply = trim($reply);
         if ($reply === '') return $reply;
 
-        // v3.7：转人工改为 400 电话话术
+        // v3.7：转人工改为 400 电话话术（v3.24：改为读配置，全渠道同一句）
         if (HandoffTriggers::matchesMessage($db, $message)) {
-            return '请拨打 400-155-9959 联系管家';
+            return self::handoffReply($config, $db);
         }
 
         // ── 规则2：去掉推销话术（推荐房源、换房、升级等）────────

@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/AbstractWorkflow.php';
 require_once __DIR__ . '/../HandoffTriggers.php';
+require_once __DIR__ . '/../PromptEngine.php';
 
 final class HandoffWorkflow extends AbstractWorkflow
 {
@@ -27,7 +28,7 @@ final class HandoffWorkflow extends AbstractWorkflow
         // 但保留 priority 在 extra 中，方便后续按 priority 区分话术
 
         return WorkflowResult::text(
-            '请拨打 400-155-9959 联系管家',
+            PromptEngine::handoffReply($this->config),
             'HandoffWorkflow'
         )->withHandoffStatus(0)->withExtra(['priority' => $priority]);
     }

@@ -689,7 +689,7 @@ Authorization: Bearer {密钥}
         <div class="tab-content" id="tabAgentrules">
           <div class="card" style="margin-bottom:var(--space-4);border:1px solid #f0d78c;background:#fffbeb;">
             <p style="margin:0;font-size:var(--text-sm);color:#92400e;">
-              <strong>Phase 1</strong> — 配置仅展示与存储，当前 AI 行为仍由代码控制。<strong>Phase 2</strong> 起此处修改将实时生效。
+              <strong>Phase 1</strong> — 除下方<strong>「转人工兜底话术」</strong>外，其余配置仅展示与存储，当前 AI 行为仍由代码控制。<strong>Phase 2</strong> 起此处修改将实时生效。
             </p>
           </div>
           <div id="agentConfigLoading" class="text-secondary" style="font-size:var(--text-sm);padding:var(--space-4);">加载配置中…</div>
@@ -1580,8 +1580,40 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// ═══ AI 行为规则（Phase 1 只读） ═══
+// ═══ AI 行为规则（Phase 1 只读；v3.24 起「转人工兜底话术」可编辑） ═══
 var _agentConfigLoaded = false;
+
+/* ── v3.24：保存转人工兜底话术（复用 api/agent.php?action=save_config） ── */
+function saveHandoffReply() {
+  var input = document.getElementById('handoffReplyInput');
+  var btn = document.getElementById('saveHandoffReplyBtn');
+  if (!input || !btn) return;
+  var v = input.value.trim();
+  if (!v) { showToast('话术不能为空'); return; }
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  fetch(apiUrl('/api/agent.php?action=save_config'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ config: { 'agent.handoff.reply': v } })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存话术';
+    if (res.code === 0) {
+      showToast('已保存，下一条消息即生效');
+      loadAgentConfig(true);
+    } else {
+      showToast(res.msg || '保存失败');
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存话术';
+    showToast('网络错误，请重试');
+  });
+}
 
 function agentEsc(s) {
   if (s === null || s === undefined) return '';
@@ -1604,8 +1636,8 @@ function agentField(label, value) {
     + '<div class="form-input" style="background:var(--neutral-50);min-height:38px;white-space:pre-wrap;">' + agentEsc(value) + '</div></div>';
 }
 
-function loadAgentConfig() {
-  if (_agentConfigLoaded) return;
+function loadAgentConfig(force) {
+  if (_agentConfigLoaded && !force) return;
   var loading = document.getElementById('agentConfigLoading');
   var panels = document.getElementById('agentConfigPanels');
   if (!loading || !panels) return;
@@ -1624,6 +1656,23 @@ function loadAgentConfig() {
       var c = res.data.config;
       var p = function(k) { return c[k + '__parsed'] !== undefined ? c[k + '__parsed'] : c[k]; };
       var html = '';
+
+      // v3.24：转人工兜底话术 —— 唯一可编辑且实时生效的配置项
+      var handoffRaw = c['agent.handoff.reply'] || '';
+      var handoffUsingDefault = !String(handoffRaw).trim();
+      var handoffShown = handoffUsingDefault ? '请拨打 400-155-9959 联系管家～' : String(handoffRaw);
+      var handoffSafe = handoffShown.replace(/<\//g, '<\\/');
+      html += agentCard('转人工兜底话术（可编辑）',
+        '<div class="form-group">' +
+          '<label class="form-label">命中转人工规则时自动回复的完整话术</label>' +
+          '<textarea id="handoffReplyInput" class="form-input" rows="2" style="min-height:64px;width:100%;">' + handoffSafe + '</textarea>' +
+          '<p class="text-secondary text-sm" style="margin:6px 0 0;">' +
+            '生效渠道：H5 聊天 / 微信客服 / 企业微信 / openapi API。保存后<strong>下一条消息立即生效</strong>，无需重启。' +
+            (handoffUsingDefault ? '<br>⚠️ 尚未自定义，当前使用系统默认话术。' : '<br>✅ 已自定义，保存会覆盖上方内容。') +
+          '</p>' +
+        '</div>' +
+        '<button class="btn btn-primary" id="saveHandoffReplyBtn" onclick="saveHandoffReply()">保存话术</button>'
+      );
 
       html += agentCard('基础设置',
         agentField('行业 agent.industry', c['agent.industry']) +
