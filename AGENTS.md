@@ -101,6 +101,12 @@
 - **禁止**:用 MiniMax `embo-01`(token plan 不含 embedding 余额)
 - **禁止**:写 .env / 源码 / commit(密钥泄露)
 - **维度防御**:`cosineSimilarity` 已加维度检查,维度不一致返 0
+- **全文检索对 PDO 连接方式敏感(2026-10-21 踩坑)**:`PromptEngine::searchKnowledge()` 的 SQL 带 `LIMIT ?`,
+  只有**原生预处理**(`ATTR_EMULATE_PREPARES => false`,同 `api/config.php:75`)能执行。
+  用 PDO 默认的 emulated 模式会把参数插值成 `LIMIT '3'`,MySQL 8.3 报 `1064 语法错误`(日志里叫
+  `FULLTEXT search error`,**与 FULLTEXT 索引无关,别误判成"生产索引坏了"**)。
+  写临时脚本调这个函数时,连接必须显式带上 `ATTR_EMULATE_PREPARES => false`。
+  生产 `getDB()` 一直是原生预处理,线上全文检索正常(生产日志该错误 0 次)。
 - **未跑向量化** = 部分 KB 搜不到答案
 
 ## 6. 蓝图命名规范
