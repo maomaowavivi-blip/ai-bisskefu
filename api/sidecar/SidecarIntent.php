@@ -196,6 +196,28 @@ class SidecarIntent {
     }
 
     /**
+     * 从消息中提取订单号
+     *
+     * 渠道订单号实测为纯数字（10~19 位，如 1128140821351313 / 4999006098230305796）。
+     * 客户可能回「查一下1128140821351313」这类带前后缀的话，这里取最长数字串。
+     * 纯字母数字订单号（如 ABC12345678）整体作为订单号。
+     */
+    public static function extractOrderNo(string $message): string {
+        $m = trim($message);
+        if ($m === '') return '';
+        if (preg_match('/^\d{10,30}$/', $m)) return $m;
+        if (preg_match_all('/\d{8,30}/', $m, $mm)) {
+            $best = '';
+            foreach ($mm[0] as $cand) {
+                if (strlen($cand) > strlen($best)) $best = $cand;
+            }
+            if ($best !== '') return $best;
+        }
+        if (self::looksLikeOrderNo($m)) return $m;
+        return '';
+    }
+
+    /**
      * 是否应引导至云房卡（非故障/纠纷类）
      */
     public static function isYunfangkaCredentialQuery(string $message): bool {

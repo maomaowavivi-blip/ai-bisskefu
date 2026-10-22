@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/CenterApi.php';
 require_once __DIR__ . '/sidecar/OrderRoomMapper.php';
 require_once __DIR__ . '/sidecar/RoomQueryService.php';
 require_once __DIR__ . '/sidecar/SidecarIntent.php';
@@ -91,17 +92,19 @@ class RoomQueryFlow {
             return self::buildResult(self::ASK_ORDER_REPLY, 1);
         }
 
-        $orderNo = trim($message);
-        if (!self::looksLikeOrderNo($orderNo)) {
+        // v3.26：从消息中提取订单号（客户可能回「查一下1128...」这类带前后缀的话）
+        $orderNo = SidecarIntent::extractOrderNo($message);
+        if ($orderNo === '') {
             return self::buildResult(self::ASK_ORDER_REPLY, 1);
         }
 
-        $orderData = callGateway($db, 'query_order', ['order_no' => $orderNo]);
-        if (!$orderData) {
+        // v3.26:数据中台订单查询(取代已下线的自建网关 callGateway)
+        $orderResult = CenterApi::orderByChannelOrderId($db, $orderNo);
+        if (!$orderResult || empty($orderResult['order'])) {
             return self::buildResult(self::ORDER_INVALID_REPLY, 1);
         }
 
-        $candidates = OrderRoomMapper::mapOrderData((array)$orderData);
+        $candidates = OrderRoomMapper::mapOrderData((array)$orderResult['order']);
         if (empty($candidates)) {
             return self::buildResult(self::MAP_FAIL_REPLY, 1);
         }

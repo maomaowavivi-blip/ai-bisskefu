@@ -108,7 +108,9 @@ final class SessionState
             return [
                 'order_no'  => trim($cache['order_no'] ?? ''),
                 'room_id'   => (int)($cache['room_id'] ?? 0),
-                'room_list' => json_decode($cache['room_list'] ?? '[]', true) ?: [],
+                // v3.26：room_list 列实际存「逗号分隔的房间号列表」（见生产表结构注释），
+                // 不是 JSON。这里按逗号拆成数组，避免 json_decode 恒为 null。
+                'room_list' => array_values(array_filter(array_map('trim', explode(',', (string)($cache['room_list'] ?? ''))))),
             ];
         } catch (\Exception $e) {
             error_log('[SessionState] loadOrderCache failed: ' . $e->getMessage());

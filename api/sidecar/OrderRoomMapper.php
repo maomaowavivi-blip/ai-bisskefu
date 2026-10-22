@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/SidecarConfig.php';
+require_once dirname(__DIR__) . '/CenterApi.php';
 
 class OrderRoomMapper {
     /**
@@ -40,7 +41,9 @@ class OrderRoomMapper {
     }
 
     /**
-     * @param array $orderData callGateway query_order 返回
+     * @param array $orderData 订单数据
+     *   v3.26 新结构（数据中台）：单个订单记录，含 room_ids（逗号分隔的 baoyu_room_no）
+     *   旧结构（自建网关）：订单条目数组，每项含 order_info
      * @return array[] 去重后的候选（含 sidecar_room_id）
      */
     public static function mapOrderData(array $orderData): array {
@@ -53,7 +56,29 @@ class OrderRoomMapper {
 
         $candidates = [];
         $seen = [];
+
+        // v3.26 新结构：room_ids 逗号分隔的 baoyu_room_no（一单多房）
+        $roomIds = trim(strval($orderData['room_ids'] ?? ''));
+        if ($roomIds !== '') {
+            foreach (explode(',', $roomIds) as $rid) {
+                $rid = trim($rid);
+                if ($rid === '') continue;
+                $mapped = self::mapBaoyuRoomNo($db, $rid);
+                if (!$mapped || empty($mapped['sidecar_room_id'])) continue;
+                $id = (int)$mapped['sidecar_room_id'];
+                if (isset($seen[$id])) continue;
+                $seen[$id] = true;
+                $mapped['room_index'] = count($candidates) + 1;
+                $candidates[] = $mapped;
+            }
+            if (!empty($candidates)) {
+                return $candidates;
+            }
+        }
+
+        // 旧结构：逐条 order_info
         foreach ((array)$orderData as $entry) {
+            if (!is_array($entry)) continue;
             $info = $entry['order_info'] ?? $entry;
             if (!is_array($info)) continue;
             $mapped = self::mapOrderEntry($db, $info);
@@ -65,6 +90,47 @@ class OrderRoomMapper {
             $candidates[] = $mapped;
         }
         return $candidates;
+    }
+
+    /**
+     * v3.26:baoyu_room_no → sidecar 房源候选
+     *
+     * 链路（已实测闭环）：
+     *   订单.room_ids = 中台 baoyu_room_no = sidecar ai_room_profile.baoyu_room_id
+     *   中台房源.id = sidecar ai_room_profile.sujia_room_id
+     *
+     * 1) 先查 sidecar ai_room_profile.baoyu_room_id（650/921 命中，纯 DB，无需外呼）
+     * 2) 未命中则调数据中台房源接口换 id，再按 sujia_room_id 精确查
+     */
+    private static function mapBaoyuRoomNo(PDO $db, string $baoyuRoomNo): ?array {
+        $hit = self::resolveByIdentifier($db, $baoyuRoomNo);
+        if ($hit) return self::enrichCandidate($db, $hit, 'high');
+
+        // fallback：数据中台房源接口 → 房源.id → sujia_room_id
+        try {
+            $room = CenterApi::roomByBaoyuRoomNo(getDB(), $baoyuRoomNo);
+        } catch (Throwable $e) {
+            error_log('[OrderRoomMapper] CenterApi room lookup failed: ' . $e->getMessage());
+            return null;
+        }
+        if (!$room || empty($room['id'])) return null;
+
+        // 注意：不能用 resolveByIdentifier —— 它是 OR 宽匹配，
+        // 实测 sidecar 有 577 行存在 id 与他人 sujia_room_id 撞号（如 id=1 的 sujia_room_id=127，
+        // 而 id=127 是另一间房），按 id 查会匹配到错误房源。
+        $hit = self::resolveBySujiaRoomId($db, (string)$room['id']);
+        if (!$hit) return null;
+        return self::enrichCandidate($db, $hit, 'medium');
+    }
+
+    /** 只按 sujia_room_id 精确查（= 数据中台房源.id），避开 id 撞号 */
+    private static function resolveBySujiaRoomId(PDO $db, string $sujiaRoomId): ?array {
+        $id = trim($sujiaRoomId);
+        if ($id === '') return null;
+        $stmt = $db->prepare('SELECT * FROM ai_room_profile WHERE CAST(sujia_room_id AS CHAR) = ? LIMIT 1');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
     }
 
     private static function resolveByIdentifier(PDO $db, string $identifier): ?array {

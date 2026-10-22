@@ -24,7 +24,9 @@ $jsonKeys = array(
     'agent.safety.political',
 );
 
-$secretKeyPrefixes = array('ai.api_key', 'gateway.api_key', 'order.api_key', 'JWT_SECRET');
+// v3.26：新增 center.password；gateway.api_key / order.api_key 保留在列，
+// 防止回滚窗口内旧密钥被导出（这是脱敏名单，不是接口清单）
+$secretKeyPrefixes = array('ai.api_key', 'center.password', 'gateway.api_key', 'order.api_key', 'JWT_SECRET');
 
 function agentIsJsonKey($key, array $jsonKeys) {
     return in_array($key, $jsonKeys, true);

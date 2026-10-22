@@ -97,105 +97,90 @@ if ($action === 'verify_code') {
     // 标记已验证
     $db->prepare('UPDATE sms_verify_logs SET status = 1, verified_at = NOW() WHERE id = ?')->execute([$record['id']]);
 
-    // 调用企业订单 API 查询
-    // 从 platform_config 获取企业配置的订单查询接口地址
-    $orderApiUrl = pcGet($db, 'order.api_url', '');
-    $orderApiKey = pcGet($db, 'order.api_key', '');
-
-    $orderData = null;
-
-    if ($orderApiUrl && $orderApiKey) {
-        try {
-            $ch = curl_init($orderApiUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode([
-                    'order_no' => $orderNo,
-                    'phone' => $phone,
-                    'timestamp' => time(),
-                ]),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 10,
-                CURLOPT_HTTPHEADER => [
-                    'Content-Type: application/json',
-                    'Authorization: ' . (strpos($orderApiKey, 'Bearer ') === 0 ? $orderApiKey : 'Bearer ' . $orderApiKey),
-                ],
-            ]);
-            $resp = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($resp && $httpCode === 200) {
-                $result = json_decode($resp, true);
-                if (isset($result['code']) && intval($result['code']) === 0 && isset($result['data'])) {
-                    $orderData = $result['data'];
-                }
-            }
-        } catch (Throwable $e) {
-            error_log('订单API调用失败: ' . $e->getMessage());
-        }
-    }
+    // v3.26：旧「企业订单 API」已随数据中台迁移下线，不再在此调用。
+    // 订单查询统一走 CenterApi::orderByChannelOrderId()（api/CenterApi.php）。
 
     ok([
         'verified'   => true,
-        'order_data' => $orderData,
+        'order_data' => null,
     ], '验证通过');
 }
 
 // ══════════════════════════════════════════
-// 配置订单查询接口（管理后台用）
+// 数据中台配置（管理后台用，v3.26 取代旧「统一网关」）
+//
+// 存 platform_config:
+//   center.api_url    中台基址，如 https://center.youguang8488.com/api/relay
+//   center.username   账号
+//   center.password   密码（只存 DB，不进源码/.env/commit）
+//   center.tenant_id  租户 ID
 // ══════════════════════════════════════════
-if ($action === 'save_order_api') {
+if ($action === 'save_center_config') {
     adminGuard();
 
-    $url = trim($body['api_url'] ?? '');
-    $key = trim($body['api_key'] ?? '');
+    $url      = trim($body['api_url'] ?? '');
+    $username = trim($body['username'] ?? '');
+    $password = trim($body['password'] ?? '');
+    $tenantId = trim($body['tenant_id'] ?? '');
 
-    if (!$url || !$key) fail('参数不完整');
+    if (!$url || !$username) fail('参数不完整');
+    if ($tenantId === '') $tenantId = '1';
 
-    // 使用 INSERT ... ON DUPLICATE KEY UPDATE
     $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
-    $stmt->execute(['order.api_url', $url]);
-    $stmt->execute(['order.api_key', $key]);
+    $stmt->execute(['center.api_url', rtrim($url, '/')]);
+    $stmt->execute(['center.username', $username]);
+    $stmt->execute(['center.tenant_id', $tenantId]);
+    // 密码留空 = 不改动已存密码（后台每次保存不覆盖真实密码）
+    if ($password !== '') {
+        $stmt->execute(['center.password', $password]);
+    }
 
-    ok([], '保存成功');
+    ok([], '数据中台配置已保存');
 }
 
-if ($action === 'get_order_api') {
+if ($action === 'get_center_config') {
     adminGuard();
     ok([
-        'api_url' => pcGet($db, 'order.api_url', ''),
-        'api_key' => pcGet($db, 'order.api_key', '') ? '已配置' : '',
+        'api_url'   => pcGet($db, 'center.api_url', ''),
+        'username'  => pcGet($db, 'center.username', ''),
+        'password'  => pcGet($db, 'center.password', '') ? '已配置' : '',
+        'tenant_id' => pcGet($db, 'center.tenant_id', '1'),
     ]);
 }
 
-// ══════════════════════════════════════════
-// 统一网关配置（管理后台用）
-// ══════════════════════════════════════════
-if ($action === 'save_gateway_config') {
+if ($action === 'clear_center_config') {
     adminGuard();
-
-    $url = trim($body['api_url'] ?? '');
-    $key = trim($body['api_key'] ?? '');
-    $roomKeywords = trim($body['room_keywords'] ?? '');
-
-    if (!$url || !$key) fail('参数不完整');
-
-    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
-    $stmt->execute(['gateway.api_url', $url]);
-    $stmt->execute(['gateway.api_key', $key]);
-    $stmt->execute(['gateway.room_keywords', $roomKeywords]);
-
-    ok([], '网关配置保存成功');
+    $stmt = $db->prepare('DELETE FROM platform_config WHERE `key` IN (?, ?, ?, ?)');
+    $stmt->execute(['center.api_url', 'center.username', 'center.password', 'center.tenant_id']);
+    ok([], '数据中台配置已清除');
 }
 
-if ($action === 'get_gateway_config') {
+// ══════════════════════════════════════════
+// 房间查询触发关键词（管理后台用）
+//
+// 键名保持 gateway.room_keywords 不变 —— SidecarIntent::getEntryKeywords()
+// 实时读它做房间意图扩展，改键名会导致后台配置静默失效。
+// ══════════════════════════════════════════
+if ($action === 'save_room_keywords') {
     adminGuard();
-    ok([
-        'api_url' => pcGet($db, 'gateway.api_url', ''),
-        'api_key' => pcGet($db, 'gateway.api_key', '') ? '已配置' : '',
-        'room_keywords' => pcGet($db, 'gateway.room_keywords', ''),
-    ]);
+
+    // 请求体畸形时 getBody() 返回 []，若直接 ?? '' 会把关键词静默清空。
+    // 这里用 array_key_exists 区分「参数缺失」与「显式清空」：缺失则拒绝，显式空串则允许
+    //（空串 = 只用代码内置的基础词表）。
+    if (!array_key_exists('room_keywords', $body)) {
+        fail('参数不完整');
+    }
+
+    $keywords = trim((string)$body['room_keywords']);
+    $stmt = $db->prepare('INSERT INTO platform_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $stmt->execute(['gateway.room_keywords', $keywords]);
+
+    ok([], '房间查询关键词已保存');
+}
+
+if ($action === 'get_room_keywords') {
+    adminGuard();
+    ok(['room_keywords' => pcGet($db, 'gateway.room_keywords', '')]);
 }
 
 // ══════════════════════════════════════════

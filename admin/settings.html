@@ -429,28 +429,39 @@
         <div class="tab-content" id="tabEnterprise">
           <div class="card">
             <div class="card-header">
-              <h3>🌐 统一网关配置</h3>
-              <span id="gatewayStatus" style="font-size:var(--text-sm);"></span>
+              <h3>🌐 数据中台配置</h3>
+              <span id="centerStatus" style="font-size:var(--text-sm);"></span>
             </div>
             <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
-              配置企业的统一数据查询网关。支持订单查询和房间查询等多种能力，企业只需提供一个统一的 POST 接口地址，系统通过 <code>action</code> 参数区分查询类型。
+              配置数据中台接口。订单查询与房间查询统一从中台取数（<code>GET</code> + query string 鉴权，参数 <code>username</code> / <code>password</code>，请求须带 <code>tenant_id</code>）。
             </p>
 
             <div class="form-group">
-              <label class="form-label">网关接口地址</label>
-              <input type="url" class="form-input" id="gatewayApiUrl" placeholder="https://企业域名.com/api/gateway" autocomplete="off" style="font-family:var(--font-mono);">
-              <div class="form-hint">企业的统一 POST 网关接口地址</div>
+              <label class="form-label">中台接口地址</label>
+              <input type="url" class="form-input" id="centerApiUrl" placeholder="https://center.youguang8488.com/api/relay" autocomplete="off" style="font-family:var(--font-mono);">
+              <div class="form-hint">中台基址，不含具体接口路径</div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">账号</label>
+                <input type="text" class="form-input" id="centerUsername" placeholder="中台分配的账号" autocomplete="off" style="font-family:var(--font-mono);">
+              </div>
+              <div class="form-group">
+                <label class="form-label">租户 ID</label>
+                <input type="text" class="form-input" id="centerTenantId" placeholder="1" autocomplete="off" style="font-family:var(--font-mono);">
+              </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label">网关密钥</label>
-              <input type="password" class="form-input" id="gatewayApiKey" placeholder="输入企业分配的 API 密钥" autocomplete="off" style="font-family:var(--font-mono);letter-spacing:2px;">
-              <div class="form-hint">用于接口鉴权，将以 <code class="text-accent">Authorization: Bearer {密钥}</code> 方式传递</div>
+              <label class="form-label">密码</label>
+              <input type="password" class="form-input" id="centerPassword" placeholder="中台分配的密码（留空表示不修改）" autocomplete="off" style="font-family:var(--font-mono);letter-spacing:2px;">
+              <div class="form-hint">留空保存则保持原密码不变</div>
             </div>
 
             <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
-              <button class="btn btn-primary" id="saveGatewayBtn" onclick="saveGatewayConfig()">保存网关配置</button>
-              <button class="btn btn-secondary" onclick="clearGatewayConfig()" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.15);color:#F87171;">清除配置</button>
+              <button class="btn btn-primary" id="saveCenterBtn" onclick="saveCenterConfig()">保存中台配置</button>
+              <button class="btn btn-secondary" onclick="clearCenterConfig()" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.15);color:#F87171;">清除配置</button>
             </div>
           </div>
 
@@ -469,6 +480,10 @@
               <textarea class="form-input" id="roomKeywords" rows="6" style="font-family:var(--font-mono);font-size:var(--text-sm);" placeholder="怎么去&#10;路线&#10;导航&#10;空调&#10;电视&#10;洗衣机&#10;热水&#10;wifi&#10;..."></textarea>
               <div class="form-hint">每行一个关键词，消息中包含任意关键词即触发房间查询。初始值即为推荐列表</div>
             </div>
+
+            <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
+              <button class="btn btn-primary" id="saveRoomKeywordsBtn" onclick="saveRoomKeywords()">保存关键词</button>
+            </div>
           </div>
 
           <div class="card settings-section">
@@ -477,7 +492,7 @@
               <span id="sidecarStatus" style="font-size:var(--text-sm);"></span>
             </div>
             <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
-              数据源：<code>sujia_ai_sidecar_dev</code>。订单查询仍走 PMS 网关；房间怎么去/设备怎么用从此库检索。
+              数据源：<code>sujia_ai_sidecar_dev</code>。订单查询走数据中台；房间怎么去/设备怎么用从此库检索。
             </p>
             <div id="sidecarStats" class="text-secondary" style="font-size:var(--text-sm);margin-bottom:var(--space-4);">加载中...</div>
             <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
@@ -489,75 +504,51 @@
 
           <div class="card settings-section">
             <div class="card-header">
-              <h3>📋 统一网关对接规范</h3>
+              <h3>📋 数据中台接口说明</h3>
             </div>
             <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
-              企业需实现一个统一的 POST 接口，通过 <code>action</code> 字段区分不同查询类型。
+              三个接口统一为 <code>GET</code> + query string 鉴权，公共参数 <code>username</code> / <code>password</code> / <code>tenant_id</code>。
             </p>
 
-            <pre style="background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:var(--space-4);font-size:var(--text-sm);font-family:var(--font-mono);line-height:1.8;overflow-x:auto;color:var(--neutral-600);margin:0;">POST {网关地址}
-Content-Type: application/json
-Authorization: Bearer {密钥}
+            <pre style="background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:var(--space-4);font-size:var(--text-sm);font-family:var(--font-mono);line-height:1.8;overflow-x:auto;color:var(--neutral-600);margin:0;">GET {中台地址}/{接口号}?username=…&password=…&tenant_id=1&…
 
-请求体格式：
-{
-  "action": "query_order | query_room",
-  "params": { ... },
-  "timestamp": 当前Unix时间戳
-}
-
-┌── 订单查询 ──────────────────────────┐
-│ action: "query_order"                │
-│ params: { "order_no": "订单号" }      │
+┌── 订单查询 s4e1a8 ─────────────────────┐
+│ 参数: channel_order_id（必填）         │
 │                                      │
-│ 响应:                                │
+│ 响应 data:                            │
 │ {                                    │
-│   "code": 200,                       │
-│   "data": [                          │
+│   "total": 1,                        │
+│   "list": [                          │
 │     {                                │
-│       "order_info": {                │
-│         "room": "房间号/房型",        │
-│         "check_in": "入住日期",       │
-│         "check_out": "离店日期",      │
-│         "order_no": "订单号"          │
-│       },                             │
-│       "yunfangka_url": "链接(可选)",  │
-│       "yunfangka_image": "图片URL"    │
+│       "channel_order_id": "…",        │
+│       "unit_name": "房型",            │
+│       "check_in": "入住时间",         │
+│       "check_out": "离店时间",        │
+│       "room_ids": "房间号(可多房)",   │
+│       "channel": "渠道"               │
 │     }                                │
-│   ]                                  │
-│ }                                    │
-└──────────────────────────────────────┘
-
-┌── 房间查询 ──────────────────────────┐
-│ action: "query_room"                 │
-│ params: {                            │
-│   "room_id": "朝阳店101",            │
-│   "question": "空调怎么开"            │
+│   ],                                 │
+│   "sum_price_paid": "1751.20"        │
 │ }                                    │
 │                                      │
-│ 响应:                                │
-│ {                                    │
-│   "code": 200,                       │
-│   "data": {                          │
-│     "reply": "文字回答...",          │
-│     "images": [                      │
-│       {                              │
-│         "url": "图片地址",            │
-│         "title": "图片说明",          │
-│         "link_url": "点击链接"        │
-│       }                              │
-│     ]                                │
-│   }                                  │
-│ }                                    │
+│ ⚠️ sum_price_paid 是「命中集合的实付  │
+│ 合计」，不是订单字段。按 channel_order_id│
+│ 过滤后 total=1，此时即该单客户实付额。 │
 └──────────────────────────────────────┘
 
-失败响应格式（均适用）：
-{
-  "code": 404,
-  "msg": "错误提示信息"
-}
+┌── 房源 s4e3a9 ─────────────────────────┐
+│ 参数: baoyu_room_no 或 id             │
+│ 响应 data.list[]: 短名/小区/地址/      │
+│                   入住指引/停车/照片   │
+└──────────────────────────────────────┘
 
-注意：API 密钥可包含 "Bearer " 前缀或不含，系统会自动适配。</pre>
+┌── 间夜列表 s4e2a10 ────────────────────┐
+│ 参数: room_id                         │
+│ 响应 data.list[]: 合同号/房价/状态     │
+└──────────────────────────────────────┘
+
+分页参数: page + limit
+鉴权失败统一返回: { "code": 0, "msg": "账号或密码不能为空" }</pre>
           </div>
 
           <div class="card settings-section">
@@ -890,56 +881,57 @@ function saveTemperature() {
   });
 }
 
-// ═══ 统一网关配置 ═══
-function saveGatewayConfig() {
-  var apiUrlVal = document.getElementById('gatewayApiUrl').value.trim();
-  var apiKey = document.getElementById('gatewayApiKey').value.trim();
-  var keywords = document.getElementById('roomKeywords').value.trim();
+// ═══ 数据中台配置（v3.26 取代旧统一网关）═══
+function saveCenterConfig() {
+  var apiUrlVal = document.getElementById('centerApiUrl').value.trim();
+  var username = document.getElementById('centerUsername').value.trim();
+  var password = document.getElementById('centerPassword').value.trim();
+  var tenantId = document.getElementById('centerTenantId').value.trim();
 
-  if (!apiUrlVal) { showToast('请输入网关接口地址'); return; }
-  if (!apiKey) { showToast('请输入网关密钥'); return; }
+  if (!apiUrlVal) { showToast('请输入中台接口地址'); return; }
+  if (!username) { showToast('请输入中台账号'); return; }
 
-  var btn = document.getElementById('saveGatewayBtn');
+  var btn = document.getElementById('saveCenterBtn');
   btn.disabled = true;
   btn.textContent = '保存中...';
 
-  fetch(apiUrl('/api/verify.php?action=save_gateway_config'), {
+  fetch(apiUrl('/api/verify.php?action=save_center_config'), {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ api_url: apiUrlVal, api_key: apiKey, room_keywords: keywords })
+    body: JSON.stringify({ api_url: apiUrlVal, username: username, password: password, tenant_id: tenantId })
   })
   .then(function(r) { return r.json(); })
   .then(function(res) {
     btn.disabled = false;
-    btn.textContent = '保存网关配置';
+    btn.textContent = '保存中台配置';
     if (res.code === 0) {
-      showToast('网关配置保存成功');
-      document.getElementById('gatewayApiKey').value = '';
-      loadGatewayConfig();
+      showToast('数据中台配置已保存');
+      document.getElementById('centerPassword').value = '';
+      loadCenterConfig();
     } else {
       showToast(res.msg);
     }
   })
   .catch(function() {
     btn.disabled = false;
-    btn.textContent = '保存网关配置';
+    btn.textContent = '保存中台配置';
     showToast('网络错误，请重试');
   });
 }
 
-function clearGatewayConfig() {
-  if (!confirm('确定要清除统一网关配置吗？配置清除后订单查询和房间查询功能将不可用。')) return;
+function clearCenterConfig() {
+  if (!confirm('确定要清除数据中台配置吗？清除后订单查询和房间查询功能将不可用。')) return;
 
-  fetch(apiUrl('/api/verify.php?action=save_gateway_config'), {
+  fetch(apiUrl('/api/verify.php?action=clear_center_config'), {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ api_url: '', api_key: '', room_keywords: '' })
+    body: JSON.stringify({})
   })
   .then(function(r) { return r.json(); })
   .then(function(res) {
     if (res.code === 0) {
-      showToast('网关配置已清除');
-      loadGatewayConfig();
+      showToast('数据中台配置已清除');
+      loadCenterConfig();
     } else {
       showToast(res.msg);
     }
@@ -949,29 +941,75 @@ function clearGatewayConfig() {
   });
 }
 
-function loadGatewayConfig() {
-  fetch(apiUrl('/api/verify.php?action=get_gateway_config'), { headers: getHeaders() })
+function loadCenterConfig() {
+  fetch(apiUrl('/api/verify.php?action=get_center_config'), { headers: getHeaders() })
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res.code === 0 && res.data) {
-        var gatewayStatus = document.getElementById('gatewayStatus');
-        var urlInput = document.getElementById('gatewayApiUrl');
-        var keywordsInput = document.getElementById('roomKeywords');
-        var roomStatus = document.getElementById('roomQueryStatus');
+        var centerStatus = document.getElementById('centerStatus');
+        var urlInput = document.getElementById('centerApiUrl');
+        var userInput = document.getElementById('centerUsername');
+        var tenantInput = document.getElementById('centerTenantId');
 
         if (res.data.api_url) {
-          gatewayStatus.innerHTML = '<span class="badge badge-success">✅ 已配置</span>';
+          centerStatus.innerHTML = '<span class="badge badge-success">✅ 已配置</span>';
           urlInput.value = res.data.api_url;
         } else {
-          gatewayStatus.innerHTML = '<span class="badge badge-error">未配置</span>';
+          centerStatus.innerHTML = '<span class="badge badge-error">未配置</span>';
           urlInput.value = '';
         }
 
+        userInput.value = res.data.username || '';
+        tenantInput.value = res.data.tenant_id || '1';
+      }
+    });
+}
+
+// ═══ 房间查询触发关键词 ═══
+var DEFAULT_ROOM_KEYWORDS = '怎么去\n如何到\n路线\n导航\n地址\n在哪里\n在哪儿\n怎么用\n怎么开\n如何使用\n使用说明\n操作\n空调\n电视\n洗衣机\n热水\nwifi\nWiFi\n无线网\n热水器\n冰箱\n电磁炉\n微波炉\n吹风机\n门锁\n入住指引\n房间指引\n设施\n设备\n怎么入住\n怎么进去\n房间号\n几号房';
+
+function saveRoomKeywords() {
+  var keywords = document.getElementById('roomKeywords').value.trim();
+
+  var btn = document.getElementById('saveRoomKeywordsBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_room_keywords'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ room_keywords: keywords })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存关键词';
+    if (res.code === 0) {
+      showToast('房间查询关键词已保存');
+      loadRoomKeywords();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存关键词';
+    showToast('网络错误，请重试');
+  });
+}
+
+function loadRoomKeywords() {
+  fetch(apiUrl('/api/verify.php?action=get_room_keywords'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        var keywordsInput = document.getElementById('roomKeywords');
+        var roomStatus = document.getElementById('roomQueryStatus');
         if (res.data.room_keywords) {
           keywordsInput.value = res.data.room_keywords;
           roomStatus.innerHTML = '<span class="badge badge-success">✅ 已配置 ' + res.data.room_keywords.split('\n').length + ' 个关键词</span>';
         } else {
-          keywordsInput.value = '怎么去\n如何到\n路线\n导航\n地址\n在哪里\n在哪儿\n怎么用\n怎么开\n如何使用\n使用说明\n操作\n空调\n电视\n洗衣机\n热水\nwifi\nWiFi\n无线网\n热水器\n冰箱\n电磁炉\n微波炉\n吹风机\n门锁\n入住指引\n房间指引\n设施\n设备\n怎么入住\n怎么进去\n房间号\n几号房';
+          keywordsInput.value = DEFAULT_ROOM_KEYWORDS;
           roomStatus.innerHTML = '<span class="badge badge-info">使用默认关键词</span>';
         }
       }
@@ -1061,7 +1099,8 @@ function vectorizeSidecarPending() {
 }
 
 loadSettings();
-loadGatewayConfig();
+loadCenterConfig();
+loadRoomKeywords();
 loadSidecarStats();
 loadWecomConfig();
 loadWecomKfConfig(); // v3.4：微信客服 API 配置

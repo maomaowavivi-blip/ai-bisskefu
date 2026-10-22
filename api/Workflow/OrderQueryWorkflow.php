@@ -10,7 +10,7 @@
  * 已知 chat.php:431-470 处理：
  *   - order_query: 前缀识别
  *   - 提取订单号
- *   - PMS 网关 callGateway('query_order')
+ *   - 数据中台订单查询 CenterApi::orderByChannelOrderId()（v3.26 取代旧 apicenter）
  *   - 写入 order_context_cache（24h TTL）
  *   - 返回 rich_content 云房卡卡片
  */
@@ -18,6 +18,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/AbstractWorkflow.php';
+require_once __DIR__ . '/../CenterApi.php';
 
 final class OrderQueryWorkflow extends AbstractWorkflow
 {
@@ -43,46 +44,53 @@ final class OrderQueryWorkflow extends AbstractWorkflow
             );
         }
 
-        // v3.9:替代 callGateway 坏网关,直接调 channelOrder 查订单
+        // v3.26:数据中台订单查询(取代已下线的旧 apicenter channelOrder / 自建网关)
         try {
-            $orderData = self::queryChannelOrder($this->db, $orderNo);
+            $orderResult = CenterApi::orderByChannelOrderId($this->db, $orderNo);
         } catch (\Throwable $e) {
-            error_log('[OrderQueryWorkflow] queryChannelOrder failed: ' . $e->getMessage());
+            error_log('[OrderQueryWorkflow] CenterApi failed: ' . $e->getMessage());
+            $orderResult = null;
+        }
+
+        // 查单失败(订单不存在 / 中台异常)
+        if (!$orderResult || empty($orderResult['order'])) {
             return WorkflowResult::text(
                 '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
                 'OrderQueryWorkflow'
             );
         }
 
-        // 查单失败(订单不存在)
-        if (!$orderData) {
-            return WorkflowResult::text(
-                '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
-                'OrderQueryWorkflow'
-            );
-        }
+        $orderData  = $orderResult['order'];
+        $paidAmount = (string)($orderResult['paid_amount'] ?? '');
 
         // 查单成功 → 文本订单信息(web 端不依赖 thumb/云房卡)
         $reply = "订单查询成功：\n"
             . ($orderData['unit_name'] ? "房型：{$orderData['unit_name']}\n" : '')
             . ($orderData['check_in'] ? "入住：" . date('Y-m-d', strtotime($orderData['check_in'])) . "\n" : '')
             . ($orderData['check_out'] ? "离店：" . date('Y-m-d', strtotime($orderData['check_out'])) . "\n" : '')
-            . ($orderData['price'] ? "房价：¥{$orderData['price']}\n" : '')
+            . ($paidAmount !== '' ? "实付金额：¥{$paidAmount}\n" : '')
             . '如需查看云房卡请前往微信客服发送订单号获取。';
 
-        // 写入 order_context_cache(24h TTL) — 保留原逻辑
+        // 写入 order_context_cache(24h TTL)
+        //
+        // v3.26 修正两处历史错误（该表自建表起从未写入成功过，错误被 catch 吞掉）：
+        //   1) 生产表没有 created_at 列（是 verified_at），写 created_at 直接报 1054 Unknown column
+        //   2) room_list 是 varchar(500) 且注释为「逗号分隔的房间号列表」，
+        //      旧代码存整个订单对象 JSON（1051 字符）必然超长
+        // 现按真实表结构写入：room_id / room_list 都存订单的 room_ids（逗号分隔房间号）。
         try {
             $stmt = $this->db->prepare(
-                'INSERT INTO order_context_cache (session_id, order_no, room_id, room_list, expires_at, created_at)
-                 VALUES (?, ?, ?, ?, ?, NOW())
+                'INSERT INTO order_context_cache (session_id, order_no, room_id, room_list, expires_at)
+                 VALUES (?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE order_no=VALUES(order_no), room_id=VALUES(room_id),
                    room_list=VALUES(room_list), expires_at=VALUES(expires_at)'
             );
+            $roomIds = (string)($orderData['room_ids'] ?? '');
             $stmt->execute([
                 $this->sessionId,
                 $orderNo,
-                $orderData['room_ids'] ?? 0,
-                json_encode($orderData, JSON_UNESCAPED_UNICODE),
+                $roomIds,
+                $roomIds,
                 date('Y-m-d H:i:s', time() + 86400),
             ]);
         } catch (\Throwable $e) {
@@ -90,40 +98,5 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         }
 
         return WorkflowResult::text($reply, 'OrderQueryWorkflow');
-    }
-
-    /**
-     * v3.9:直接调 channelOrder API 查订单(替代已失效的 callGateway)
-     * 实测确认返回字段: check_in / check_out / unit_name / price / state
-     */
-    private static function queryChannelOrder(\PDO $db, string $channelOrderId): ?array
-    {
-        $user = trim(pcGet($db, 'roomcard.username', ''));
-        $pwd  = trim(pcGet($db, 'roomcard.password', ''));
-        if ($user === '' || $pwd === '') {
-            error_log('[OrderQueryWorkflow] roomcard.username/password not configured');
-            return null;
-        }
-
-        $url = "https://apicenter.sujia365.com/index.php/openapi/order/channelOrder"
-            . "?username=" . urlencode($user)
-            . "&pwd=" . $pwd
-            . "&channel_order_id=" . urlencode($channelOrderId);
-
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-        ]);
-        $resp = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode !== 200 || !$resp) return null;
-        $data = json_decode($resp, true);
-        if (!isset($data['code']) || intval($data['code']) !== 1 || empty($data['data']['order'])) {
-            return null;
-        }
-        return $data['data']['order'];
     }
 }

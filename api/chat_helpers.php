@@ -14,8 +14,9 @@
  * - respondDirectHandoff() — 直转人工响应
  * - isYunfangkaCardFollowUp() — 查单后云房卡追问识别
  * - respondDirectKb() — KB 直答响应
- * - callGateway() — PMS 网关调用
  * - queryRoomLocal() — 本地房间查询
+ *
+ * v3.26：callGateway()（旧自建网关）已随数据中台迁移一并删除。
  *
  * 与 chat.php 的关系：chat.php require_once 本文件后行为不变。
  */
@@ -116,49 +117,6 @@ function respondDirectKb(PDO $db, string $sessionId, string $message, string $re
     $stmt->execute([$sessionId, 'user', $message, $visitorHash, $ip]);
     $stmt->execute([$sessionId, 'assistant', $reply, $visitorHash, $ip]);
     chatResponse(0, 'ok', ['reply' => $reply, 'is_verified' => false, 'handoff_status' => -1]);
-}
-
-/**
- * 统一网关调用
- */
-function callGateway($db, $action, $params) {
-    $gatewayUrl = pcGet($db, 'gateway.api_url', '');
-    $gatewayKey = pcGet($db, 'gateway.api_key', '');
-    if (!$gatewayUrl) $gatewayUrl = pcGet($db, 'order.api_url', '');
-    if (!$gatewayKey) $gatewayKey = pcGet($db, 'order.api_key', '');
-    if (!$gatewayUrl || !$gatewayKey) return null;
-
-    $payload = ['action' => $action, 'params' => $params, 'timestamp' => time()];
-    try {
-        $ch = curl_init($gatewayUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($payload),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'Authorization: ' . (strpos($gatewayKey, 'Bearer ') === 0 ? $gatewayKey : 'Bearer ' . $gatewayKey),
-            ],
-        ]);
-        $resp = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($resp && $httpCode === 200) {
-            $result = json_decode($resp, true);
-            if (isset($result['code']) && intval($result['code']) === 200 && isset($result['data'])) {
-                return $result['data'];
-            }
-        }
-        // PMS 返回 404（未找到房间信息）时，保留 msg 供调用方判断
-        if ($resp) {
-            $result = json_decode($resp, true);
-            if (isset($result['code']) && intval($result['code']) === 404) {
-                return ['_not_found' => true, 'msg' => $result['msg'] ?? '未找到房间信息'];
-            }
-        }
-    } catch (Throwable $e) {}
-    return null;
 }
 
 /**
