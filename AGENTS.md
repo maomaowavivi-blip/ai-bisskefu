@@ -175,4 +175,63 @@ curl / 测试时:
 
 ---
 
-**最后更新**:2026-10-21 by 波尼(v3.24 新增第 10 节 转人工兜底话术配置说明)
+**最后更新**:2026-10-22 by 波尼(v3.26 新增第 12 节 数据中台接口说明)
+## 12. 数据中台(新) — v3.26 起取代旧网关(2026-10-22)
+
+### 接口与鉴权
+
+基址 `https://center.youguang8488.com/api/relay`,**GET + query string** 鉴权:
+
+| 用途 | 端点 | 过滤参数 | 返回 |
+|---|---|---|---|
+| 订单查询 | `s4e1a8` | `channel_order_id` | `data.total` / `data.list[]` / `data.sum_price_paid` |
+| 房源 | `s4e3a9` | `baoyu_room_no` 或 `id` | `data.list[]` |
+| 间夜列表 | `s4e2a10` | `room_id` | `data.list[]` |
+
+- **公共参数**:`username` + `password` + `tenant_id`(固定 `1`)
+- ⚠️ 参数名是 `password` **不是** `pwd`;不是 header、不是 POST body
+- 分页:`page` + `limit`
+- 客户端:`api/CenterApi.php`(统一封装 + 错误日志)
+
+### 配置键(存生产 `platform_config`,不进源码/.env/commit)
+
+`center.api_url` / `center.username` / `center.password` / `center.tenant_id`
+
+后台:管理后台 → 企业集成 → 「数据中台配置」
+
+### ⚠️ `sum_price_paid` 的坑
+
+它**不是订单级字段**,是「当前命中集合的客户实付合计」。
+按 `channel_order_id` 过滤后 `total=1`,此时该值才是该单实付额(已用 3 个真实订单与旧接口 `price_paid` 逐笔核对一致)。
+客户端在 `total>1` 时会打告警日志。
+
+### ID 映射链(已闭环验证)
+
+```
+订单.room_ids(逗号分隔,可多房) = 中台 baoyu_room_no = sidecar ai_room_profile.baoyu_room_id
+中台房源.id = sidecar ai_room_profile.sujia_room_id
+```
+
+- 优先查 sidecar `baoyu_room_id`(覆盖 650/921,纯 DB 命中,不外呼)
+- 未命中再调中台房源接口拿 `id`,再按 `sujia_room_id` 精确查
+- ⚠️ **不能用宽匹配**:sidecar 有 577 行 `id` 与他人 `sujia_room_id` 撞号(如 `id=1` 的 `sujia_room_id=127`,而 `id=127` 是另一间房)。必须走 `resolveBySujiaRoomId()` 精确查
+
+### 已下线的旧链路(v3.26 全部删除)
+
+| 旧链路 | 状态 |
+|---|---|
+| `http://119.91.30.52:8081/sujia/room/card/service`(自建 RuoYi 网关) | 401,已删 `callGateway()` + 配置 |
+| `http://192.168.3.14:8081/sujia/room/card/order_no/get` | 内网不可达,配置已删 |
+| `apicenter.sujia365.com/index.php/openapi/order/channelOrder` | 订单查询已切走,**云房卡仍在用**(见下) |
+
+### 云房卡(待改造)
+
+`api/wecom_kf_roomcard_v37.php` 仍走旧 `apicenter.sujia365.com` 的 `room_card/byChannelOrder` + `room_card/generateByChannelOrder`,
+凭据 `roomcard.username` / `roomcard.password` **保留未动**。苏鸣正在改造云房卡,新接口就绪后另开蓝图。
+
+### 房间流续接(v3.26 修复的结构性缺陷)
+
+旧代码 `IntentClassifier` 把任何裸订单号判为 `ORDER_QUERY`,而房间流 step=1 等的正是订单号 → 房间流永远进不了 step=2,
+生产上「地址/停车/垃圾/设备」100% 查不到(迁移前后都一样,非迁移引入)。
+现规则:会话 `room_query_sessions.step=1` + 消息含订单号 + 不含 `order_query:`/订单/查单 → 判 `ROOM_QUERY`。
+依据 `.trae/documents/room-query-flow-blueprint.md` §3.1 与验收清单。
