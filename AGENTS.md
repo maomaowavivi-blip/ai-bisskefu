@@ -175,7 +175,23 @@ curl / 测试时:
 
 ---
 
-**最后更新**:2026-10-23 by 波尼(v3.29 云房卡旧宿家链路清理)
+## 13. 回归测试(2026-10-23 v3.29.1 修好,以前打生产是全 FAIL)
+
+脚本:`scripts/regression_chat.php`
+
+```bash
+php scripts/regression_chat.php https://43.138.217.6 --core   # 打生产核心用例
+php scripts/regression_chat.php https://43.138.217.6 --live   # 打生产全量(含房间流)
+php scripts/regression_chat.php http://localhost:8888 --core   # 打本地 MAMP
+```
+
+- **IP 直连自动跳过 TLS 证书校验**(生产证书签给域名,用 IP 连必然校验失败 → 脚本以前拿到空响应,16 个用例全显示 FAIL,容易被误判成"系统坏了")
+- **撞生产限流自动重试**:限流规则 = 每 IP 每分钟 20 次(`ChatPipeline::enforceRateLimit`),429 时等 62s 让窗口重置再重试;请求间隔默认 1.5s(`--delay=` 可调)
+- **房间流用例**(`group=room`)共用一个 session:先问房间问题(进 step=1)→ 发订单号 → 选房 → 再连续追问,正好覆盖 step=3 真实路径
+- `expect` 支持 `'A|B'`:本地 MAMP 与生产话术/KB 内容不一致时,列多个可接受答案,避免假失败
+- 副作用:打生产会往 `chat_logs` 写测试会话记录
+
+**最后更新**:2026-10-23 by 波尼(v3.29.1 回归脚本修复 + v3.29 云房卡旧宿家链路清理)
 ## 12. 数据中台(新) — v3.26 起取代旧网关(2026-10-22)
 
 ### 接口与鉴权
