@@ -175,7 +175,7 @@ curl / 测试时:
 
 ---
 
-**最后更新**:2026-10-23 by 波尼(v3.28 云房卡主链路切到中台房卡接口)
+**最后更新**:2026-10-23 by 波尼(v3.28 云房卡切中台 + v3.27 房间资料以中台为准)
 ## 12. 数据中台(新) — v3.26 起取代旧网关(2026-10-22)
 
 ### 接口与鉴权
@@ -243,6 +243,17 @@ GET https://business.youguang8488.com/api/relay/room_card/byOrder
   新接口 HTTP 失败或 `code=0` 时自动回退,日志打 `[roomcard] fallback to legacy sujia api`
 - 新接口 `code=1` 但 0 张卡时**不回退**(中台说没有就是没有,避免旧接口生成旧卡)
 - 蓝图:`.trae/documents/v3.28-roomcard-center-relay-blueprint.md`
+
+### 房间资料以中台为准(v3.27)
+
+- 房间**资料**(地址/家电/交通/停车/入住指引/照片/温馨提示)一律读中台 `s4e3a9`,**不再读 sidecar 知识库**
+- 读取层:`api/CenterRoom.php`(`loadByBaoyuRoomNo` / `loadById` + 字段解析 + `toPlainText` 去标签)
+- 订单→房间:`api/sidecar/OrderRoomMapper.php` 的 `mapOrderData()` → 订单 `room_ids` 逗号拆 → 逐个按 `baoyu_room_no` 查中台 → 候选 `room_id` = **中台房源 id**
+- 原则(苏鸣 2026-10-22):**中台写什么就输出什么,中台没填 = 没有这个东西**,不推断、不修正、不说「未标注」
+- ⚠️ 中台 `room_ids` 可多房(实测 `123456789,99999999` → 2 间房),客户需选房;发**房号**(如 10002)或序号均可选
+- ⚠️ `room_query_sessions.sidecar_room_id` **列名沿用历史**,值已是中台房源 id(无 DDL 迁移,代码内用 `center_room_id` 别名)
+- ⚠️ step=3 追问:房间类问题(地址/交通/停车/攻略/设备)优先于通用 KB,否则「附近有地铁吗」会被「附近」二字吞掉落兜底
+- 蓝图:`.trae/documents/v3.27-center-room-source-blueprint.md`
 
 ### 房间流续接(v3.26 修复的结构性缺陷)
 

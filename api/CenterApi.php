@@ -177,6 +177,27 @@ class CenterApi
     }
 
     /**
+     * 按中台房源 id 查房源
+     * @return array|null 房源记录
+     */
+    public static function roomById(PDO $db, int $roomId): ?array
+    {
+        if ($roomId <= 0) return null;
+
+        $data = self::request($db, self::RELAY_ROOM, [
+            'id'   => $roomId,
+            'limit' => 1,
+        ]);
+        if ($data === null) return null;
+
+        $list = $data['list'] ?? [];
+        if (!is_array($list) || empty($list)) return null;
+
+        $room = $list[0];
+        return is_array($room) ? $room : null;
+    }
+
+    /**
      * 按 room_id 查间夜列表
      * @return array[] 间夜记录
      */

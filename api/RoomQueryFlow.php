@@ -64,7 +64,7 @@ class RoomQueryFlow {
             'question' => $message,
             'order_no' => '',
             'room_id' => '',
-            'sidecar_room_id' => 0,
+            'center_room_id' => 0,
             'room_candidates' => null,
             'bound_at' => null,
             'expires_at' => null,
@@ -84,7 +84,7 @@ class RoomQueryFlow {
                 'question' => $message,
                 'order_no' => $state['order_no'] ?? '',
                 'room_id' => $state['room_id'] ?? '',
-                'sidecar_room_id' => (int)($state['sidecar_room_id'] ?? 0),
+                'center_room_id' => (int)($state['center_room_id'] ?? 0),
                 'room_candidates' => $state['room_candidates'] ?? null,
                 'bound_at' => $state['bound_at'] ?? null,
                 'expires_at' => $state['expires_at'] ?? null,
@@ -113,7 +113,7 @@ class RoomQueryFlow {
 
         if (count($candidates) === 1) {
             $pick = $candidates[0];
-            return self::bindAndAnswer($db, $sessionId, $orderNo, (int)$pick['sidecar_room_id'], $question, null, $visitorHash, $ip);
+            return self::bindAndAnswer($db, $sessionId, $orderNo, (int)$pick['room_id'], $question, null, $visitorHash, $ip);
         }
 
         $cards = self::candidatesToRichContent($candidates);
@@ -123,7 +123,7 @@ class RoomQueryFlow {
             'question' => $question,
             'order_no' => $orderNo,
             'room_id' => '',
-            'sidecar_room_id' => 0,
+            'center_room_id' => 0,
             'room_candidates' => $json,
             'bound_at' => null,
             'expires_at' => date('Y-m-d H:i:s', time() + self::SESSION_TTL_MINUTES * 60),
@@ -148,15 +148,26 @@ class RoomQueryFlow {
         if (preg_match('/^room_pick:(\d+)$/', $message, $m)) {
             $pickedId = (int)$m[1];
         } elseif (preg_match('/^\d+$/', trim($message))) {
-            $idx = (int)trim($message) - 1;
-            if (isset($candidates[$idx])) {
-                $pickedId = (int)$candidates[$idx]['sidecar_room_id'];
+            $num = trim($message);
+            // v3.27.1:中台房号是数字(如 10002),先按房号精确匹配,再回落为候选序号。
+            // 旧逻辑把「10002」当成第 10002 个候选 → 选房永远失败。
+            foreach ($candidates as $c) {
+                if (trim((string)($c['room_code'] ?? '')) === $num) {
+                    $pickedId = (int)$c['room_id'];
+                    break;
+                }
+            }
+            if ($pickedId === null) {
+                $idx = (int)$num - 1;
+                if (isset($candidates[$idx])) {
+                    $pickedId = (int)$candidates[$idx]['room_id'];
+                }
             }
         } else {
             foreach ($candidates as $c) {
                 $code = trim((string)($c['room_code'] ?? ''));
                 if ($code !== '' && (trim($message) === $code || mb_strpos($message, $code) !== false)) {
-                    $pickedId = (int)$c['sidecar_room_id'];
+                    $pickedId = (int)$c['room_id'];
                     break;
                 }
             }
@@ -200,18 +211,22 @@ class RoomQueryFlow {
             return self::buildResult(self::CHITCHAT_REPLY, 3, [], true);
         }
 
-        if (SidecarIntent::isGeneralKbQuestion($message)) {
+        // v3.27.1:房间资料类问题(地址/交通/停车/攻略/设备)优先于通用 KB。
+        // 「附近有地铁吗」含「附近」,旧逻辑直接回落通用 KB → 落兜底话术,
+        // 而中台 guide_parking_json 里其实写着地铁指引。
+        $isRoomSpecific = RoomQueryService::isRoomSpecificQuery($message);
+        if (!$isRoomSpecific && SidecarIntent::isGeneralKbQuestion($message)) {
             return null;
         }
 
-        $sidecarId = (int)($state['sidecar_room_id'] ?? 0);
-        if ($sidecarId <= 0) {
+        $centerRoomId = (int)($state['center_room_id'] ?? 0);
+        if ($centerRoomId <= 0) {
             self::resetToAskOrder($db, $sessionId, $message);
             return self::buildResult(self::ASK_ORDER_REPLY, 1);
         }
 
         self::touchSession($db, $sessionId, $message, $state);
-        return self::answerFromSidecar($db, $sessionId, $sidecarId, $message, true, 3, $visitorHash, $ip);
+        return self::answerFromCenterRoom($db, $sessionId, $centerRoomId, $message, true, 3, $visitorHash, $ip);
     }
 
     private static function touchSession(PDO $db, string $sessionId, string $message, array $state): void {
@@ -220,31 +235,31 @@ class RoomQueryFlow {
             'question' => $message,
             'order_no' => (string)($state['order_no'] ?? ''),
             'room_id' => (string)($state['room_id'] ?? ''),
-            'sidecar_room_id' => (int)($state['sidecar_room_id'] ?? 0),
+            'center_room_id' => (int)($state['center_room_id'] ?? 0),
             'room_candidates' => null,
             'bound_at' => $state['bound_at'] ?? date('Y-m-d H:i:s'),
             'expires_at' => date('Y-m-d H:i:s', time() + self::SESSION_TTL_MINUTES * 60),
         ]);
     }
 
-    private static function bindAndAnswer(PDO $db, string $sessionId, string $orderNo, int $sidecarId, string $question, ?array $candidates, string $visitorHash, string $ip): array {
+    private static function bindAndAnswer(PDO $db, string $sessionId, string $orderNo, int $centerRoomId, string $question, ?array $candidates, string $visitorHash, string $ip): array {
         $now = date('Y-m-d H:i:s');
         $expires = date('Y-m-d H:i:s', time() + self::SESSION_TTL_MINUTES * 60);
         self::upsertSession($db, $sessionId, [
             'step' => 3,
             'question' => $question,
             'order_no' => $orderNo,
-            'room_id' => (string)$sidecarId,
-            'sidecar_room_id' => $sidecarId,
+            'room_id' => (string)$centerRoomId,
+            'center_room_id' => $centerRoomId,
             'room_candidates' => $candidates ? json_encode($candidates, JSON_UNESCAPED_UNICODE) : null,
             'bound_at' => $now,
             'expires_at' => $expires,
         ]);
-        return self::answerFromSidecar($db, $sessionId, $sidecarId, $question, true, 3, $visitorHash, $ip);
+        return self::answerFromCenterRoom($db, $sessionId, $centerRoomId, $question, true, 3, $visitorHash, $ip);
     }
 
-    private static function answerFromSidecar(PDO $db, string $sessionId, int $sidecarId, string $question, bool $verified, int $step, string $visitorHash, string $ip): array {
-        $roomData = RoomQueryService::queryBySidecarId($sidecarId, $question, $verified, $sessionId);
+    private static function answerFromCenterRoom(PDO $db, string $sessionId, int $centerRoomId, string $question, bool $verified, int $step, string $visitorHash, string $ip): array {
+        $roomData = RoomQueryService::queryByRoomId($centerRoomId, $question, $verified, $sessionId);
         if (!$roomData || !empty($roomData['_not_found'])) {
             return self::buildResult(self::SIDECAR_MISS_REPLY, $step, [], $verified);
         }
@@ -281,7 +296,7 @@ class RoomQueryFlow {
         foreach ($candidates as $c) {
             $cards[] = [
                 'type' => 'room_pick',
-                'sidecar_room_id' => (int)$c['sidecar_room_id'],
+                'room_id' => (int)$c['room_id'],
                 'room_index' => (int)($c['room_index'] ?? 0),
                 'room_code' => (string)($c['room_code'] ?? ''),
                 'title' => (string)($c['title'] ?? $c['display_name'] ?? ''),
@@ -293,7 +308,7 @@ class RoomQueryFlow {
 
     private static function candidateAllowed(array $candidates, int $pickedId): bool {
         foreach ($candidates as $c) {
-            if ((int)($c['sidecar_room_id'] ?? 0) === $pickedId) return true;
+            if ((int)($c['room_id'] ?? 0) === $pickedId) return true;
         }
         return false;
     }
@@ -336,6 +351,9 @@ class RoomQueryFlow {
             $row = $st->fetch();
             if (!$row) return null;
             if ((int)($row['step'] ?? 0) === 0) return null;
+            // v3.27:DB 列 sidecar_room_id 沿用历史命名,值已是数据中台房源 id。
+            // 这里补一个语义化别名,代码内统一用 center_room_id。
+            $row['center_room_id'] = (int)($row['sidecar_room_id'] ?? 0);
             return $row;
         } catch (Exception $e) {
             return null;
@@ -360,7 +378,7 @@ class RoomQueryFlow {
             'question' => $question,
             'order_no' => '',
             'room_id' => '',
-            'sidecar_room_id' => 0,
+            'center_room_id' => 0,
             'room_candidates' => null,
             'bound_at' => null,
             'expires_at' => null,
@@ -385,7 +403,7 @@ class RoomQueryFlow {
             (string)($fields['question'] ?? ''),
             (int)($fields['step'] ?? 0),
             (string)($fields['order_no'] ?? ''),
-            (int)($fields['sidecar_room_id'] ?? 0),
+            (int)($fields['center_room_id'] ?? 0),
             $fields['room_candidates'] ?? null,
             $fields['bound_at'] ?? null,
             $fields['expires_at'] ?? null,

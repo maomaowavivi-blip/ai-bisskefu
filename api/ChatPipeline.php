@@ -22,6 +22,7 @@ require_once __DIR__ . '/IntentClassifier.php';
 require_once __DIR__ . '/IntentRouter.php';
 require_once __DIR__ . '/SessionState.php';
 require_once __DIR__ . '/ReplyRenderer.php';
+require_once __DIR__ . '/chat_helpers.php';
 
 final class ChatPipeline
 {

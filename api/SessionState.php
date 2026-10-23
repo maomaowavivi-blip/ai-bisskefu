@@ -49,7 +49,8 @@ final class SessionState
      * @return ?array {
      *   step: int,
      *   order_no: string,
-     *   sidecar_room_id: int,
+     *   sidecar_room_id: int,   // 历史列名,值为数据中台房源 id
+     *   center_room_id: int,    // 同上,语义化别名
      *   room_candidates: array,
      *   bound_at: ?string,
      *   expires_at: ?string
@@ -71,7 +72,9 @@ final class SessionState
             return [
                 'step' => (int)($row['step'] ?? 0),
                 'order_no' => trim($row['order_no'] ?? ''),
+                // v3.27:DB 列 sidecar_room_id 沿用历史命名,值已是数据中台房源 id
                 'sidecar_room_id' => (int)($row['sidecar_room_id'] ?? 0),
+                'center_room_id'  => (int)($row['sidecar_room_id'] ?? 0),
                 'room_candidates' => json_decode($row['room_candidates'] ?? '[]', true) ?: [],
                 'bound_at' => $row['bound_at'] ?? null,
                 'expires_at' => $row['expires_at'] ?? null,

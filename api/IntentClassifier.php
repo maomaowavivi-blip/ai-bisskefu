@@ -43,6 +43,21 @@ final class IntentClassifier
     }
 
     /**
+     * 房间流是否正处于 step=2（正在等待用户选房）
+     *
+     * @param array $session SessionState::load() 的返回
+     */
+    private static function isRoomFlowAwaitingRoomPick(array $session): bool
+    {
+        $room = $session['room_session'] ?? null;
+        if (!is_array($room)) return false;
+        if ((int)($room['step'] ?? 0) !== 2) return false;
+        $expires = trim((string)($room['expires_at'] ?? ''));
+        if ($expires !== '' && strtotime($expires) < time()) return false;
+        return true;
+    }
+
+    /**
      * 主入口：分类一条用户消息
      *
      * @param string $message 用户消息（已 trim）
@@ -121,6 +136,10 @@ final class IntentClassifier
         }
 
         // 3. 房间意图（业务意图优先于 KB，避免"order_query:xxx" 被 KB 误判）
+        if (preg_match('/^room_pick:\d+$/', $message)) {
+            return IntentContext::of(Intent::ROOM_QUERY, 1.0, [], 'rule:room_pick');
+        }
+
         $roomKeywords = RoomQueryFlow::getRoomKeywords($ctx['db']);
         if (RoomQueryFlow::isRoomIntent($message, $roomKeywords)) {
             $slots = [];
@@ -130,12 +149,8 @@ final class IntentClassifier
             return IntentContext::of(Intent::ROOM_QUERY, 0.9, $slots, 'rule:sidecar_keyword');
         }
 
-        // 3.5 房间流续接（v3.26）
-        //  会话已处于 step=1（正在等订单号）且本条消息含订单号 → 继续房间流。
-        //  不加这一条的话，第 4 步会把裸订单号一律判成 ORDER_QUERY，
-        //  房间流永远进不了 step=2，地址/停车/设备这类问题就永远查不到资料。
-        //  依据：room-query-flow-blueprint.md §3.1（step=1 等待用户输入「订单号」）
-        //        + 验收清单「step=1 收到订单号 → 内部查单解析（不展示云房卡）」
+        // 3.5 房间流续接（v3.26 + 多房选房续接）
+        //  a) 会话已处于 step=1（正在等订单号）且本条消息含订单号 → 继续房间流。
         if (self::isRoomFlowAwaitingOrderNo($session)
             && !preg_match('/^order_query:|订单|查单/u', $message)
             && SidecarIntent::extractOrderNo($message) !== '') {
@@ -144,6 +159,16 @@ final class IntentClassifier
                 0.95,
                 ['order_no' => SidecarIntent::extractOrderNo($message)],
                 'rule:room_flow_continuation'
+            );
+        }
+        //  b) 会话已处于 step=2（正在等待用户选房）且非退出消息 → 继续房间流。
+        if (self::isRoomFlowAwaitingRoomPick($session)
+            && !SidecarIntent::isFlowExitMessage($message, $ctx['db'])) {
+            return IntentContext::of(
+                Intent::ROOM_QUERY,
+                0.95,
+                [],
+                'rule:room_flow_pick_continuation'
             );
         }
 

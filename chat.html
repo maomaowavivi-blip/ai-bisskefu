@@ -711,7 +711,7 @@ function appendRichContent(cards) {
       var roomButton = document.createElement('button');
       roomButton.type = 'button';
       roomButton.className = 'room-pick-card';
-      roomButton.dataset.roomId = String(c.sidecar_room_id || '');
+      roomButton.dataset.roomId = String(c.room_id || '');
       if (c.room_code) {
         var code = document.createElement('span');
         code.className = 'room-pick-code';
