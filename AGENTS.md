@@ -175,7 +175,7 @@ curl / 测试时:
 
 ---
 
-**最后更新**:2026-10-23 by 波尼(v3.28 云房卡切中台 + v3.27 房间资料以中台为准)
+**最后更新**:2026-10-23 by 波尼(v3.29 云房卡旧宿家链路清理)
 ## 12. 数据中台(新) — v3.26 起取代旧网关(2026-10-22)
 
 ### 接口与鉴权
@@ -222,9 +222,10 @@ curl / 测试时:
 |---|---|
 | `http://119.91.30.52:8081/sujia/room/card/service`(自建 RuoYi 网关) | 401,已删 `callGateway()` + 配置 |
 | `http://192.168.3.14:8081/sujia/room/card/order_no/get` | 内网不可达,配置已删 |
-| `apicenter.sujia365.com/index.php/openapi/order/channelOrder` | 订单查询已切走,**云房卡仍在用**(见下) |
+| `apicenter.sujia365.com/index.php/openapi/order/channelOrder` | 订单查询已切走,已下线 |
+| `apicenter.sujia365.com/index.php/openapi/room_card/*`(宿家房卡) | **v3.29 已下线**,凭据 `roomcard.username`/`roomcard.password` 已从 `platform_config` 删除 |
 
-### 云房卡(2026-10-23 v3.28 已切中台)
+### 云房卡(2026-10-23 v3.28 切中台 / v3.29 旧链路已清理)
 
 `api/wecom_kf_roomcard_v37.php` 主链路已改走中台房卡接口:
 
@@ -239,9 +240,10 @@ GET https://business.youguang8488.com/api/relay/room_card/byOrder
 - 响应 `data.cards[]` = 一单多房全部房卡(实测订单 `123456789` 返 2 张:roomId 1374 / 1437),
   **不返回** appid / path / urlLink → appid 取 `ai.miniprogram.appid`,
   pagepath = `ai.miniprogram.pagepath` + `.html?qrCodeId=`(与旧宿家 share_bundle 同构)
-- 旧宿家接口(`apicenter.sujia365.com` + `roomcard.username` / `roomcard.password`)**保留作回退**:
-  新接口 HTTP 失败或 `code=0` 时自动回退,日志打 `[roomcard] fallback to legacy sujia api`
-- 新接口 `code=1` 但 0 张卡时**不回退**(中台说没有就是没有,避免旧接口生成旧卡)
+- **没有回退路径**(v3.29 起旧宿家接口与旧凭据已按苏鸣要求下线):
+  新接口 HTTP 失败或 `code=0` → 不发卡,日志打 `[roomcard] center api unavailable, no card sent`,
+  由 `api/wecom_kf.php` 兜底发「暂时没有查找到您的云房卡,请稍后重试或联系管家。」
+- 新接口 `code=1` 但 0 张卡 → 同样不发卡(中台说没有就是没有)
 - 蓝图:`.trae/documents/v3.28-roomcard-center-relay-blueprint.md`
 
 ### 房间资料以中台为准(v3.27)

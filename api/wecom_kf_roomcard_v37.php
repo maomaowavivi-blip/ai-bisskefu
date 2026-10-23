@@ -4,16 +4,17 @@
  *
  * v3.12 — 云房卡跳转参数生成
  * v3.28 — 主链路切到数据中台房卡接口(v3.28-roomcard-center-relay-blueprint.md)
+ * v3.29 — 旧宿家接口与旧凭据下线(v3.29-roomcard-legacy-cleanup-blueprint.md)
  *
- * 流程(v3.28):
+ * 流程:
  *   1. 调中台 room_card/byOrder 取房卡(GET + query string,凭据同数据中台)
  *   2. 有卡 → 用 qrCodeId + ai.miniprogram.appid/pagepath 组 A 样式原生小程序卡片
- *   3. 新接口调用失败(HTTP/鉴权/订单不存在) → 回退旧宿家接口,业务不中断
+ *   3. 中台取卡失败 → 不发卡(由调用方兜底提示客户联系管家),不回退旧接口
  *   4. 固定封面上传为 thumb_media_id,不生成订单图片
  *
  * 凭证来自 DB platform_config:
- *   - center.username / center.password / center.tenant_id  (v3.28 新接口,复用中台账号)
- *   - roomcard.username / roomcard.password                 (旧宿家接口,回退用,保留)
+ *   - center.username / center.password / center.tenant_id  (中台账号)
+ *   - roomcard.api_url                                     (房卡接口地址,可覆盖默认值)
  *   - ai.miniprogram.appid / ai.miniprogram.pagepath        (A 样式小程序参数)
  */
 
@@ -24,152 +25,6 @@ define('ROOMCARD_THUMB_URL', 'https://gongan-1331464141.cos.ap-guangzhou.myqclou
 
 // v3.28:数据中台房卡接口(可用 platform_config.roomcard.api_url 覆盖)
 define('ROOMCARD_CENTER_API_URL', 'https://business.youguang8488.com/api/relay/room_card/byOrder');
-
-/**
- * 查云房卡(根据 channel_order_id)
- * 返回 list 中第一条卡记录(空时返 null)
- */
-function getRoomCard(PDO $db, string $channelOrderId): ?array
-{
-    $user = trim(pcGet($db, 'roomcard.username', ''));
-    $pwd  = trim(pcGet($db, 'roomcard.password', ''));
-    if ($user === '' || $pwd === '') {
-        error_log('[roomcard] roomcard.username/password not configured');
-        return null;
-    }
-
-    $url = "https://apicenter.sujia365.com/index.php/openapi/room_card/byChannelOrder"
-        . "?username=" . urlencode($user)
-        . "&pwd=" . $pwd  // 密码已经是 URL-encoded 形式，urlencode 会双重编码导致 401
-        . "&channel_order_id=" . urlencode($channelOrderId);
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 10,
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode !== 200 || !$resp) return null;
-    $data = json_decode($resp, true);
-    if (!isset($data['code']) || intval($data['code']) !== 1 || empty($data['data']['list'])) {
-        return null;
-    }
-    return $data['data']['list'][0];
-}
-
-/**
- * 生成云房卡(根据 channel_order_id,POST + query 参数)
- * 返回 cards 中第一条卡记录(空时返 null)
- */
-function generateRoomCard(PDO $db, string $channelOrderId): ?array
-{
-    $user = trim(pcGet($db, 'roomcard.username', ''));
-    $pwd  = trim(pcGet($db, 'roomcard.password', ''));
-    if ($user === '' || $pwd === '') return null;
-
-    $url = "https://apicenter.sujia365.com/index.php/openapi/room_card/generateByChannelOrder"
-        . "?username=" . urlencode($user)
-        . "&pwd=" . $pwd  // 密码已编码，不再二次 urlencode
-        . "&channel_order_id=" . urlencode($channelOrderId);
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => [],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 15,
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-
-    if ($httpCode !== 200 || !$resp) {
-        error_log('[roomcard] generate HTTP fail: ' . $httpCode . ' err=' . $err);
-        return null;
-    }
-    $data = json_decode($resp, true);
-    if (!isset($data['code']) || intval($data['code']) !== 1) return null;
-    if (empty($data['data']['cards'])) return null;
-    return $data['data']['cards'][0];
-}
-
-/**
- * 统一生成小程序卡片及 link 兜底参数。
- *
- * 原生小程序卡片必须使用 appid + pagepath；link 兜底原样使用 urlLink。
- * 两种跳转信息都由宿家针对当前房卡生成，本地不再拼接订单号。
- */
-function parseRoomCardDelivery(array $card): ?array
-{
-    $cardData = isset($card['card']) && is_array($card['card']) ? $card['card'] : $card;
-    $bundleRaw = $cardData['share_bundle'] ?? ($card['share_bundle'] ?? '');
-    $bundle = is_array($bundleRaw) ? $bundleRaw : json_decode((string)$bundleRaw, true);
-    if (!is_array($bundle) || !isset($bundle['miniapps'][0]) || !is_array($bundle['miniapps'][0])) {
-        return null;
-    }
-
-    $mini = $bundle['miniapps'][0];
-    $appid = trim((string)($mini['appid'] ?? ''));
-    $pagepath = trim((string)($mini['path'] ?? ''));
-    $urlLink = trim((string)($mini['urlLink'] ?? ''));
-    $shareText = (string)($mini['shareText'] ?? ($bundle['shareText'] ?? ''));
-    $roomNo = extractDisplayRoomNo($shareText);
-    if ($roomNo === '') {
-        $roomNo = trim((string)($cardData['baoyu_room_no'] ?? ''));
-    }
-
-    if (!preg_match('#^weixin://dl/business/\?t=[A-Za-z0-9_-]+$#D', $urlLink)) {
-        return null;
-    }
-
-    return [
-        'title' => $roomNo !== '' ? '您的房间为 ' . $roomNo : '宿家云房卡',
-        'desc' => $shareText !== '' ? $shareText : '点击查看您的云房卡',
-        'appid' => $appid,
-        'pagepath' => $pagepath,
-        'url' => $urlLink,
-    ];
-}
-
-/**
- * 从宿家面向客户的分享文案中提取真实展示房间号。
- * 示例：关于您【某某门店的1001号房间】的预订 → 1001。
- */
-function extractDisplayRoomNo(string $shareText): string
-{
-    if (!preg_match('/【([^】]+)】/u', $shareText, $matches)) {
-        return '';
-    }
-
-    $label = trim($matches[1]);
-    $label = preg_replace('/^.*的/u', '', $label) ?? $label;
-    $label = preg_replace('/号房间$/u', '', $label) ?? $label;
-    return trim($label);
-}
-
-/**
- * 保留旧入口，供 link 类型兜底和其他调用方兼容。
- */
-function parseRoomCardForLink(array $card): ?array
-{
-    $parsed = parseRoomCardDelivery($card);
-    if (!$parsed || $parsed['url'] === '') return null;
-
-    return [
-        'title' => $parsed['title'],
-        'desc' => $parsed['desc'],
-        'url' => $parsed['url'],
-    ];
-}
-
-/**
- * v3.28:取云房卡接口地址。
- * 优先用 platform_config.roomcard.api_url(可后台/DB 覆盖),否则用内置常量。
- */
 function roomCardApiUrl(PDO $db): string
 {
     $url = trim((string)pcGet($db, 'roomcard.api_url', ''));
@@ -363,48 +218,10 @@ function forceRefreshThumbCache(): ?string
     @unlink($cacheFile);
     return getThumbMediaIdCached();
 }
-
 /**
- * v3.16:调 generateByChannelOrder 拿当前订单的所有 cards。
- * 与 generateRoomCard 区别:返 cards 数组本身而非 [0],支持一单多房。
- */
-function generateAllRoomCards(PDO $db, string $channelOrderId): ?array
-{
-    $user = trim(pcGet($db, 'roomcard.username', ''));
-    $pwd  = trim(pcGet($db, 'roomcard.password', ''));
-    if ($user === '' || $pwd === '') return null;
-
-    $url = "https://apicenter.sujia365.com/index.php/openapi/room_card/generateByChannelOrder"
-        . "?username=" . urlencode($user)
-        . "&pwd=" . $pwd  // 密码已编码,不再二次 urlencode
-        . "&channel_order_id=" . urlencode($channelOrderId);
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => [],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 15,
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-
-    if ($httpCode !== 200 || !$resp) {
-        error_log('[roomcard] generateAll HTTP fail: ' . $httpCode . ' err=' . $err);
-        return null;
-    }
-    $data = json_decode($resp, true);
-    if (!isset($data['code']) || intval($data['code']) !== 1) return null;
-    if (empty($data['data']['cards']) || !is_array($data['data']['cards'])) return null;
-    return $data['data']['cards'];
-}
-
-/**
- * v3.16:一次返回当前订单的全部房卡 delivery 数组。
- * 宿家一单多房时返 N 张(N>=1),每张都是独立云房卡。
- * @return array[] 每个元素是 parseRoomCardDelivery + thumb_media_id 的结果
+ * 一次返回当前订单的全部房卡 delivery 数组。
+ * 中台一单多房时返 N 张(N>=1),每张都是独立云房卡。
+ * @return array[] 每个元素是 parseCenterRoomCard + thumb_media_id 的结果
  */
 function buildRoomCardDeliveries(PDO $db, string $channelOrderId): array
 {
@@ -422,14 +239,10 @@ function buildRoomCardDeliveries(PDO $db, string $channelOrderId): array
             $deliveries[] = $parsed;
         }
     } else {
-        // v3.28:新接口调用失败 → 回退旧宿家接口,保证业务不中断
-        error_log('[roomcard] fallback to legacy sujia api: ' . $err);
-        foreach ((array)generateAllRoomCards($db, $channelOrderId) as $card) {
-            if (!is_array($card)) continue;
-            $parsed = parseRoomCardDelivery($card);
-            if (!$parsed) continue;
-            $deliveries[] = $parsed;
-        }
+        // v3.29:旧宿家接口与旧凭据已按苏鸣要求下线,不再有回退路径。
+        // 中台不可用时房卡发不出 → 由 api/wecom_kf.php 兜底发
+        // 「暂时没有查找到您的云房卡,请稍后重试或联系管家。」
+        error_log('[roomcard] center api unavailable, no card sent: ' . $err);
     }
 
     if (!$deliveries) return [];
@@ -447,67 +260,4 @@ function buildRoomCardDeliveries(PDO $db, string $channelOrderId): array
     unset($d);
 
     return $deliveries;
-}
-
-/**
- * 主入口:返回完整 link 卡片参数数组(给 sendKfLinkMessage 用)
- * 返回 null 表示无法生成(配置缺失/API 失败/无 thumb 等)
- */
-function buildRoomCardLink(PDO $db, string $channelOrderId): ?array
-{
-    $card = getRoomCard($db, $channelOrderId);
-    if (!$card) {
-        $card = generateRoomCard($db, $channelOrderId);
-        if (!$card) return null;
-    }
-
-    $parsed = parseRoomCardForLink($card);
-    if (!$parsed || empty($parsed['url'])) return null;
-
-    $thumb = getThumbMediaIdCached();
-    if (!$thumb) return null;
-
-    return [
-        'title' => $parsed['title'],
-        'desc'  => $parsed['desc'],
-        'url'   => $parsed['url'],
-        'thumb_media_id' => $thumb,
-    ];
-}
-
-/**
- * v3.12 主入口：构建原生小程序卡片和 link 兜底所需的全部参数。
- */
-function buildRoomCardDelivery(PDO $db, string $channelOrderId): ?array
-{
-    // v3.28:优先数据中台,失败回退旧宿家接口
-    $err = null;
-    $cards = fetchCenterRoomCards($db, $channelOrderId, $err);
-    $parsed = null;
-
-    if ($err === null) {
-        foreach ($cards as $card) {
-            if (!is_array($card)) continue;
-            $parsed = parseCenterRoomCard($db, $card);
-            if ($parsed) break;
-        }
-    } else {
-        error_log('[roomcard] fallback to legacy sujia api: ' . $err);
-        $card = getRoomCard($db, $channelOrderId);
-        if (!$card) {
-            $card = generateRoomCard($db, $channelOrderId);
-        }
-        if ($card) $parsed = parseRoomCardDelivery($card);
-    }
-
-    if (!$parsed) return null;
-
-    // v3.21:同上,一律走过期检查,不再先读 DB
-    $thumb = getThumbMediaIdCached() ?? '';
-    if ($thumb === '') return null;
-
-    $parsed['thumb_media_id'] = $thumb;
-    // v3.21:DB 仅作运维副本
-    @pcSet($db, 'ai.roomcard.thumb_media_id', $thumb);
-    return $parsed;
 }
