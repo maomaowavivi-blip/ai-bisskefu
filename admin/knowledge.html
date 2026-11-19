@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/design-system.css">
-<link href="https://cdn.jsdelivr.net/npm/wangeditor@4.7.15/dist/css/wangEditor.min.css" rel="stylesheet">
+<!-- v3.31：wangEditor 样式由其 JS 内部注入（v4 的 npm 包内无 CSS 文件），原 jsdelivr CSS 引用为 404 死引用，已移除 -->
 <style>
   :root {
     --font-heading: 'Plus Jakarta Sans', sans-serif;
@@ -499,23 +499,55 @@ setTimeout(() => {
     }
   }, 5000);
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/wangeditor@4.7.15/dist/wangEditor.min.js"></script>
+  <!-- v3.31：wangEditor 本地化（v4.7.15），不再依赖公网 CDN —— 同事网络拉不到 jsdelivr 会导致编辑器整体不出现 -->
+  <script src="vendor/wangeditor/wangEditor.min.js?v=1"></script>
   <script>
   var E = window.wangEditor;
-  var kbEditor = new E('#editorContainer');
-  kbEditor.config.height = 300;
-  kbEditor.config.placeholder = '输入对应的回答内容...';
-  kbEditor.config.menus = [
-    'head', 'bold', 'italic', 'underline', 'strikeThrough',
-    'fontSize', 'list', 'justify', 'quote', 'table',
-    'link', 'image', 'code', 'undo', 'redo'
-  ];
-  kbEditor.create();
+  var kbEditor = null;
+
+  if (E) {
+    kbEditor = new E('#editorContainer');
+    kbEditor.config.height = 300;
+    kbEditor.config.placeholder = '输入对应的回答内容...';
+    kbEditor.config.menus = [
+      'head', 'bold', 'italic', 'underline', 'strikeThrough',
+      'fontSize', 'list', 'justify', 'quote', 'table',
+      'link', 'image', 'code', 'undo', 'redo'
+    ];
+    kbEditor.create();
+  } else {
+    // v3.31 兜底：编辑器脚本没加载时降级为纯文本 textarea，
+    // 关键是不能像原来那样让 new E() 抛异常 —— 那会让本行之后所有脚本中断，
+    // 连「编辑时回填答案」和「保存」都失效。
+    console.error('[knowledge] wangEditor 未能加载，已降级为纯文本编辑器');
+    var fb = document.getElementById('editorContainer');
+    if (fb) {
+      fb.innerHTML = '<textarea id="kbFallbackText" class="form-input" style="width:100%;min-height:150px;resize:vertical" ' +
+        'placeholder="输入标准答案"></textarea>' +
+        '<div class="form-hint" style="color:#f59e0b">富文本编辑器未加载，当前为纯文本模式</div>';
+    }
+  }
+
+  function kbSetAnswer(html) {
+    if (kbEditor) { kbEditor.txt.html(html); return; }
+    var t = document.getElementById('kbFallbackText');
+    if (t) t.value = html || '';
+  }
+  function kbGetAnswer() {
+    if (kbEditor) return kbEditor.txt.html();
+    var t = document.getElementById('kbFallbackText');
+    return t ? t.value : '';
+  }
+  function kbClearAnswer() {
+    if (kbEditor) { kbEditor.txt.clear(); return; }
+    var t = document.getElementById('kbFallbackText');
+    if (t) t.value = '';
+  }
 
   var origOpenModal = openModal;
   openModal = function() {
     origOpenModal();
-    kbEditor.txt.clear();
+    kbClearAnswer();
   };
 
   var origEditEntry = editEntry;
@@ -523,13 +555,13 @@ setTimeout(() => {
     origEditEntry(id);
     var item = kbItemsMap[id];
     if (item && item.answer) {
-      kbEditor.txt.html(item.answer);
+      kbSetAnswer(item.answer);
     }
   };
 
   var origSaveEntry = saveEntry;
   saveEntry = function() {
-    document.getElementById('editAnswer').value = kbEditor.txt.html();
+    document.getElementById('editAnswer').value = kbGetAnswer();
     origSaveEntry();
   };
 

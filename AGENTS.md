@@ -305,3 +305,16 @@ GET https://business.youguang8488.com/api/relay/room_card/byOrder
 生产上「地址/停车/垃圾/设备」100% 查不到(迁移前后都一样,非迁移引入)。
 现规则:会话 `room_query_sessions.step=1` + 消息含订单号 + 不含 `order_query:`/订单/查单 → 判 `ROOM_QUERY`。
 依据 `.trae/documents/room-query-flow-blueprint.md` §3.1 与验收清单。
+
+## 16. 后台页面资源与缓存(2026-11-19 v3.31)
+
+- **富文本编辑器已本地化**:`admin/vendor/wangeditor/wangEditor.min.js`(v4.7.15,262438 字节,md5 `4358f868ac6eda75f3df0edda49ae9e3`,官方 npm 包原样,样式由 JS 内部注入、零外网依赖)
+  - `admin/knowledge.html` 不再引用 `cdn.jsdelivr.net`。**原因**:同事网络拉不到 jsdelivr → wangEditor 未加载 → `new E()` 抛 `TypeError` → 该行之后所有脚本中断,编辑器消失且「编辑回填/保存」一起失效
+  - 页面已加**加载失败兜底**:`window.wangEditor` 缺失时降级为普通 textarea(`kbFallbackText`),不再让整页脚本崩
+- **后台 HTML 已禁缓存**(nginx `/etc/nginx/conf.d/aibisskefu.conf`):
+  - `location ~ ^/admin/.*\.html$` 加 `Cache-Control: no-cache, no-store, must-revalidate`
+  - 起因:原本无 Cache-Control 头,浏览器按 Last-Modified 启发式缓存数天~数周,同事长期看到旧版页面
+  - ⚠️ **nginx add_header 覆盖规则**:子 location 出现 add_header 会**整体覆盖** server 级的全部 add_header → 新 location 必须逐条重复声明 HSTS/nosniff/X-Frame-Options/Referrer-Policy/Permissions-Policy 五个安全头
+  - 改 nginx 规矩:先备份 → `nginx -t` → `systemctl reload nginx`
+- C 端 H5 页面缓存策略**未改动**(只匹配 `/admin/*.html`)
+- 存量用户:浏览器已有旧缓存副本时不会主动回源,需**硬刷新一次**(Cmd/Ctrl+Shift+R),之后永久正常
