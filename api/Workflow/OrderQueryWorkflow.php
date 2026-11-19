@@ -97,6 +97,22 @@ final class OrderQueryWorkflow extends AbstractWorkflow
             error_log('[OrderQueryWorkflow] cache write failed: ' . $e->getMessage());
         }
 
+        // v3.30：写 session↔订单绑定(session_order_links，写点1，蓝图 §3.2-1)
+        // helper 内部全 catch，外层再包 try/catch 双保险，任何情况不影响客户回复。
+        try {
+            require_once __DIR__ . '/../helpers/session_order_link.php';
+            linkSessionOrder(
+                $this->db,
+                $this->sessionId,
+                $orderNo,
+                (string)($orderData['room_ids'] ?? ''),
+                (string)($this->intentCtx->slots['channel'] ?? ''),
+                'order_query'
+            );
+        } catch (\Throwable $e) {
+            error_log('[OrderQueryWorkflow] session_order_link failed: ' . $e->getMessage());
+        }
+
         return WorkflowResult::text($reply, 'OrderQueryWorkflow');
     }
 }

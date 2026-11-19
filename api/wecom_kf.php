@@ -375,6 +375,29 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             $deliveries = buildRoomCardDeliveries($db, $orderCandidate);
             $cardCount = count($deliveries);
 
+            // v3.30：兜底写 session↔订单绑定(写点3，蓝图 §3.2-3)。
+            // ChatPipeline 炸掉时写点1未执行，这里补一条；uk 去重，重复写无害。
+            // room_no 从 delivery title 提取房号，拿不到留空。helper 全 catch + 外层双保险。
+            try {
+                require_once __DIR__ . '/helpers/session_order_link.php';
+                $linkRoomNos = [];
+                foreach ($deliveries as $d) {
+                    if (preg_match('/您的房间为\s*([A-Za-z0-9_\-]+)/u', (string)($d['title'] ?? ''), $rm) === 1) {
+                        $linkRoomNos[] = $rm[1];
+                    }
+                }
+                linkSessionOrder(
+                    $db,
+                    $sessionId,
+                    $orderCandidate,
+                    implode(',', $linkRoomNos),
+                    'wechat_kf',
+                    'roomcard'
+                );
+            } catch (\Throwable $e) {
+                error_log('[wecom_kf] session_order_link failed: ' . $e->getMessage());
+            }
+
             // 2 张及以上:加文字引导(避免客户不知道有几间房)
             if ($cardCount >= 2) {
                 sendKfMessage(

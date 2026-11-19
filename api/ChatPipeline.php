@@ -121,6 +121,9 @@ final class ChatPipeline
             ]);
             // 把本轮消息塞进 slots，供 Workflow 使用
             $intentCtx->slots['original_message'] = $message;
+            // v3.30：AbstractWorkflow 基类无 channel 字段，沿用 slots 传参先例注入渠道
+            //（OrderQueryWorkflow 写 session_order_links 绑定表用）
+            $intentCtx->slots['channel'] = $channel;
 
             // 路由 → Workflow
             $result = IntentRouter::route(

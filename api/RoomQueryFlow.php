@@ -109,6 +109,26 @@ class RoomQueryFlow {
             return self::buildResult(self::MAP_FAIL_REPLY, 1);
         }
 
+        // v3.30：写 session↔订单绑定(写点2，蓝图 §3.2-2)。
+        // 必须挂在单/多房分支之前——单房订单直接 bindAndAnswer 跳过 step2，只挂 step2 会漏。
+        // room_no 直接取订单 room_ids 原始逗号串；本类静态方法拿不到 channel，
+        // 按 session_id 前缀映射(与回填脚本 §3.4 同规则)。helper 全 catch，外层再包一层双保险。
+        try {
+            require_once __DIR__ . '/helpers/session_order_link.php';
+            $linkChannel = str_starts_with($sessionId, 'wecom_kf_') ? 'wechat_kf'
+                : (str_starts_with($sessionId, 'openapi_') ? 'api' : 'web');
+            linkSessionOrder(
+                $db,
+                $sessionId,
+                $orderNo,
+                (string)(((array)$orderResult['order'])['room_ids'] ?? ''),
+                $linkChannel,
+                'room_flow'
+            );
+        } catch (\Throwable $e) {
+            error_log('[RoomQueryFlow] session_order_link failed: ' . $e->getMessage());
+        }
+
         $question = trim((string)($state['question'] ?? ''));
 
         if (count($candidates) === 1) {
