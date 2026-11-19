@@ -192,6 +192,32 @@ php scripts/regression_chat.php http://localhost:8888 --core   # 打本地 MAMP
 - 副作用:打生产会往 `chat_logs` 写测试会话记录
 
 **最后更新**:2026-10-23 by 波尼(v3.29.1 回归脚本修复 + v3.29 云房卡旧宿家链路清理)
+
+## 14. 生产部署通道(2026-11-19 实测打通,以前卡在 SSH)
+
+**用项目专用私钥,不要用文档里的旧密码**:
+
+```bash
+ssh -i ~/.ssh/aibisskefu_v315_ed25519 -o IdentitiesOnly=yes root@43.138.217.6
+scp -i ~/.ssh/aibisskefu_v315_ed25519 -o IdentitiesOnly=yes <文件> root@43.138.217.6:/www/wwwroot/aibisskefu/<路径>/
+```
+
+- 旧密码(`HANDOVER-v3.7.3-dedup.md` 里的 root/Suming0505、`.vscode/sftp.json` 里的 43.240.13.166:48221)实测**已失效**,不要再试
+- 生产**不是 git 仓库**,部署只能走 scp + md5 校验
+- 生产 PHP CLI: `/www/server/php/83/bin/php`;fpm 服务名 `php-fpm`,reload 用 `systemctl reload php-fpm`
+- 生产 DB 连法:`mysql -h127.0.0.1 -P<DB_PORT> -u<DB_USER> -p<DB_PASS> <DB_NAME>`,凭据在生产 `.env`(**不要回显**)
+- 生产 `.env` 键位与本地不同(多了 `AI_MODEL=deepseek-v4-flash` / `AI_TIMEOUT=60`)
+- 备份惯例:`bak_v<版本>_<YYYYmmdd_HHMMSS>/`
+
+## 15. ⚠️ 生产时区:PHP=UTC 而 MySQL=CST,差 8 小时(2026-11-19 实测)
+
+- 生产 php-fpm `date.timezone = UTC`,MySQL `time_zone=SYSTEM`(即 CST),**全仓无 `date_default_timezone_set()`**
+- 后果:凡是用 PHP `date()` 算「今天/昨天/当天窗口」的逻辑,在生产**凌晨 0:00–8:00 会算错一天**
+- `chat_logs.created_at` 出自 MySQL `DEFAULT CURRENT_TIMESTAMP` = **CST 挂钟**
+- **正确做法**:跨日窗口/「昨天」一律锚定 **MySQL 钟**(如 `SELECT DATE_SUB(CURDATE(), INTERVAL 1 DAY)`),与写库时钟同源,天然免疫
+  - 已按此修:`api/openapi_room_chats.php`(v3.30 房管聊天查询接口)
+- **不要**为修这个去改全局 `date_default_timezone_set()`——会波及生产所有 `date()` 行为,风险外溢
+
 ## 12. 数据中台(新) — v3.26 起取代旧网关(2026-10-22)
 
 ### 接口与鉴权
