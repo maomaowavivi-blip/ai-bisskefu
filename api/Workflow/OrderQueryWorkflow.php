@@ -55,7 +55,7 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         // 查单失败(订单不存在 / 中台异常)
         if (!$orderResult || empty($orderResult['order'])) {
             return WorkflowResult::text(
-                '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
+                ORDER_NOT_FOUND_REPLY,
                 'OrderQueryWorkflow'
             );
         }

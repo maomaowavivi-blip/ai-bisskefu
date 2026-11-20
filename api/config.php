@@ -223,6 +223,9 @@ function pcSet(PDO $db, $key, $value): bool
 // ══════════════════════════════════════════
 
 define('DEFAULT_MODEL', 'deepseek-v4-flash');
+// v3.32：订单查不到时的统一兜底文案（Pipeline 侧）。
+// 房卡环节据此判断「Pipeline 已经说过这句」→ 不再重复发，只发中台给出的更准确原因。
+define('ORDER_NOT_FOUND_REPLY', '暂时没有查找到您的云房卡，请稍后重试或联系管家。');
 define('DEFAULT_API_URL', 'https://api.deepseek.com/v1/chat/completions');
 define('MINIMAX_API_URL_DEFAULT', 'https://api.minimaxi.com/v1/text/chatcompletion_v2');
 

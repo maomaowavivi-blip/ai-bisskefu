@@ -140,8 +140,11 @@ function roomCardTextPlan(bool $cardSent, ?string $bizMsg, string $replyText): a
 
     $plan = [];
     // 第 1 条：订单信息 —— 客户仍要知道自己的订单详情
+    // v3.32：Pipeline 查单失败时已经说了统一兜底文案，此时不再重复发，
+    //        改由下面的中台原因独占一条（口径：苏鸣 2026-11-20「只发一条，不重复」）。
     $info = trim((string)$replyText);
-    if ($info !== '') $plan[] = $info;
+    $isGenericNotFound = ($info === '' || $info === (defined('ORDER_NOT_FOUND_REPLY') ? ORDER_NOT_FOUND_REPLY : ''));
+    if ($info !== '' && !$isGenericNotFound) $plan[] = $info;
 
     // 第 2 条：原因提示 —— 优先用中台的真实原因，否则回落通用兜底
     $tip = centerRoomCardReply($bizMsg);
