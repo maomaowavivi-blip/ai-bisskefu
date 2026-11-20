@@ -330,6 +330,7 @@ GET https://business.youguang8488.com/api/relay/room_card/byOrder
 - **中台调用次数保持 1 次**——不额外查订单判断入住日，规则与话术全部以中台为准，中台改了自动跟随
 - ⚠️ **中文截断用 `mb_substr` 不用 `substr`**：`substr` 按字节，60 字节只够 20 个汉字，会砍掉中文话术后半句
 - 回复形态（苏鸣 2026-11-20 v3.34 修订，取代 v3.32「只发房卡」口径）：**订单信息与云房卡一起发**——发卡成功也先发一段订单信息文字；发不出时仍是两条（订单信息 + 原因提示）
+- 订单信息尾句「如需查看云房卡请前往微信客服发送订单号获取」**仅 wechat_kf 渠道不输出**（v3.34.1，苏鸣：客服场景多余；H5/小程序保留，按 `slots['channel']` 判断，别去改 H5 模板）
 - **发卡事件写 `chat_logs`**（v3.34，`writeRoomCardChatEvent()`）：成功写「已向客户发送云房卡（房间：…）」、失败写「云房卡未发送：原因」，role=assistant/channel=wechat_kf，房管端「客人咨询记录」可见；写失败只打日志不断发卡流程
 - ⚠️ **chat_logs ≠ 客户实收**：Pipeline 无论企微实际发什么都会写订单信息文本进 chat_logs，房管端看到文字 ≠ 客户收到过文字（此前发卡成功时客户只收到卡片）。以实际发送为准，发卡真相看 `writeRoomCardChatEvent` 的事件行
 - 决策逻辑集中在纯函数 `roomCardTextPlan()`（`api/wecom_kf_roomcard_v37.php`），改动后可单测
