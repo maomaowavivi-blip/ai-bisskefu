@@ -39,9 +39,15 @@ function roomCardApiUrl(PDO $db): string
  * @param string|null $err null = 调用成功(含"有 0 张卡");非 null = 调用失败,可回退旧接口
  * @return array cards[] 原样返回中台的卡记录数组
  */
-function fetchCenterRoomCards(PDO $db, string $channelOrderId, ?string &$err = null): array
+/**
+ * @param string      $channelOrderId 渠道订单号
+ * @param string|null $err            出参：错误描述（给日志）
+ * @param string|null $bizMsg         出参：中台原始业务消息（给客户看，如「入住当天才能自助生成云房卡哦…」）
+ */
+function fetchCenterRoomCards(PDO $db, string $channelOrderId, ?string &$err = null, ?string &$bizMsg = null): array
 {
     $err = null;
+    $bizMsg = null;
 
     $url = roomCardApiUrl($db);
     if ($url === '') {
@@ -84,7 +90,11 @@ function fetchCenterRoomCards(PDO $db, string $channelOrderId, ?string &$err = n
     $data = json_decode((string)$resp, true);
     if (!is_array($data) || intval($data['code'] ?? 0) !== 1) {
         $code = isset($data['code']) ? $data['code'] : '?';
-        $msg = isset($data['msg']) ? substr((string)$data['msg'], 0, 60) : '';
+        // v3.32：mb_substr 而非 substr —— substr 按字节截，中文 3 字节/字，
+        // 60 字节只够 20 个汉字，会把「…请当天再来生成入住云房卡。」砍掉后半句。
+        $msg = isset($data['msg']) ? trim(mb_substr((string)$data['msg'], 0, 60, 'UTF-8')) : '';
+        // v3.32：中台业务消息原样透出，供上层转达给客户（规则与话术以中台为准）
+        $bizMsg = $msg !== '' ? $msg : null;
         $err = 'biz code=' . $code . ' msg=' . $msg;
         error_log('[roomcard] center api biz fail: ' . $err);
         return [];
@@ -92,6 +102,53 @@ function fetchCenterRoomCards(PDO $db, string $channelOrderId, ?string &$err = n
 
     $cards = $data['data']['cards'] ?? [];
     return is_array($cards) ? $cards : [];
+}
+
+/**
+ * v3.32 — 中台业务消息 → 客户可见话术
+ *
+ * 中台已实现「入住当天才能自助生成房卡」的规则，返回的 msg 就是给客户看的话术，
+ * 所以这里只做最小清洗，不改写措辞：
+ *   - 结尾连续的「！」/「!」替换成一个「。」（中台原文是「…云房卡！！！」）
+ *   - 其余原样透传（如「该订单已过期，无法生成房卡」）
+ *
+ * @param string|null $bizMsg 中台原始业务消息
+ * @return string 空串表示没有可用话术（调用方回落到通用兜底文案）
+ */
+function centerRoomCardReply(?string $bizMsg): string
+{
+    $msg = trim((string)$bizMsg);
+    if ($msg === '') return '';
+    $msg = preg_replace('/[！!]+$/u', '。', $msg);
+    return trim((string)$msg);
+}
+
+/**
+ * v3.32 — 房卡环节要给客户发的文本消息（纯函数，无副作用，可单测）
+ *
+ * 口径（苏鸣 2026-11-20）：保持两条 —— 先订单信息，再原因提示。
+ *
+ * @param bool        $cardSent  房卡是否已成功发出
+ * @param string|null $bizMsg    中台业务原因（如「入住当天才能自助生成云房卡哦…」）
+ * @param string      $replyText 订单信息（Pipeline 已生成）
+ * @return string[] 按发送顺序排列的文本消息
+ */
+function roomCardTextPlan(bool $cardSent, ?string $bizMsg, string $replyText): array
+{
+    // 房卡已发出 → 卡片本身就是回复，不加任何文本（保持原行为）
+    if ($cardSent) return [];
+
+    $plan = [];
+    // 第 1 条：订单信息 —— 客户仍要知道自己的订单详情
+    $info = trim((string)$replyText);
+    if ($info !== '') $plan[] = $info;
+
+    // 第 2 条：原因提示 —— 优先用中台的真实原因，否则回落通用兜底
+    $tip = centerRoomCardReply($bizMsg);
+    if ($tip === '') $tip = '暂时没有查找到您的云房卡，请稍后重试或联系管家。';
+    $plan[] = $tip;
+
+    return $plan;
 }
 
 /**
@@ -223,11 +280,14 @@ function forceRefreshThumbCache(): ?string
  * 中台一单多房时返 N 张(N>=1),每张都是独立云房卡。
  * @return array[] 每个元素是 parseCenterRoomCard + thumb_media_id 的结果
  */
-function buildRoomCardDeliveries(PDO $db, string $channelOrderId): array
+function buildRoomCardDeliveries(PDO $db, string $channelOrderId, ?string &$err = null, ?string &$bizMsg = null): array
 {
     // v3.28:主链路 = 数据中台 room_card/byOrder
+    // v3.32:$err / $bizMsg 透传出参 —— 中台已实现「入住当天才能生成」的规则，
+    //        以前把原因只写日志、客户只看到「暂时没有查找到」，现在要把原因转达给客户。
     $err = null;
-    $cards = fetchCenterRoomCards($db, $channelOrderId, $err);
+    $bizMsg = null;
+    $cards = fetchCenterRoomCards($db, $channelOrderId, $err, $bizMsg);
 
     $deliveries = [];
     if ($err === null) {

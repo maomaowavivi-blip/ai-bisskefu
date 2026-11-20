@@ -372,7 +372,10 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         $roomCardSent = false;
         if ($isOrderMessage) {
             require_once __DIR__ . '/wecom_kf_roomcard_v37.php';
-            $deliveries = buildRoomCardDeliveries($db, $orderCandidate);
+            // v3.32：$cardBizMsg = 中台业务原因（如「入住当天才能自助生成云房卡哦…」）
+            $cardErr = null;
+            $cardBizMsg = null;
+            $deliveries = buildRoomCardDeliveries($db, $orderCandidate, $cardErr, $cardBizMsg);
             $cardCount = count($deliveries);
 
             // v3.30：兜底写 session↔订单绑定(写点3，蓝图 §3.2-3)。
@@ -441,11 +444,24 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             $roomCardSent = $sentCount > 0;
 
             if (!$roomCardSent) {
-                $roomCardSent = sendKfMessage(
-                    $from,
-                    '暂时没有查找到您的云房卡，请稍后重试或联系管家。',
-                    $useOpenKfId
-                );
+                // v3.32：房卡发不出 = 还没到入住日 / 已过期 / 中台不可用。
+                // 口径（苏鸣 2026-11-20）：保持两条 —— 先订单信息，再原因提示。
+                //
+                // 改造前：这里发完兜底文案后 $roomCardSent=true → 下面 continue
+                //         → $replyText（订单信息）永远发不出去，客户只看到「暂时没有查找到」。
+                // 改造后：消息决策交给 roomCardTextPlan（纯函数，可单测）；
+                //         $roomCardSent 只表示「本次已回复」，全部发出才 continue，
+                //         避免下面重复发 $replyText。
+                $plan = roomCardTextPlan(false, $cardBizMsg, (string)$replyText);
+                $allSent = true;
+                foreach ($plan as $text) {
+                    if (!sendKfMessage($from, $text, $useOpenKfId)) $allSent = false;
+                }
+                $roomCardSent = $allSent;
+                if (!$allSent) {
+                    $batchHandled = false;
+                    wecom_kf_log('roomcard reason reply failed');
+                }
             }
         }
 
