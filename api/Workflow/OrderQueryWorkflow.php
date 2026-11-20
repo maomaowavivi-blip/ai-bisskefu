@@ -61,14 +61,13 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         }
 
         $orderData  = $orderResult['order'];
-        $paidAmount = (string)($orderResult['paid_amount'] ?? '');
 
         // 查单成功 → 文本订单信息(web 端不依赖 thumb/云房卡)
+        // v3.33:按苏鸣要求不再向客户展示实付金额(paid_amount 出参保留在 CenterApi,需要时可回加)
         $reply = "订单查询成功：\n"
             . ($orderData['unit_name'] ? "房型：{$orderData['unit_name']}\n" : '')
             . ($orderData['check_in'] ? "入住：" . date('Y-m-d', strtotime($orderData['check_in'])) . "\n" : '')
             . ($orderData['check_out'] ? "离店：" . date('Y-m-d', strtotime($orderData['check_out'])) . "\n" : '')
-            . ($paidAmount !== '' ? "实付金额：¥{$paidAmount}\n" : '')
             . '如需查看云房卡请前往微信客服发送订单号获取。';
 
         // 写入 order_context_cache(24h TTL)

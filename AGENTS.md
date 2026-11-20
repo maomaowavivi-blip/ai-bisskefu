@@ -204,7 +204,7 @@ scp -i ~/.ssh/aibisskefu_v315_ed25519 -o IdentitiesOnly=yes <文件> root@43.138
 
 - 旧密码(`HANDOVER-v3.7.3-dedup.md` 里的 root/Suming0505、`.vscode/sftp.json` 里的 43.240.13.166:48221)实测**已失效**,不要再试
 - 生产**不是 git 仓库**,部署只能走 scp + md5 校验
-- 生产 PHP CLI: `/www/server/php/83/bin/php`;fpm 服务名 `php-fpm`,reload 用 `systemctl reload php-fpm`
+- 生产 PHP CLI: `/usr/bin/php`(2026-11-20 实测;旧记的 `/www/server/php/83/bin/php` **已不存在**,别再用);fpm 服务名 `php-fpm`,reload 用 `systemctl reload php-fpm`
 - 生产 DB 连法:`mysql -h127.0.0.1 -P<DB_PORT> -u<DB_USER> -p<DB_PASS> <DB_NAME>`,凭据在生产 `.env`(**不要回显**)
 - 生产 `.env` 键位与本地不同(多了 `AI_MODEL=deepseek-v4-flash` / `AI_TIMEOUT=60`)
 - 备份惯例:`bak_v<版本>_<YYYYmmdd_HHMMSS>/`
