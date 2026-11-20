@@ -318,3 +318,16 @@ GET https://business.youguang8488.com/api/relay/room_card/byOrder
   - 改 nginx 规矩:先备份 → `nginx -t` → `systemctl reload nginx`
 - C 端 H5 页面缓存策略**未改动**(只匹配 `/admin/*.html`)
 - 存量用户:浏览器已有旧缓存副本时不会主动回源,需**硬刷新一次**(Cmd/Ctrl+Shift+R),之后永久正常
+
+## 17. 云房卡话术以中台为准(2026-11-20 v3.32)
+
+- **不要在本地硬编码房卡提示话术**。中台房卡接口 `room_card/byOrder` 已实现「入住当天才能自助生成」规则：
+  - 未到入住日 → `code=0, msg="入住当天才能自助生成云房卡哦，请当天再来生成入住云房卡！！！"`
+  - 已过离店日 → `code=0, msg="该订单已过期，无法生成房卡"`
+  - 订单不存在 → `code=0, msg="未找到该渠道订单号，请核对后重试"`
+  - 今日入住 → `code=1` + `data.cards[]`
+- 我们这层只做两件事：把中台 `msg` 透传给客户（`fetchCenterRoomCards` 的 `$bizMsg` 出参）+ 清洗结尾「！！！」→「。」（`centerRoomCardReply`）
+- **中台调用次数保持 1 次**——不额外查订单判断入住日，规则与话术全部以中台为准，中台改了自动跟随
+- ⚠️ **中文截断用 `mb_substr` 不用 `substr`**：`substr` 按字节，60 字节只够 20 个汉字，会砍掉中文话术后半句
+- 回复形态（苏鸣 2026-11-20 拍板）：房卡发不出时发**两条**——先订单信息，再原因提示；房卡发得出去时仍只发房卡
+- 决策逻辑集中在纯函数 `roomCardTextPlan()`（`api/wecom_kf_roomcard_v37.php`），改动后可单测
