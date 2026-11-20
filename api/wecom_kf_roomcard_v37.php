@@ -124,34 +124,99 @@ function centerRoomCardReply(?string $bizMsg): string
 }
 
 /**
- * v3.32 — 房卡环节要给客户发的文本消息（纯函数，无副作用，可单测）
+ * v3.34 — 房卡环节要给客户发的文本消息（纯函数，无副作用，可单测）
  *
- * 口径（苏鸣 2026-11-20）：保持两条 —— 先订单信息，再原因提示。
+ * 口径（苏鸣 2026-11-20 v3.34 修订，取代 v3.32「卡片本身就是回复」口径）：
+ * **订单信息与云房卡一起发** —— 无论发卡成败，订单信息永远第一条：
+ *   - 卡已发出（$cardSent=true）：调用方 $bizMsg 传 null → 只返回订单信息这一条，卡片跟在后面
+ *   - 卡未发出（$cardSent=false）：订单信息 + 原因提示（中台 msg，无则通用兜底）
  *
  * @param bool        $cardSent  房卡是否已成功发出
- * @param string|null $bizMsg    中台业务原因（如「入住当天才能自助生成云房卡哦…」）
+ * @param string|null $bizMsg    中台业务原因（如「入住当天才能自助生成云房卡哦…」）；卡成功时传 null
  * @param string      $replyText 订单信息（Pipeline 已生成）
  * @return string[] 按发送顺序排列的文本消息
  */
 function roomCardTextPlan(bool $cardSent, ?string $bizMsg, string $replyText): array
 {
-    // 房卡已发出 → 卡片本身就是回复，不加任何文本（保持原行为）
-    if ($cardSent) return [];
-
     $plan = [];
-    // 第 1 条：订单信息 —— 客户仍要知道自己的订单详情
+    // 第 1 条：订单信息 —— 客户始终要知道自己的订单详情（v3.34：发卡成功也发）
     // v3.32：Pipeline 查单失败时已经说了统一兜底文案，此时不再重复发，
     //        改由下面的中台原因独占一条（口径：苏鸣 2026-11-20「只发一条，不重复」）。
     $info = trim((string)$replyText);
     $isGenericNotFound = ($info === '' || $info === (defined('ORDER_NOT_FOUND_REPLY') ? ORDER_NOT_FOUND_REPLY : ''));
     if ($info !== '' && !$isGenericNotFound) $plan[] = $info;
 
-    // 第 2 条：原因提示 —— 优先用中台的真实原因，否则回落通用兜底
-    $tip = centerRoomCardReply($bizMsg);
-    if ($tip === '') $tip = '暂时没有查找到您的云房卡，请稍后重试或联系管家。';
-    $plan[] = $tip;
+    // 第 2 条：原因提示 —— 仅卡未发出时。优先用中台的真实原因，否则回落通用兜底
+    if (!$cardSent) {
+        $tip = centerRoomCardReply($bizMsg);
+        if ($tip === '') $tip = '暂时没有查找到您的云房卡，请稍后重试或联系管家。';
+        $plan[] = $tip;
+    }
 
     return $plan;
+}
+
+/**
+ * v3.34 — 发卡事件写入 chat_logs，让房管端「客人咨询记录」看到发卡这件事。
+ *
+ * 背景：房卡是小程序卡片、不进聊天日志，房管端只能看到订单信息文字，
+ * 不知道客户是否已拿到卡（苏鸣 2026-11-20 实测缺口）。
+ * 房管接口（openapi_room_chats.php）按 session 取 chat_logs、不过滤 role，
+ * 所以写一条 assistant 事件行即可见。全 catch：写失败只打日志，绝不断发卡流程。
+ *
+ * @param PDO         $db
+ * @param string      $sessionId   与 ChatPipeline 同源（wecom_kf_<hash>），保证房管按订单能查到
+ * @param bool        $cardSent    是否有卡成功发出
+ * @param array       $deliveries  buildRoomCardDeliveries 的返回（提取 title 中的房号）
+ * @param string|null $bizMsg      未发卡时的中台原因
+ * @param string      $visitorHash 调用方传入（原样 $from，与 ChatPipeline 写 chat_logs 的口径一致）
+ * @param string      $ip          来源 IP
+ * @param int         $sentCount   实际发出的卡数
+ */
+function writeRoomCardChatEvent(
+    PDO $db,
+    string $sessionId,
+    bool $cardSent,
+    array $deliveries,
+    ?string $bizMsg,
+    string $visitorHash,
+    string $ip,
+    int $sentCount = 0
+): void {
+    if ($cardSent) {
+        $rooms = [];
+        foreach ($deliveries as $d) {
+            if (preg_match('/您的房间为\s*([A-Za-z0-9_\-]+)/u', (string)($d['title'] ?? ''), $rm) === 1) {
+                $rooms[] = $rm[1];
+            }
+        }
+        $content = '已向客户发送云房卡' . ($rooms !== [] ? '（房间：' . implode('、', $rooms) . '）' : '');
+    } else {
+        $reason = centerRoomCardReply($bizMsg);
+        if ($reason === '') $reason = '暂时没有查找到您的云房卡，请稍后重试或联系管家。';
+        $content = '云房卡未发送：' . $reason;
+    }
+
+    try {
+        $stmt = $db->prepare(
+            'INSERT INTO chat_logs (session_id, channel, workflow, rendered_type, role, content, has_verified, visitor_hash, source_ip, tokens)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $sessionId,
+            'wechat_kf',
+            'RoomCardDelivery',
+            'roomcard',
+            'assistant',
+            $content,
+            0,
+            $visitorHash,
+            $ip,
+            0,
+        ]);
+    } catch (\Throwable $e) {
+        error_log('[roomcard] chat_logs event failed: ' . $e->getMessage());
+    }
 }
 
 /**

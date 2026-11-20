@@ -401,6 +401,21 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
                 error_log('[wecom_kf] session_order_link failed: ' . $e->getMessage());
             }
 
+            // v3.34（苏鸣 2026-11-20）：订单信息与云房卡一起发。
+            // 消息决策统一交给 roomCardTextPlan（纯函数，可单测）：
+            //   有卡   → 先发订单信息文本（卡片之前），再逐张发卡
+            //   无卡   → 订单信息 + 原因提示两条（= v3.32 行为不变）
+            $hasCards = ($cardCount > 0);
+            $plan = roomCardTextPlan($hasCards, $hasCards ? null : $cardBizMsg, (string)$replyText);
+            $textFailed = false;
+            foreach ($plan as $text) {
+                if (!sendKfMessage($from, $text, $useOpenKfId)) $textFailed = true;
+            }
+            if ($textFailed) {
+                // 文本失败不断发卡（卡是核心交付）；只记日志
+                wecom_kf_log('roomcard accompanying text send failed');
+            }
+
             // 2 张及以上:加文字引导(避免客户不知道有几间房)
             if ($cardCount >= 2) {
                 sendKfMessage(
@@ -443,25 +458,31 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             }
             $roomCardSent = $sentCount > 0;
 
-            if (!$roomCardSent) {
-                // v3.32：房卡发不出 = 还没到入住日 / 已过期 / 中台不可用。
-                // 口径（苏鸣 2026-11-20）：保持两条 —— 先订单信息，再原因提示。
-                //
-                // 改造前：这里发完兜底文案后 $roomCardSent=true → 下面 continue
-                //         → $replyText（订单信息）永远发不出去，客户只看到「暂时没有查找到」。
-                // 改造后：消息决策交给 roomCardTextPlan（纯函数，可单测）；
-                //         $roomCardSent 只表示「本次已回复」，全部发出才 continue，
-                //         避免下面重复发 $replyText。
-                $plan = roomCardTextPlan(false, $cardBizMsg, (string)$replyText);
-                $allSent = true;
-                foreach ($plan as $text) {
-                    if (!sendKfMessage($from, $text, $useOpenKfId)) $allSent = false;
-                }
-                $roomCardSent = $allSent;
-                if (!$allSent) {
-                    $batchHandled = false;
-                    wecom_kf_log('roomcard reason reply failed');
-                }
+            // v3.34 qa修复(P2)：有卡但一张都没发出（中台有卡、企微发送全败）→
+            // plan 只含订单信息，客户对失败零感知。补一条通用提示，保持 v3.32 的客户体验不回退。
+            if ($hasCards && !$roomCardSent) {
+                $failTip = $plan[1] ?? '暂时没有查找到您的云房卡，请稍后重试或联系管家。';
+                if (!sendKfMessage($from, $failTip, $useOpenKfId)) $textFailed = true;
+            }
+
+            // v3.34：发卡事件写 chat_logs（成败都写），房管端「客人咨询记录」可见
+            writeRoomCardChatEvent(
+                $db,
+                $sessionId,
+                $roomCardSent,
+                $deliveries,
+                $roomCardSent ? null : $cardBizMsg,
+                $from,   // qa P3 修复：与 ChatPipeline 写 visitor_hash 的口径一致（原样 $from）
+                requestClientIp(),
+                $sentCount
+            );
+
+            // 保持 v3.32 语义：计划文本已全部发出 → 视为「本次已回复」(continue)，
+            // 避免下面把 $replyText 再发一遍；任一文本失败 → $batchHandled=false 留给微信重试。
+            if (!$roomCardSent && !$textFailed) $roomCardSent = true;
+            if (!$roomCardSent && $textFailed) {
+                $batchHandled = false;
+                wecom_kf_log('roomcard reason reply failed');
             }
         }
 
