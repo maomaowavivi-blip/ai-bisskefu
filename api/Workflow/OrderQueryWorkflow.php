@@ -193,7 +193,9 @@ final class OrderQueryWorkflow extends AbstractWorkflow
 
             if (count($roomNos) === 1) {
                 // 单房：现查指引（checkinAll 保留有图无字 step，P1-4）
-                $g = $this->loadGuideByRoomNo($roomNos[0]);
+                // ⚠️ PHP 会把纯数字字符串数组 key 自动转成 int → array_keys() 返回 int。
+                // loadGuideByRoomNo(string) 是严格类型，必须显式转回 string（生产真实房号 1622089 触发过 TypeError）。
+                $g = $this->loadGuideByRoomNo((string)$roomNos[0]);
                 if ($g !== null) {
                     $guideText = OrderGuidePick::guideTextFromSteps($g['steps']);
                     $rooms[] = $g;

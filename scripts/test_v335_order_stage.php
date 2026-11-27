@@ -56,5 +56,22 @@ check('$today 非法 → unknown',        orderStage('not-a-date', $ci, $co), 'u
 // ISO8601 带时区前缀：正则取前 10 位有效
 check('ISO 带 T 时区前缀仍有效 → during', orderStage('2026-11-27', '2026-11-27T14:00:00+08:00', '2026-11-28T12:00:00+08:00'), 'during');
 
+// ── 数字房号坑（生产 5044067763266392410 触发 TypeError）──
+// PHP 把纯数字字符串的数组 key 自动转 int → array_keys() 返回 int。
+// 若直接传给严格类型 loadGuideByRoomNo(string) 会 TypeError → 整单 500。
+// 验证：用纯数字房号做 key 后取出来，显式 (string) 转换能正确还原。
+$roomNos = [];
+$rid = '1622089';                       // 中台真实房号（字符串形态）
+if (!isset($roomNos[$rid])) $roomNos[$rid] = true;
+$k = array_keys($roomNos)[0];
+check('数字房号做 key 后类型是 int（坑存在）', is_int($k), true);
+check('显式 (string) 转换后可用于严格类型函数', (string)$k, '1622089');
+// 复合房号（含中文/字母）不受影响
+$roomNos2 = [];
+$rid2 = '2号楼C单元33楼3303';
+$roomNos2[$rid2] = true;
+$k2 = array_keys($roomNos2)[0];
+check('非纯数字房号 key 仍是 string', is_string($k2) && $k2 === $rid2, true);
+
 echo "\n== orderStage: $pass passed, $fail failed ==\n";
 exit($fail === 0 ? 0 : 1);
