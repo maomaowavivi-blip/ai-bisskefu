@@ -76,6 +76,42 @@ class CenterRoom
     }
 
     /**
+     * v3.35 — checkin 的旁路版本（蓝图 §7.8 / P1-4），仅供订单指引发送使用。
+     *
+     * checkin() 对 text==='' 的 step 直接 continue，会把该 step 的 images 一起丢弃
+     * ——实测至少 185 间「有图无文字」的房源图片永远发不出去。
+     * checkinAll() 保留 text 为空的 step（text 置 ''）；text、images 都为空的 step 无内容
+     * 可发，与 checkin() 一样跳过。
+     *
+     * ⚠️ 房间咨询流 RoomQueryService::answerCheckin() 继续用 checkin()（行为不变），
+     *    v3.35 指引链路一律用本方法。
+     *
+     * @return array[] [['text'=>string,'title'=>string,'images'=>string[]]]
+     */
+    public static function checkinAll(array $room): array
+    {
+        $raw = $room['guide_checkin_json'] ?? null;
+        if (empty($raw)) return [];
+
+        $decoded = json_decode((string)$raw, true);
+        if (!is_array($decoded)) return [];
+
+        $out = [];
+        foreach (($decoded['steps'] ?? []) as $step) {
+            if (!is_array($step)) continue;
+            $text   = trim((string)($step['text'] ?? ''));
+            $images = self::stringList($step['images'] ?? []);
+            if ($text === '' && $images === []) continue; // 无任何可发内容才跳过
+            $out[] = [
+                'text'   => $text,
+                'title'  => trim((string)($step['title'] ?? '')),
+                'images' => $images,
+            ];
+        }
+        return $out;
+    }
+
+    /**
      * 房间照片 —— room_photos_json.photos[]
      * @return array[] [['url'=>string,'title'=>string,'link_url'=>string]]
      */

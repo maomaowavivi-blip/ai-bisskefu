@@ -609,6 +609,51 @@
 
           <div class="card settings-section">
             <div class="card-header">
+              <h3>🕐 订单查询分时段回复</h3>
+              <span id="orderReplyVideoStatus" style="font-size:var(--text-sm);"></span>
+            </div>
+            <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
+              客人发订单号查单后，按订单所处时段（未到入住 / 入住期间 / 退房后）附加不同内容。
+              <strong>每框留空 = 该场景完全保持现在的行为；填写 = 开启该场景的引导文字 + 入住指引 + 视频。</strong>
+              每段最多 200 字，保存后立即生效。
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">未到入住 · 引导文字</label>
+              <textarea class="form-input" id="orderReplyPrecheckin" rows="3" maxlength="200" placeholder="例如：您的行程还未到入住日，入住当天可自助生成云房卡～"></textarea>
+              <div class="form-hint">留空 = 该场景完全保持现在的行为；填写本框 = 开启该场景的引导文字 + 入住指引 + 视频</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">入住期间 · 引导文字</label>
+              <textarea class="form-input" id="orderReplyDuring" rows="3" maxlength="200" placeholder="例如：祝您入住愉快～下方视频是云房卡使用指引"></textarea>
+              <div class="form-hint">留空 = 该场景完全保持现在的行为；填写本框 = 开启该场景的引导文字 + 入住指引 + 视频（视频在发卡之后发送）</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">退房后 · 引导文字</label>
+              <textarea class="form-input" id="orderReplyAfter" rows="3" maxlength="200" placeholder="例如：期待下次再见～如需续住请联系管家"></textarea>
+              <div class="form-hint">留空 = 该场景完全保持现在的行为；填写本框 = 开启该场景的引导文字 + 入住指引 + 视频</div>
+            </div>
+
+            <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);">
+              <button class="btn btn-primary" id="saveOrderReplyBtn" onclick="saveOrderReplyConfig()">保存文字</button>
+            </div>
+
+            <div style="border-top:1px solid var(--border-light);padding-top:var(--space-4);">
+              <label class="form-label">入住指引视频（mp4，≤10MB；未上传 = 不发视频）</label>
+              <div id="guideVideoInfo" class="text-secondary" style="font-size:var(--text-sm);margin-bottom:var(--space-3);">未上传视频</div>
+              <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap;">
+                <input type="file" id="guideVideoFile" accept=".mp4,video/mp4" style="font-size:var(--text-sm);">
+                <button class="btn btn-primary" id="uploadGuideVideoBtn" type="button" onclick="uploadGuideVideo()">上传视频</button>
+                <button class="btn btn-secondary" id="deleteGuideVideoBtn" type="button" onclick="deleteGuideVideo()" style="display:none;">删除视频</button>
+              </div>
+              <div class="form-hint" style="margin-top:var(--space-2);">上传时当场向企业微信试传校验，校验失败不会保存；替换上传成功后旧视频自动删除。</div>
+            </div>
+          </div>
+
+          <div class="card settings-section">
+            <div class="card-header">
               <h3>🔑 外部 API 密钥管理</h3>
             </div>
             <p class="text-secondary" style="margin-bottom:var(--space-4);font-size:var(--text-sm);">
@@ -1016,6 +1061,140 @@ function loadRoomKeywords() {
     });
 }
 
+// ═══ 订单查询分时段回复 + 入住指引视频（v3.35）═══
+function fmtFileSize(bytes) {
+  bytes = Number(bytes) || 0;
+  if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+}
+
+function renderGuideVideoInfo(video) {
+  var info = document.getElementById('guideVideoInfo');
+  var delBtn = document.getElementById('deleteGuideVideoBtn');
+  var status = document.getElementById('orderReplyVideoStatus');
+  if (video && video.filename) {
+    info.textContent = '当前视频：' + video.filename + '（' + fmtFileSize(video.size)
+      + '，上传于 ' + (video.uploaded_at || '未知时间') + '）'
+      + (video.exists ? '' : ' ⚠️ 服务器文件缺失，请重新上传');
+    delBtn.style.display = '';
+    if (status) status.innerHTML = '<span class="badge badge-success">✅ 视频已配置</span>';
+  } else {
+    info.textContent = '未上传视频（入住期间查单不发视频）';
+    delBtn.style.display = 'none';
+    if (status) status.innerHTML = '';
+  }
+}
+
+function loadOrderReplyConfig() {
+  fetch(apiUrl('/api/verify.php?action=get_order_reply_config'), { headers: getHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.code === 0 && res.data) {
+        document.getElementById('orderReplyPrecheckin').value = res.data.precheckin_text || '';
+        document.getElementById('orderReplyDuring').value = res.data.during_text || '';
+        document.getElementById('orderReplyAfter').value = res.data.after_text || '';
+        renderGuideVideoInfo(res.data.video || null);
+      }
+    })
+    .catch(function() {});
+}
+
+function saveOrderReplyConfig() {
+  var btn = document.getElementById('saveOrderReplyBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  fetch(apiUrl('/api/verify.php?action=save_order_reply_config'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      precheckin_text: document.getElementById('orderReplyPrecheckin').value,
+      during_text: document.getElementById('orderReplyDuring').value,
+      after_text: document.getElementById('orderReplyAfter').value
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '保存文字';
+    if (res.code === 0) {
+      showToast('分时段回复已保存，下一条查单立即生效');
+      loadOrderReplyConfig();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '保存文字';
+    showToast('网络错误，请重试');
+  });
+}
+
+function uploadGuideVideo() {
+  var input = document.getElementById('guideVideoFile');
+  if (!input.files || !input.files[0]) { showToast('请先选择视频文件'); return; }
+  var file = input.files[0];
+  if (!/\.mp4$/i.test(file.name)) { showToast('仅支持 mp4 格式视频'); return; }
+  if (file.size > 10 * 1024 * 1024) { showToast('视频不能超过 10MB'); return; }
+
+  var btn = document.getElementById('uploadGuideVideoBtn');
+  btn.disabled = true;
+  btn.textContent = '上传校验中...';
+
+  var fd = new FormData();
+  fd.append('file', file);
+
+  // 上传请求只带 Authorization，不设 Content-Type——
+  // 让浏览器自己带 multipart boundary（getHeaders() 写死 JSON 会破坏 multipart）
+  fetch(apiUrl('/api/verify.php?action=upload_guide_video'), {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: fd
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '上传视频';
+    if (res.code === 0) {
+      showToast('指引视频已上传并通过企微校验');
+      input.value = '';
+      loadOrderReplyConfig();
+    } else {
+      showToast(res.msg);
+      loadOrderReplyConfig();
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '上传视频';
+    showToast('上传失败，网络错误');
+  });
+}
+
+function deleteGuideVideo() {
+  if (!confirm('确定删除入住指引视频？删除后入住期间查单不再发视频。')) return;
+
+  fetch(apiUrl('/api/verify.php?action=delete_guide_video'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: '{}'
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.code === 0) {
+      showToast('指引视频已删除');
+      loadOrderReplyConfig();
+    } else {
+      showToast(res.msg);
+    }
+  })
+  .catch(function() {
+    showToast('网络错误，请重试');
+  });
+}
+
 // ═══ 网站嵌入 ═══
 function generateEmbedCode() {
   var color = document.getElementById('embedColor').value;
@@ -1105,6 +1284,7 @@ loadSidecarStats();
 loadWecomConfig();
 loadWecomKfConfig(); // v3.4：微信客服 API 配置
 loadApiKeys();
+loadOrderReplyConfig(); // v3.35：订单查询分时段回复 + 入住指引视频
 updateEmbedCode();
 
 // ═══ API 密钥管理 ═══

@@ -22,6 +22,7 @@ require_once __DIR__ . '/IntentClassifier.php';
 require_once __DIR__ . '/IntentRouter.php';
 require_once __DIR__ . '/SessionState.php';
 require_once __DIR__ . '/ReplyRenderer.php';
+require_once __DIR__ . '/OrderGuidePick.php'; // v3.35：多房选房早退（蓝图 §7.5）
 require_once __DIR__ . '/chat_helpers.php';
 
 final class ChatPipeline
@@ -111,6 +112,16 @@ final class ChatPipeline
             $sessionState = SessionState::load($db, $sessionId);
             // 把 history 塞进 sessionState（给 PromptEngine 用）
             $sessionState['history'] = $history;
+
+            // v3.35 — 多房选房早退（蓝图 §7.5.1）：必须在 IntentClassifier::classify() 之前，
+            // 否则客人回的裸序号/房号会被分类成 UNKNOWN / ROOM_QUERY。
+            // tryHandle 内部全 catch、fail-open：新表未建/无选房状态时返回 null，全渠道不受影响（qa C6）。
+            // 返回结构与正常路径形状一致（intent/confidence/workflow/reasoning 齐全），
+            // chat_logs 由 pick 侧补写 user+assistant 两行（P2-11）。
+            $pick = OrderGuidePick::tryHandle($db, $sessionId, $message, $channel, $visitorHash, $clientIp);
+            if ($pick !== null) {
+                return $pick;
+            }
 
             // Intent 分类
             $intentCtx = IntentClassifier::classify($message, [

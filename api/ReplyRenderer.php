@@ -43,6 +43,13 @@ final class ReplyRenderer
             $data['room_pick'] = $result->roomPick;
         }
 
+        // v3.35（蓝图 §7.2）：订单指引载荷透传给通道层（wecom_kf 读它编排指引/视频）。
+        // 只在 extra.order_guide 非空时出现 → 非订单场景响应形状不变；
+        // 三段配置全空时 workflow 根本不 set extra（单一守门点 §5.1），该键**根本不存在**。
+        if (!empty($result->extra['order_guide'])) {
+            $data['order_guide'] = $result->extra['order_guide'];
+        }
+
         return $data;
     }
 

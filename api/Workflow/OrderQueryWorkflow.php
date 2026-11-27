@@ -22,6 +22,33 @@ require_once __DIR__ . '/../CenterApi.php';
 
 final class OrderQueryWorkflow extends AbstractWorkflow
 {
+    /**
+     * v3.35 — 单房入住指引装载（蓝图 §7.1.3 / P1-4）。
+     * 指引链路用 CenterRoom::checkinAll()：保留 text 为空但有图的 step（checkin() 会连图丢弃）。
+     * 房源查不到（room_ids 有值但中台无房）→ null，调用方只发 M1、不报错（§5.3）。
+     *
+     * @return array{baoyu_room_no:string,room_code:string,display_name:string,has_guide:bool,steps:array}|null
+     */
+    private function loadGuideByRoomNo(string $roomNo): ?array
+    {
+        if ($roomNo === '') return null;
+        try {
+            $room = CenterRoom::loadByBaoyuRoomNo($this->db, $roomNo);
+        } catch (\Throwable $e) {
+            error_log('[OrderQueryWorkflow] room load failed: ' . $e->getMessage());
+            return null;
+        }
+        if (!is_array($room)) return null;
+        $steps = CenterRoom::checkinAll($room);
+        return [
+            'baoyu_room_no' => $roomNo,
+            'room_code'     => trim((string)($room['room_code'] ?? '')),
+            'display_name'  => CenterRoom::displayName($room),
+            'has_guide'     => ($steps !== []),
+            'steps'         => $steps,
+        ];
+    }
+
     public function handle(): WorkflowResult
     {
         $message = $this->intentCtx->slots['original_message'] ?? '';
@@ -117,6 +144,145 @@ final class OrderQueryWorkflow extends AbstractWorkflow
             error_log('[OrderQueryWorkflow] session_order_link failed: ' . $e->getMessage());
         }
 
-        return WorkflowResult::text($reply, 'OrderQueryWorkflow');
+        // ──────────────────────────────────────────
+        // v3.35 订单查询分时段回复（蓝图 §7.1）
+        //
+        // P2-10 调用顺序：算 stage → 读 lead → lead 空立即 return（不查中台房源，
+        // 零额外耗时）→ 否则才取指引数据。
+        // 时段锚 MySQL CURDATE()：生产 php-fpm=UTC / MySQL=CST 差 8 小时，
+        // PHP date() 在凌晨 0-8 点会算错一天（§3.4 / AGENTS.md §15），禁用。
+        // ──────────────────────────────────────────
+        $today = '';
+        try {
+            $today = (string)$this->db->query('SELECT CURDATE() d')->fetchColumn();
+        } catch (\Throwable $e) {
+            error_log('[OrderQueryWorkflow] CURDATE failed: ' . $e->getMessage());
+        }
+
+        $stageKey = orderStage($today, (string)($orderData['check_in'] ?? ''), (string)($orderData['check_out'] ?? ''));
+
+        // 引导文字（兼该场景开关，§6）。配置读法一律 pcGet 直查 DB（AGENTS.md §10），
+        // 禁 AgentConfig::get()（进程级静态缓存会让「后台保存了不生效」）。
+        $lead = '';
+        if ($stageKey !== 'unknown') {
+            $lead = trim((string)pcGet($this->db, 'order_reply.text.' . $stageKey, ''));
+        }
+
+        // ── 单一守门点（§5.1 / qa B1，最关键）──
+        // lead 为空（含 stage=unknown / 三段配置全空）→ 不 set extra、不拼任何附加内容，
+        // reply 与 v3.34.1 逐字节一致（安全垫，.trae/documents/baseline-v3.34.1-order-query.json）。
+        if ($lead === '') {
+            return WorkflowResult::text($reply, 'OrderQueryWorkflow');
+        }
+
+        require_once __DIR__ . '/../OrderGuidePick.php';
+
+        $guideText = '';
+        $rooms     = [];
+        $multi     = false;
+        $pickText  = '';
+
+        if ($stageKey === 'precheckin') {
+            // 仅「未到入住」需要中台房源指引（§7.1.3；during/after 不查房源，零额外中台调用）
+            $roomNos = [];
+            foreach (explode(',', (string)($orderData['room_ids'] ?? '')) as $rid) {
+                $rid = trim($rid);
+                if ($rid !== '' && !isset($roomNos[$rid])) $roomNos[$rid] = true;
+            }
+            $roomNos = array_keys($roomNos);
+
+            if (count($roomNos) === 1) {
+                // 单房：现查指引（checkinAll 保留有图无字 step，P1-4）
+                $g = $this->loadGuideByRoomNo($roomNos[0]);
+                if ($g !== null) {
+                    $guideText = OrderGuidePick::guideTextFromSteps($g['steps']);
+                    $rooms[] = $g;
+                }
+                // 房源查不到 → rooms 保持空，只发 M1（§5.3 不报错不打断）
+            } elseif (count($roomNos) >= 2) {
+                // 多房：只出候选、不查指引（客人选中才现查，qa C5）
+                $candidates = [];
+                try {
+                    require_once __DIR__ . '/../sidecar/OrderRoomMapper.php';
+                    $candidates = OrderRoomMapper::mapOrderData($orderData);
+                } catch (\Throwable $e) {
+                    error_log('[OrderQueryWorkflow] room candidates failed: ' . $e->getMessage());
+                }
+                if (count($candidates) >= 2) {
+                    $multi = true;
+                    foreach ($candidates as $c) {
+                        $rooms[] = [
+                            'baoyu_room_no' => (string)($c['baoyu_room_no'] ?? ''),
+                            'room_code'     => (string)($c['room_code'] ?? ''),
+                            'display_name'  => (string)($c['display_name'] ?? ''),
+                        ];
+                    }
+                    $pickText = OrderGuidePick::buildPickText($rooms);
+                    // stage=1 统一由 workflow 侧写（P2-6）：通道层不写，否则 H5 渠道进不了选房。
+                    // helper 内部全 catch，表未建时 fail-open。
+                    OrderGuidePick::openSession($this->db, $this->sessionId, $orderNo, $rooms);
+                } elseif (count($candidates) === 1) {
+                    // 单房 → 不进选房流程；同时清掉本会话可能残留的旧选房状态（P2-5：
+                    // 客人先查过多房订单、没回复又查了单房订单时，旧候选不该再被命中）
+                    OrderGuidePick::closeSession($this->db, $this->sessionId);
+                    // 中台侧去重后只剩一间 → 按单房给指引
+                    $g = $this->loadGuideByRoomNo((string)($candidates[0]['baoyu_room_no'] ?? ''));
+                    if ($g !== null) {
+                        $guideText = OrderGuidePick::guideTextFromSteps($g['steps']);
+                        $rooms[] = $g;
+                    }
+                }
+                // 0 候选（房源都查不到）→ 只发 M1
+            }
+            // room_ids 为空（实测 33%）→ 什么都不加，只发 M1（§5.3）
+        }
+
+        // 载荷（§7.1.4；只有 lead 非空才走到这里 —— 单一守门点之上已 return）
+        $orderGuide = [
+            'stage'     => $stageKey,
+            'mode'      => 'order', // pick=选房轮（OrderGuidePick 产出）；订单轮固定 order（P0）
+            'lead'      => $lead,
+            'rooms'     => $rooms,
+            'multi'     => $multi,
+            'pick_text' => $pickText,
+        ];
+        $result = WorkflowResult::text($reply, 'OrderQueryWorkflow')->withExtra(['order_guide' => $orderGuide]);
+
+        // 渠道差异（§7.1.5）：wechat_kf 的 reply 只含订单信息（与今天一致，指引由通道层分条发）；
+        // 其它渠道（web/H5/openapi）无图片消息能力 → reply = lead + 订单信息 + 指引文字，
+        // 图片 URL 留在 extra.order_guide 备用字段（C7）。
+        if ($channel !== 'wechat_kf') {
+            $final = $lead . "\n\n" . $reply;
+            if (!$multi && $guideText !== '') $final .= "\n\n" . $guideText;
+            if ($pickText !== '')             $final .= "\n\n" . $pickText;
+            $result->text = $final;
+        }
+
+        return $result;
+    }
+}
+
+/**
+ * v3.35 — 订单时段判定（蓝图 §7.1.1，纯函数可本地单测，qa B2/B10）
+ *
+ * @param string $today    'Y-m-d'，调用方用 SELECT CURDATE() 取得（锚 MySQL 钟）
+ * @param string $checkIn  中台 check_in（实测 'Y-m-d H:i:s'，取前 10 位）
+ * @param string $checkOut 中台 check_out
+ * @return string precheckin | during | after | unknown
+ *
+ * 空/畸形日期 → 'unknown'（中性：不拼引导文字、不发指引、不发视频，行为与今天一致）。
+ * 'Y-m-d' 字典序 = 时间序，无需时区转换。
+ */
+if (!function_exists('orderStage')) {
+    function orderStage(string $today, string $checkIn, string $checkOut): string
+    {
+        if ($today === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $today)) return 'unknown';
+        if (!preg_match('/^(\d{4}-\d{2}-\d{2})/', $checkIn, $mIn))  return 'unknown';
+        if (!preg_match('/^(\d{4}-\d{2}-\d{2})/', $checkOut, $mOut)) return 'unknown';
+        $ci = $mIn[1];
+        $co = $mOut[1];
+        if ($today <  $ci) return 'precheckin';
+        if ($today <= $co) return 'during';
+        return 'after';
     }
 }

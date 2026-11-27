@@ -33,6 +33,14 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/wecom_kf_token.php'; // v3.35：getAccessToken/httpGet/日志函数搬到中立 include（§7.4.1）
+require_once __DIR__ . '/wecom_kf_order_guide.php'; // v3.35：订单指引轮消息编排纯函数（§7.6.2）
+require_once __DIR__ . '/OrderGuidePick.php'; // v3.35：选房载荷复用 guideTextFromSteps
+// v3.35 媒体上传函数由 api/wecom_kf_media.php（另一路交付）提供。
+// 发布窗口内该文件可能尚未到位 → is_file 守卫，缺失时图片/视频静默跳过、文字照发（§5.3）。
+if (is_file(__DIR__ . '/wecom_kf_media.php')) {
+    require_once __DIR__ . '/wecom_kf_media.php';
+}
 require_once __DIR__ . '/wecom_crypto.php'; // v3.4：crypto 函数抽出共用
 require_once __DIR__ . '/wecom_kf_dedup.php'; // 去重工具（修复 95001）
 require_once __DIR__ . '/chat_helpers.php';
@@ -73,19 +81,9 @@ if (!$corpId || !$token || !$aesKey || !$corpSecret || !$openKfId) {
 // ──────────────────────────────────────────
 // 日志（复用 wecom_log from chat_helpers）
 // ──────────────────────────────────────────
-
-function wecom_kf_log(string $msg): void
-{
-    $logDir = __DIR__ . '/../logs';
-    if (!is_dir($logDir)) @mkdir($logDir, 0755, true);
-    $line = '[' . date('Y-m-d H:i:s') . '] [wecom_kf] ' . $msg . "\n";
-    @file_put_contents($logDir . '/wecom_kf.log', $line, FILE_APPEND);
-}
-
-function wecom_kf_response_error(array $response): string
-{
-    return 'errcode=' . (string)($response['errcode'] ?? 'unknown');
-}
+// v3.35：wecom_kf_log() / wecom_kf_response_error() / getAccessToken() / httpGet()
+// 已搬到中立 include api/wecom_kf_token.php（§7.4.1 / P1-1），本文件顶部 require。
+// 函数名与行为不变，以下调用点无需修改。
 
 // ──────────────────────────────────────────
 // 路由
@@ -366,6 +364,21 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
         //    直接 send_msg 会被拒。先 trans 到 state=1 即可发送。
         transKfServiceState($useOpenKfId, $from, 1);
 
+        // v3.35 — 订单指引载荷（蓝图 §7.6.3 / P1-2）：进入房卡分支之前存进**独立变量**。
+        // $result 稍后在发卡循环里被 sendKfMiniprogramMessageEx() **原地覆盖**（只剩 ok/errcode），
+        // 届时 data 不再存在 → 指引图与视频会静默不发。此后一律读 $orderGuide，不再读 $result['data']。
+        $orderGuide = null;
+        if (is_array($result['data'] ?? null) && is_array($result['data']['order_guide'] ?? null)) {
+            $orderGuide = $result['data']['order_guide'];
+        }
+        // P0（CodeBuddy 方案审）：跳过房卡分支的条件是「本轮是选房轮」（mode=pick）。
+        // 绝不能写成 !empty(order_guide)——order_guide 在任何启用场景都存在（含入住期间/退房后），
+        // 照那种写法入住期间会跳过整个房卡分支：客人收不到云房卡、收不到视频、还会重复收到订单信息。
+        $isPickRound = is_array($orderGuide) && (($orderGuide['mode'] ?? 'order') === 'pick');
+        if ($isOrderMessage && $isPickRound) {
+            $isOrderMessage = false; // 只有选房轮才跳过房卡分支；订单轮永远不跳过发卡
+        }
+
         // v3.15.2 — 订单号固定发送 A 样式原生小程序卡片。
         // appid 和 pagepath 原样使用宿家当前房卡返回值,本地不拼接、不改写。
         // v3.16 — 一单多房:宿家 cards 数组有几张就发几张。
@@ -405,28 +418,130 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
             // 消息决策统一交给 roomCardTextPlan（纯函数，可单测）：
             //   有卡   → 先发订单信息文本（卡片之前），再逐张发卡
             //   无卡   → 订单信息 + 原因提示两条（= v3.32 行为不变）
+            // v3.35 启用场景（order_guide 存在）：上面的文本计划**由 M1 替代**（qa D3），
+            //   $replyText 不再单独发——引导文字/房卡原因/选房问句/间数引导全部并入编排，
+            //   总条数由 buildOrderGuideMessages 保证 ≤5（§5.2.1），超预算按降级顺序砍。
             $hasCards = ($cardCount > 0);
-            $plan = roomCardTextPlan($hasCards, $hasCards ? null : $cardBizMsg, (string)$replyText);
             $textFailed = false;
-            foreach ($plan as $text) {
-                if (!sendKfMessage($from, $text, $useOpenKfId)) $textFailed = true;
-            }
-            if ($textFailed) {
-                // 文本失败不断发卡（卡是核心交付）；只记日志
-                wecom_kf_log('roomcard accompanying text send failed');
-            }
+            $orderGuideMsgs = [];   // v3.35 编排结果（含 'cards' 占位）；非启用场景保持空
+            $ogButlerMode  = false; // v3.35 管家模式（§5.2.4）：cardCount>=5 → 不发卡，改引导联系管家
+            $ogCut = 0;             // 'cards' 占位下标（卡前/卡后分界）
+            $guideTextSent = 0;     // 事件行统计（chat_logs §7.6.5）
+            $guideImgSent = 0;
+            $videoSent = false;
+            $imageDeadline = 0.0;   // 单轮图片媒体预算 20s（§5.3 / B5）
 
-            // 2 张及以上:加文字引导(避免客户不知道有几间房)
-            if ($cardCount >= 2) {
-                sendKfMessage(
-                    $from,
-                    sprintf('您一共订了 %d 间房,以下是各房间的云房卡～', $cardCount),
-                    $useOpenKfId
-                );
+            if (is_array($orderGuide)) {
+                // ══ v3.35 启用场景编排（§7.6.2 / §7.6.3）══
+                // 管家模式判定（§5.2.4）：5 条预算里 M1 占 1 条 → 只剩 4 条给卡 → cardCount>=5 装不下
+                $ogButlerMode = ($cardCount >= 5);
+                $ogButlerContact = '';
+                if ($ogButlerMode) {
+                    // 管家联系方式唯一取值入口：PromptEngine::handoffReply()（读 agent.handoff.reply）
+                    // ⚠️ 禁止硬编码号码（AGENTS.md §10）；PromptEngine 已随 IntentClassifier 加载
+                    try {
+                        $ogButlerContact = trim((string)\PromptEngine::handoffReply(null, $db));
+                    } catch (\Throwable $e) {
+                        error_log('[wecom_kf] butler contact read failed: ' . $e->getMessage());
+                    }
+                    if ($ogButlerContact === '') $ogButlerContact = '请联系管家';
+                }
+                $roomCountText = ($cardCount >= 2 && !$ogButlerMode)
+                    ? sprintf('您一共订了 %d 间房,以下是各房间的云房卡～', $cardCount)
+                    : '';
+                $cardReason = '';
+                if ($cardCount === 0) {
+                    // 房卡原因并入 M1 末尾（§5.2 启用场景统一规则）；中台无原因时用通用兜底
+                    $cardReason = centerRoomCardReply($cardBizMsg);
+                    if ($cardReason === '') $cardReason = ORDER_NOT_FOUND_REPLY;
+                }
+                $guideText   = '';
+                $guideImages = [];
+                if (($orderGuide['stage'] ?? '') === 'precheckin' && empty($orderGuide['multi'])) {
+                    $ogSteps = (isset($orderGuide['rooms'][0]['steps']) && is_array($orderGuide['rooms'][0]['steps']))
+                        ? $orderGuide['rooms'][0]['steps'] : [];
+                    $guideText = OrderGuidePick::guideTextFromSteps($ogSteps);
+                    foreach ($ogSteps as $ogSt) {
+                        foreach ((array)($ogSt['images'] ?? []) as $ogU) {
+                            if (is_string($ogU) && $ogU !== '') $guideImages[] = $ogU;
+                        }
+                    }
+                }
+                // 视频条件（§5.1）：order_guide 存在（=lead 非空）&& stage=during && 源文件存在
+                $ogVideoPath = '';
+                if (($orderGuide['stage'] ?? '') === 'during') {
+                    $ogVideoPath = trim((string)pcGet($db, 'roomcard.guide_video.path', ''));
+                    if ($ogVideoPath === '' || !is_file($ogVideoPath)) $ogVideoPath = ''; // §5.3 缺源文件→不发视频、其余正常
+                }
+                $orderGuideMsgs = buildOrderGuideMessages([
+                    'stage'         => (string)($orderGuide['stage'] ?? ''),
+                    'lead'          => (string)($orderGuide['lead'] ?? ''),
+                    'orderText'     => (string)$replyText,
+                    'cardReason'    => $cardReason,
+                    'cardCount'     => $cardCount,
+                    'roomCountText' => $roomCountText,
+                    'roomPickText'  => (string)($orderGuide['pick_text'] ?? ''),
+                    'guideText'     => $guideText,
+                    'guideImages'   => $guideImages,
+                    'videoPath'     => $ogVideoPath,
+                    'butlerContact' => $ogButlerContact,
+                ]);
+
+                // 统一消息发送器（卡前与卡后共用；图片/视频 fail-open 不阻断文字）
+                $imageDeadline = microtime(true) + 20.0;
+                $sendOgMsg = function (array $gm) use (
+                    $db, $from, $useOpenKfId, $imageDeadline, $sessionId,
+                    &$textFailed, &$guideTextSent, &$guideImgSent, &$videoSent
+                ): void {
+                    $type = (string)($gm['type'] ?? '');
+                    if ($type === 'text') {
+                        if (sendKfMessage($from, (string)($gm['content'] ?? ''), $useOpenKfId)) {
+                            if (($gm['meta'] ?? '') === 'guide') $guideTextSent++;
+                        } else {
+                            $textFailed = true; // 文字失败：不断发卡、留给微信重试
+                            wecom_kf_log('order guide text send failed meta=' . (string)($gm['meta'] ?? ''));
+                        }
+                    } elseif ($type === 'image') {
+                        if (sendKfGuideImage($db, $from, (string)($gm['url'] ?? ''), $useOpenKfId, $imageDeadline)) {
+                            $guideImgSent++;
+                        }
+                    } elseif ($type === 'video') {
+                        if (sendKfGuideVideo($db, $from, (string)($gm['path'] ?? ''), $useOpenKfId)) {
+                            $videoSent = true;
+                            writeGuideChatEvent($db, $sessionId, '已发送云房卡使用指引视频', $from, requestClientIp()); // §7.6.5
+                        }
+                    }
+                };
+
+                // 'cards' 占位之前的消息先于发卡发送
+                $ogCut = count($orderGuideMsgs);
+                foreach ($orderGuideMsgs as $gi => $gm) {
+                    if (($gm['type'] ?? '') === 'cards') { $ogCut = $gi; break; }
+                    $sendOgMsg($gm);
+                }
+            } else {
+                $plan = roomCardTextPlan($hasCards, $hasCards ? null : $cardBizMsg, (string)$replyText);
+                foreach ($plan as $text) {
+                    if (!sendKfMessage($from, $text, $useOpenKfId)) $textFailed = true;
+                }
+                if ($textFailed) {
+                    // 文本失败不断发卡（卡是核心交付）；只记日志
+                    wecom_kf_log('roomcard accompanying text send failed');
+                }
+
+                // 2 张及以上:加文字引导(避免客户不知道有几间房)
+                if ($cardCount >= 2) {
+                    sendKfMessage(
+                        $from,
+                        sprintf('您一共订了 %d 间房,以下是各房间的云房卡～', $cardCount),
+                        $useOpenKfId
+                    );
+                }
             }
 
             $sentCount = 0;
             foreach ($deliveries as $delivery) {
+                if ($ogButlerMode) break; // v3.35 管家模式（§5.2.4）：不发卡（5 张必然超 5 条上限）
                 $result = sendKfMiniprogramMessageEx($from, [
                     'appid'          => $delivery['appid'],
                     'title'          => $delivery['title'],
@@ -460,22 +575,52 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 
             // v3.34 qa修复(P2)：有卡但一张都没发出（中台有卡、企微发送全败）→
             // plan 只含订单信息，客户对失败零感知。补一条通用提示，保持 v3.32 的客户体验不回退。
-            if ($hasCards && !$roomCardSent) {
+            // v3.35 启用场景：**不补**这条独立提示——房卡原因已并入 M1（含全败可感知的通用兜底），
+            // 再补一条会多占 1 条企微额度（5 条上限）。代价：有卡全败时客人只看到 M1 里的兜底原因，
+            // 不会再单独收到「暂时没有查找到您的云房卡」那一句。这是刻意取舍，不是漏写。
+            if ($hasCards && !$roomCardSent && !is_array($orderGuide)) {
                 $failTip = $plan[1] ?? '暂时没有查找到您的云房卡，请稍后重试或联系管家。';
                 if (!sendKfMessage($from, $failTip, $useOpenKfId)) $textFailed = true;
             }
 
             // v3.34：发卡事件写 chat_logs（成败都写），房管端「客人咨询记录」可见
+            // v3.35 管家模式：中台确实有卡但我们主动不发 → 事件原因写清楚，别让房管误判为发卡失败
+            $ogCardBizMsg = $roomCardSent ? null : $cardBizMsg;
+            if ($ogButlerMode) {
+                $ogCardBizMsg = sprintf('订单含 %d 间房，云房卡未发送，已引导客户联系管家', $cardCount);
+            }
             writeRoomCardChatEvent(
                 $db,
                 $sessionId,
                 $roomCardSent,
                 $deliveries,
-                $roomCardSent ? null : $cardBizMsg,
+                $ogCardBizMsg,
                 $from,   // qa P3 修复：与 ChatPipeline 写 visitor_hash 的口径一致（原样 $from）
                 requestClientIp(),
                 $sentCount
             );
+
+            // v3.35：'cards' 占位之后的消息（视频 / 卡后才发的指引媒体）在发卡完成后追加。
+            // 视频必须在发卡成功后发（§7.6.3-3，发卡本身代码未动）；图片/视频失败只记日志，
+            // 不阻断文字、不置 batchHandled（§5.3 媒体失败 = 文字照常送达）。
+            if (is_array($orderGuide) && $ogCut < count($orderGuideMsgs)) {
+                foreach (array_slice($orderGuideMsgs, $ogCut + 1) as $gm) {
+                    $sendOgMsg($gm);
+                }
+            }
+
+            // v3.35 chat_logs 事件行（§7.6.5）：指引发送成功写 assistant 事件，内容只用展示名
+            if (is_array($orderGuide) && ($guideTextSent > 0 || $guideImgSent > 0)) {
+                $ogWhat = [];
+                if ($guideTextSent > 0) $ogWhat[] = '文字';
+                if ($guideImgSent > 0)  $ogWhat[] = $guideImgSent . ' 图';
+                $ogRoom = trim((string)($orderGuide['rooms'][0]['display_name'] ?? ''));
+                writeGuideChatEvent(
+                    $db, $sessionId,
+                    '已发送入住指引：' . implode(' + ', $ogWhat) . ($ogRoom !== '' ? '（房间：' . $ogRoom . '）' : ''),
+                    $from, requestClientIp()
+                );
+            }
 
             // 保持 v3.32 语义：计划文本已全部发出 → 视为「本次已回复」(continue)，
             // 避免下面把 $replyText 再发一遍；任一文本失败 → $batchHandled=false 留给微信重试。
@@ -493,10 +638,48 @@ function processKfEvent(string $eventToken, string $useOpenKfId): void
 
         // 4. 发送（必须用会话对应的 open_kfid，不能用配置里的固定值——
         //    用户扫码进的是事件里的 OpenKfId，跟 platform_config 配置的可能是不同账号）
-        $sent = sendKfMessage($from, $replyText, $useOpenKfId);
+        //
+        // v3.35 P2（qa 独立验收发现）：选房轮遇到「有图无文字」的房源（实测 ≥185 间）时，
+        // 指引文字 replyText 是空串 → 企微拒绝空内容 → sendKfMessage 失败 →
+        // 图片分支（在 if($sent) 内）不会执行，且 batchHandled=false → 游标不推进 → 微信重投
+        // → 下一轮走正常流程 → **该房指引图片彻底丢失**。
+        // → 空文字时**跳过发送**并视为已处理，直接进图片分支。
+        $replyForSend = trim((string)$replyText);
+        $skipEmptyReply = ($isPickRound && $replyForSend === '');
+        if ($skipEmptyReply) {
+            wecom_kf_log('pick round: guide text empty (image-only room), skip empty text send');
+        }
+        $sent = $skipEmptyReply ? true : sendKfMessage($from, $replyText, $useOpenKfId);
         if ($sent) {
             if ($msgId !== '') markMsgProcessed($msgId);
             wecom_kf_log('Replied to user=' . substr(sha1($from), 0, 10));
+
+            // v3.35 选房轮（P1-5 / §5.4.2）：指引文字就是上面的 $replyText，已经由常规路径发出
+            // ——通道层在选房轮**只补发选中房源的图片，不另发文字**（否则双发）。
+            // 指引文字 >600 字接受 :362 mb_substr(600) 截断，选房轮不拆条。
+            if ($isPickRound && is_array($orderGuide)) {
+                $ogSteps = (isset($orderGuide['rooms'][0]['steps']) && is_array($orderGuide['rooms'][0]['steps']))
+                    ? $orderGuide['rooms'][0]['steps'] : [];
+                $pickUrls = [];
+                foreach ($ogSteps as $ogSt) {
+                    foreach ((array)($ogSt['images'] ?? []) as $ogU) {
+                        if (is_string($ogU) && $ogU !== '') $pickUrls[] = $ogU;
+                    }
+                }
+                $pickDeadline = microtime(true) + 20.0; // 单轮图片媒体预算 20s（§5.3）
+                $pickImgSent = 0;
+                foreach (array_slice($pickUrls, 0, 3) as $pickUrl) {
+                    if (sendKfGuideImage($db, $from, $pickUrl, $useOpenKfId, $pickDeadline)) $pickImgSent++;
+                }
+                if ($pickImgSent > 0) { // chat_logs 事件行 §7.6.5（只用展示名）
+                    $pickRoom = trim((string)($orderGuide['rooms'][0]['display_name'] ?? ''));
+                    writeGuideChatEvent(
+                        $db, $sessionId,
+                        '已发送入住指引（选房轮）：' . $pickImgSent . ' 图' . ($pickRoom !== '' ? '（房间：' . $pickRoom . '）' : ''),
+                        $from, requestClientIp()
+                    );
+                }
+            }
         } else {
             $batchHandled = false;
             wecom_kf_log('send_kf_message failed user=' . substr(sha1($from), 0, 10));
@@ -824,41 +1007,10 @@ function getConfiguredOpenKfId(): string
 // ──────────────────────────────────────────
 // access_token 缓存
 // ──────────────────────────────────────────
-
-function getAccessToken(): ?string
-{
-    global $db;
-
-    // 检查缓存
-    $cached = trim(pcGet($db, 'wecom.access_token_cache', ''));
-    $expiresAt = (int)pcGet($db, 'wecom.access_token_expires_at', 0);
-    if ($cached && $expiresAt > time() + 60) {  // 提前 60 秒过期避免临界
-        return $cached;
-    }
-
-    // 调接口
-    $corpSecret = trim(pcGet($db, 'wecom.corp_secret', ''));
-    $corpId     = trim(pcGet($db, 'wecom.corpid', ''));
-
-    $url = "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=" . urlencode($corpId) . "&corpsecret=" . urlencode($corpSecret);
-    $resp = httpGet($url);
-    if (!$resp || !isset($resp['access_token'])) {
-        wecom_kf_log('gettoken failed: ' . wecom_kf_response_error(is_array($resp) ? $resp : []));
-        return null;
-    }
-
-    $token = $resp['access_token'];
-    $expiresIn = (int)($resp['expires_in'] ?? 7200);
-
-    // 写缓存
-    pcSet($db, 'wecom.access_token_cache', $token);
-    pcSet($db, 'wecom.access_token_expires_at', (string)(time() + $expiresIn));
-
-    return $token;
-}
+// v3.35：getAccessToken() 已搬到 api/wecom_kf_token.php（原样，缓存键不变）。
 
 // ──────────────────────────────────────────
-// HTTP helper
+// HTTP helper（httpGet 已搬到 api/wecom_kf_token.php，此处仅剩 httpPostJson）
 // ──────────────────────────────────────────
 
 function httpPostJson(string $url, array $data): ?array
@@ -883,21 +1035,197 @@ function httpPostJson(string $url, array $data): ?array
     return json_decode($resp, true);
 }
 
-function httpGet(string $url): ?array
-{
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
-    ]);
-    $resp = curl_exec($ch);
-    $err = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+// ──────────────────────────────────────────
+// v3.35 — image / video 消息发送与媒体自愈（蓝图 §7.6.1 / qa B3 / P2-6）
+// ──────────────────────────────────────────
 
-    if ($err || $httpCode !== 200) {
-        wecom_kf_log("HTTP GET failed: code=$httpCode err=$err");
-        return null;
+/**
+ * 发送 image 类型消息。返回值对齐 sendKfMiniprogramMessageEx 先例：
+ * ['ok'=>bool,'errcode'=>int,'errmsg'=>string]（qa B3：返 bool 拿不到 errcode 就无法自愈）。
+ */
+function sendKfImageMessage(string $externalUserId, string $mediaId, string $useOpenKfId = ''): array
+{
+    return sendKfMediaMessage($externalUserId, 'image', $mediaId, $useOpenKfId);
+}
+
+/** 发送 video 类型消息（官方 body 只有 media_id，无 title/description，§3.2）。同上返回结构。 */
+function sendKfVideoMessage(string $externalUserId, string $mediaId, string $useOpenKfId = ''): array
+{
+    return sendKfMediaMessage($externalUserId, 'video', $mediaId, $useOpenKfId);
+}
+
+function sendKfMediaMessage(string $externalUserId, string $msgType, string $mediaId, string $useOpenKfId = ''): array
+{
+    $accessToken = getAccessToken();
+    if ($accessToken === null) return ['ok' => false, 'errcode' => -1, 'errmsg' => 'access_token unavailable'];
+    if ($mediaId === '' || !in_array($msgType, ['image', 'video'], true)) {
+        wecom_kf_log('send_kf_media skip: missing media_id or bad msgtype=' . $msgType);
+        return ['ok' => false, 'errcode' => -2, 'errmsg' => 'missing media_id or bad msgtype'];
     }
-    return json_decode($resp, true);
+
+    $openKfId = $useOpenKfId !== '' ? $useOpenKfId : getConfiguredOpenKfId();
+    $url = "https://qyapi.weixin.qq.com/cgi-bin/kf/send_msg?access_token=" . urlencode($accessToken);
+    $payload = [
+        'touser'   => $externalUserId,
+        'open_kfid' => $openKfId,
+        'msgtype'  => $msgType,
+        $msgType   => ['media_id' => $mediaId],
+    ];
+
+    $resp = httpPostJson($url, $payload);
+    if (!$resp || !isset($resp['errcode'])) {
+        return ['ok' => false, 'errcode' => -3, 'errmsg' => 'no response'];
+    }
+    $errcode = intval($resp['errcode']);
+    $errmsg  = (string)($resp['errmsg'] ?? '');
+    if ($errcode !== 0) {
+        wecom_kf_log('send_kf_' . $msgType . ' error: ' . wecom_kf_response_error($resp) . ' ' . $errmsg);
+        return ['ok' => false, 'errcode' => $errcode, 'errmsg' => $errmsg];
+    }
+    wecom_kf_log('Sent kf ' . $msgType . ' message');
+    return ['ok' => true, 'errcode' => 0, 'errmsg' => ''];
+}
+
+/**
+ * v3.35 — 发一张指引图片：缓存 → uploadMediaFromUrl → send；任何非 0 errcode 自愈一次。
+ *
+ * P2-6（CodeBuddy）：企微对 image/video 素材过期的 errcode 未实测（不只 40007/40008），
+ * 故**任何非 0 errcode** 都按「素材可能失效」自愈：mediaCacheClear → 重新 upload → 重发一次，
+ * 仍失败则跳过该张并记 errcode（§5.3：跳过该张继续发后面的，文字照常送达）。
+ * $deadline：单轮图片媒体预算（§5.3/B5 下载 5s + 上传 15s，调用方给 20s 总闸），超时放弃。
+ * 媒体函数缺失（api/wecom_kf_media.php 未到位的发布窗口）→ 静默跳过（fail-open）。
+ */
+function sendKfGuideImage(PDO $db, string $externalUserId, string $url, string $useOpenKfId, float $deadline = 0.0): bool
+{
+    if ($deadline > 0.0 && microtime(true) > $deadline) {
+        wecom_kf_log('guide image skipped: media budget exceeded'); // §5.3 放弃剩余媒体，文字照发
+        return false;
+    }
+    if (!function_exists('uploadMediaFromUrl') || !function_exists('mediaCacheKey')
+        || !function_exists('mediaCacheGet') || !function_exists('mediaCacheSet')
+        || !function_exists('mediaCacheClear')) {
+        wecom_kf_log('guide image skipped: wecom_kf_media functions unavailable');
+        return false;
+    }
+    try {
+        $key = mediaCacheKey($url);
+        $mediaId = mediaCacheGet($key);
+        if ($mediaId === null || $mediaId === '') {
+            $up = uploadMediaFromUrl($db, $url, 'image');
+            if (empty($up['ok']) || empty($up['media_id'])) {
+                wecom_kf_log('guide image upload failed: ' . wecom_kf_response_error(is_array($up) ? $up : [])
+                    . ' ' . (string)($up['errmsg'] ?? '') . ' user=' . substr(sha1($externalUserId), 0, 10));
+                return false;
+            }
+            $mediaId = (string)$up['media_id'];
+            mediaCacheSet($key, $mediaId);
+        }
+        $r = sendKfImageMessage($externalUserId, (string)$mediaId, $useOpenKfId);
+        if ($r['ok']) return true;
+
+        // 自愈：删缓存 → 重新 upload → 重发一次（只一次，避免重试放大）
+        wecom_kf_log('guide image self-healing: errcode=' . $r['errcode']);
+        mediaCacheClear($key);
+        $up2 = uploadMediaFromUrl($db, $url, 'image');
+        if (!empty($up2['ok']) && !empty($up2['media_id'])) {
+            $mediaId2 = (string)$up2['media_id'];
+            mediaCacheSet($key, $mediaId2);
+            $r2 = sendKfImageMessage($externalUserId, $mediaId2, $useOpenKfId);
+            if ($r2['ok']) return true;
+            $r = $r2;
+        }
+        wecom_kf_log('guide image skipped after self-heal: errcode=' . $r['errcode'] . ' ' . $r['errmsg']);
+        return false;
+    } catch (\Throwable $e) {
+        error_log('[wecom_kf] guide image failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * v3.35 — 发一条指引视频：按源文件路径现取 media_id（media_id 3 天必过期，§3.2 不长期缓存策略
+ * 由 mediaCache* 的 60h TTL 承接，另一路实现），发送失败自愈一次（同图片口径）。
+ */
+function sendKfGuideVideo(PDO $db, string $externalUserId, string $path, string $useOpenKfId): bool
+{
+    if ($path === '' || !is_file($path)) {
+        wecom_kf_log('guide video skipped: source file missing'); // §5.3 缺源文件 → 不发视频其余正常
+        return false;
+    }
+    if (!function_exists('uploadMediaFromFile') || !function_exists('mediaCacheKey')
+        || !function_exists('mediaCacheGet') || !function_exists('mediaCacheSet')
+        || !function_exists('mediaCacheClear')) {
+        wecom_kf_log('guide video skipped: wecom_kf_media functions unavailable');
+        return false;
+    }
+    try {
+        // ⚠️ type 必须与 uploadMediaFromFile 内部及 verify.php 的清理一致（'video'），
+        // 否则读不到自己写的缓存（每次都重传 10MB 视频），且删视频时清不掉这条缓存。
+        $key = mediaCacheKey($path, 'video');
+        $mediaId = mediaCacheGet($key);
+        if ($mediaId === null || $mediaId === '') {
+            $up = uploadMediaFromFile($db, $path, 'video'); // 上传超时 30s 在媒体函数内控制（§5.3）
+            if (empty($up['ok']) || empty($up['media_id'])) {
+                wecom_kf_log('guide video upload failed: ' . wecom_kf_response_error(is_array($up) ? $up : [])
+                    . ' ' . (string)($up['errmsg'] ?? ''));
+                return false;
+            }
+            $mediaId = (string)$up['media_id'];
+            mediaCacheSet($key, $mediaId);
+        }
+        $r = sendKfVideoMessage($externalUserId, (string)$mediaId, $useOpenKfId);
+        if ($r['ok']) return true;
+
+        wecom_kf_log('guide video self-healing: errcode=' . $r['errcode']); // 40007/40008 及任何非 0（P2-6）
+        mediaCacheClear($key);
+        $up2 = uploadMediaFromFile($db, $path, 'video');
+        if (!empty($up2['ok']) && !empty($up2['media_id'])) {
+            $mediaId2 = (string)$up2['media_id'];
+            mediaCacheSet($key, $mediaId2);
+            $r2 = sendKfVideoMessage($externalUserId, $mediaId2, $useOpenKfId);
+            if ($r2['ok']) return true;
+            $r = $r2;
+        }
+        wecom_kf_log('guide video skipped after self-heal: errcode=' . $r['errcode'] . ' ' . $r['errmsg']);
+        return false;
+    } catch (\Throwable $e) {
+        error_log('[wecom_kf] guide video failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * v3.35 — 指引/视频送达事件写 chat_logs（qa B11 / 蓝图 §7.6.5），房管端「客人咨询记录」可见。
+ * 先例：wecom_kf_roomcard_v37.php writeRoomCardChatEvent（同样的列组合与 catch 风格）。
+ * $content 由调用方保证只用展示名（display_name / room_code），不含敏感字段（黑名单红线）。
+ * 全 catch：写失败只打日志，绝不阻断消息发送流程。
+ */
+function writeGuideChatEvent(PDO $db, string $sessionId, string $content, string $visitorHash, string $ip): void
+{
+    try {
+        // §3.7 硬红线：客人可见内容/日志里绝不出现这些字段的值（默认不信中台全字段）
+        $content = preg_replace(
+            '/(lock_password|cleaning_password|room_password|owner|lock_user_name)\s*[:=：]\s*[^\s,，;；]+/iu',
+            '$1=[已屏蔽]',
+            (string)$content
+        );
+        $stmt = $db->prepare(
+            'INSERT INTO chat_logs (session_id, channel, workflow, rendered_type, role, content, has_verified, visitor_hash, source_ip, tokens)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $sessionId,
+            'wechat_kf',
+            'OrderGuideDelivery',
+            'guide',
+            'assistant',
+            $content,
+            0,
+            $visitorHash,
+            $ip,
+            0,
+        ]);
+    } catch (\Throwable $e) {
+        error_log('[wecom_kf] guide chat_logs event failed: ' . $e->getMessage());
+    }
 }

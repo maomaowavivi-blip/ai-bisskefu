@@ -1,0 +1,18 @@
+{
+  "_note": "v3.34.1 生产基线快照（2026-11-27 上线前采集）。上线后配置全空时再采一次，逐字节 diff 用。elapsed_ms 已剔除（每次不同）。",
+  "_collected_at": "2026-11-27 12:0x CST",
+  "_endpoint": "POST https://43.138.217.6/api/chat.php?action=chat  body={\"message\":\"order_query:123456789\",\"session_id\":\"baseline_v341_*\"}",
+  "_response": {
+    "code": 0,
+    "msg": "ok",
+    "data": {
+      "reply": "订单查询成功：\n房型：测试房123456789\n入住：2026-10-02\n离店：2026-12-01\n如需查看云房卡请前往微信客服发送订单号获取。",
+      "is_verified": false,
+      "handoff_status": -1,
+      "intent": "ORDER_QUERY",
+      "confidence": 0.85,
+      "workflow": "OrderQueryWorkflow",
+      "reasoning": "rule:order_keyword"
+    }
+  }
+}
