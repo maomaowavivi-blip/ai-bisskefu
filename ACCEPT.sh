@@ -14,8 +14,8 @@ for f in api/wecom_kf_token.php api/wecom_kf_order_guide.php api/OrderGuidePick.
 done
 echo "[1] php -l: 9 files OK"
 
-# 2. 单测（64 项，须全绿）
-for t in test_v335_order_stage test_v335_order_pick_match test_v335_order_guide_messages; do
+# 2. 单测（含 v3.35.2 中文+订单号混合识别，须全绿）
+for t in test_v335_order_stage test_v335_order_pick_match test_v335_order_guide_messages test_v335_mixed_order_input; do
   "$P" "scripts/$t.php" >/dev/null
   echo "[2] $t: OK"
 done

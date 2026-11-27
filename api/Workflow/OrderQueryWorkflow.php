@@ -19,6 +19,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/AbstractWorkflow.php';
 require_once __DIR__ . '/../CenterApi.php';
+// v3.35.2：中文/文字前后缀 + 订单号混合输入的提取（发卡链路用的同一函数，两条链路口径统一）
+require_once __DIR__ . '/../helpers/order_candidate.php';
 
 final class OrderQueryWorkflow extends AbstractWorkflow
 {
@@ -57,10 +59,16 @@ final class OrderQueryWorkflow extends AbstractWorkflow
         }
 
         // 提取订单号
+        // v3.35.2：无 order_query: 前缀时，先过统一闸门 extractOrderCandidate（容忍中文/文字前后缀）。
+        // 生产报障：客人发「美团123456789」「查单123456789」，意图判为 ORDER_QUERY，
+        // 但原逻辑把整条消息当订单号送去中台 → 查不到。发卡链路（wecom_kf.php:322）用的就是这个函数，
+        // 这里补上后两条链路口径统一：都能从混合输入里抠出同一个订单号。
+        // 提取不到（如纯文字）→ 保留原文，不改变现有 ORDER_NOT_FOUND 行为。
         if (preg_match('/^order_query:(.+)$/u', $message, $m)) {
             $orderNo = trim($m[1]);
         } else {
-            $orderNo = $message;
+            $extracted = extractOrderCandidate($message);
+            $orderNo = ($extracted !== '') ? $extracted : $message;
         }
 
         if ($orderNo === '') {

@@ -27,7 +27,10 @@ if (!function_exists('extractOrderCandidate')) {
             return '';
         }
         // 8-30 位连续数字串,允许被任意字符包围(中文/标点/空格)
-        // \b 在 PHP PCRE 下也对中文字符有效
+        // ⚠️ 绝对不要给这个正则加 /u 修饰符！
+        //    无 /u：汉字算非 \w → 中文与数字之间是 \b 边界 → 「美团123456789」能抠出数字 ✅
+        //    加 /u：UCP 下汉字算 \w → 边界消失 → 中文+数字混合**完全匹配不到** ❌（qa 方案审实测）
+        //    这条是中文+订单号混合识别的命门，改动前先跑 test_v335_mixed_order_input.php。
         if (preg_match('/\b(\d{8,30})\b/', $text, $m) === 1) {
             return $m[1];
         }
